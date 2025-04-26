@@ -20,7 +20,7 @@ copy_raw_imagery_to_publishable_tree = function(mission_id_foc) {
 
   # Hardlink all files from the publishable mission footprints dir to the unified publishable tree
   # First make the directories
-  infile = file.path(FULL_METADATA_MISSION_PATH, paste0(mission_id_foc, "_mission-metadata.gpkg"))
+  infile = file.path(FULL_METADATA_PER_MISSION_PATH, paste0(mission_id_foc, "_mission-metadata.gpkg"))
   outfile = file.path(PUBLISHABLE_DATA_TREE, mission_id_foc, "mission-metadata", paste0(mission_id_foc, "_mission-metadata.gpkg"))
   outdir = dirname(outfile)
   dir.create(outdir, recursive = TRUE)

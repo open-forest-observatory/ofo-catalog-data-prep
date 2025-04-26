@@ -16,7 +16,7 @@ library(tidyverse)
 source("sandbox/drone-imagery-ingestion/00_set-constants.R")
 
 # Derived constants
-crosswalk_filepath = file.path(CONTRIBUTED_SORTED_ID_CROSSWALK, paste0(IMAGERY_PROJECT_NAME, ".csv"))
+crosswalk_filepath = file.path(CONTRIBUTED_TO_SORTED_MISSION_ID_CROSSWALK_PATH, paste0(IMAGERY_PROJECT_NAME, ".csv"))
 
 # Pull in the baserow (human-entered) metadata
 baserow_datasets = read_csv(file.path(CONTRIBUTED_METADATA_PATH, "export - datasets-imagery.csv"))

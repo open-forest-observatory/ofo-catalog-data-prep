@@ -9,10 +9,10 @@ source("sandbox/drone-imagery-ingestion/00_set-constants.R")
 
 ## Set up derived constants
 raw_exif_path_project = file.path(RAW_EXIF_PATH, paste0(IMAGERY_PROJECT_NAME, ".csv"))
-contributed_sorted_id_crosswalk_project = file.path(CONTRIBUTED_SORTED_ID_CROSSWALK, paste0(IMAGERY_PROJECT_NAME, ".csv"))
+contributed_to_sorted_mision_id_crosswalk_path_project = file.path(CONTRIBUTED_TO_SORTED_MISSION_ID_CROSSWALK_PATH, paste0(IMAGERY_PROJECT_NAME, ".csv"))
 
-if (!dir.exists(contributed_sorted_id_crosswalk_project)) {
-  dir.create(contributed_sorted_id_crosswalk_project, recursive = TRUE)
+if (!dir.exists(contributed_to_sorted_mision_id_crosswalk_path_project)) {
+  dir.create(contributed_to_sorted_mision_id_crosswalk_path_project, recursive = TRUE)
 }
 
 ## Prep baserow metadata
@@ -588,7 +588,7 @@ if (nrow(datasets_not_separable) > 0) {
 
 }
 
-write_csv(folderid_baserow_crosswalk, contributed_sorted_id_crosswalk_project)
+write_csv(folderid_baserow_crosswalk, contributed_to_sorted_mision_id_crosswalk_path_project)
 
 ## NEW, formerly from script 04_copy-images-to-sorted-folders.R
 # Determine the output folder and filename for each image
@@ -624,12 +624,12 @@ image_data = image_data |>
 
 # For each sub-mission, save the exif data (which now also contains the image sorting plan) to a CSV
 
-if(!dir.exists(IMAGE_EXIF_W_SORTING_PLAN_FOLDER)) {
-  dir.create(IMAGE_EXIF_W_SORTING_PLAN_FOLDER, recursive = TRUE)
+if(!dir.exists(IMAGE_EXIF_W_SORTING_PLAN_PATH)) {
+  dir.create(IMAGE_EXIF_W_SORTING_PLAN_PATH, recursive = TRUE)
 }
 
 for (mission_id_foc in unique(image_data$mission_id)) {
   image_data_foc = image_data |>
     filter(mission_id == mission_id_foc)
-  write_csv(image_data_foc, file.path(IMAGE_EXIF_W_SORTING_PLAN_FOLDER, paste0(mission_id_foc, ".csv")))
+  write_csv(image_data_foc, file.path(IMAGE_EXIF_W_SORTING_PLAN_PATH, paste0(mission_id_foc, ".csv")))
 }

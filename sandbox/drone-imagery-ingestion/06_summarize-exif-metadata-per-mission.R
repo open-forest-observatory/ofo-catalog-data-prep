@@ -65,8 +65,8 @@ missions_to_process = read_csv(MISSIONS_TO_PROCESS_LIST_PATH) |>
   pull(mission_id)
 
 # Create the output folder
-create_dir(DERIVED_METADATA_MISSION_PATH)
-create_dir(DERIVED_METADATA_SUB_MISSION_PATH)
+create_dir(DERIVED_METADATA_PER_MISSION_PATH)
+create_dir(DERIVED_METADATA_PER_SUB_MISSION_PATH)
 create_dir(PARSED_EXIF_FOR_RETAINED_IMAGES_PATH)
 
 
@@ -131,7 +131,7 @@ summarize_exif = function(mission_id_foc) {
   mission_poly_attributed$mission_id = mission_id_foc
 
   # Write
-  metadata_per_mission_filepath = file.path(DERIVED_METADATA_MISSION_PATH, paste0(mission_id_foc, ".gpkg"))
+  metadata_per_mission_filepath = file.path(DERIVED_METADATA_PER_MISSION_PATH, paste0(mission_id_foc, ".gpkg"))
   st_write(
     mission_poly_attributed,
     metadata_per_mission_filepath,
@@ -162,7 +162,7 @@ summarize_exif = function(mission_id_foc) {
     sub_mission_poly_attributed$mission_id = mission_id_foc
     sub_mission_poly_attributed$sub_mission_id = sub_mission_id_foc
 
-    metadata_per_sub_mission_filepath = file.path(DERIVED_METADATA_SUB_MISSION_PATH, paste0(sub_mission_id_foc, ".gpkg"))
+    metadata_per_sub_mission_filepath = file.path(DERIVED_METADATA_PER_SUB_MISSION_PATH, paste0(sub_mission_id_foc, ".gpkg"))
 
     # Write
     st_write(

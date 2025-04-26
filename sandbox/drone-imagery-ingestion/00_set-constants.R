@@ -17,8 +17,6 @@ THUMBNAIL_SIZE = "800"
 SKIP_EXISTING = FALSE # Skip processing for missions that already have all outputs
 
 
-
-
 # Handle difference in how the current directory is set between debugging and command line call
 if (file.exists("sandbox/drone-imagery-ingestion/imagery_project_name.txt")) {
   IMAGERY_PROJECT_NAME_FILE = "sandbox/drone-imagery-ingestion/imagery_project_name.txt"
@@ -27,14 +25,15 @@ if (file.exists("sandbox/drone-imagery-ingestion/imagery_project_name.txt")) {
 }
 IMAGERY_PROJECT_NAME = read_lines(IMAGERY_PROJECT_NAME_FILE)
 
+
 CONTRIBUTED_IMAGERY_PATH = "/ofo-share/drone-imagery-organization/1_manually-cleaned"
 RAW_EXIF_PATH = "/ofo-share/drone-imagery-organization/metadata/1_reconciling-contributions/1_raw-exif/"
 
 CONTRIBUTED_METADATA_PATH = "/ofo-share/drone-imagery-organization/ancillary/baserow-snapshots"
 
-CONTRIBUTED_SORTED_ID_CROSSWALK = "/ofo-share/drone-imagery-organization/metadata/1_reconciling-contributions/3_contributed-to-sorted-id-crosswalk/"
+CONTRIBUTED_TO_SORTED_MISSION_ID_CROSSWALK_PATH = "/ofo-share/drone-imagery-organization/metadata/1_reconciling-contributions/3_contributed-to-sorted-id-crosswalk/"
 
-IMAGE_EXIF_W_SORTING_PLAN_FOLDER = "/ofo-share/drone-imagery-organization/metadata/1_reconciling-contributions/2_exif-w-sorting-plan/"
+IMAGE_EXIF_W_SORTING_PLAN_PATH = "/ofo-share/drone-imagery-organization/metadata/1_reconciling-contributions/2_exif-w-sorting-plan/"
 
 # Should be "conributed"
 EXTRACTED_METADATA_PER_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/1_contributed-metadata-per-mission/"
@@ -49,13 +48,13 @@ MISSIONS_TO_PROCESS_LIST_PATH = file.path("sandbox", "drone-imagery-ingestion", 
 PARSED_EXIF_METADATA_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/4_parsed-exif"
 
 PARSED_EXIF_FOR_RETAINED_IMAGES_PATH = "/ofo-share/drone-imagery-organization/metadata/3_final/3_parsed-exif-per-image"
-DERIVED_METADATA_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/6_derived-metadata-per-mission"
-DERIVED_METADATA_SUB_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/7_derived-metadata-per-sub-mission"
+DERIVED_METADATA_PER_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/6_derived-metadata-per-mission"
+DERIVED_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/7_derived-metadata-per-sub-mission"
 
-FULL_METADATA_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/3_final/1_full-metadata-per-mission/"
-FULL_METADATA_SUB_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/3_final/2_full-metadata-per-sub-mission/"
+FULL_METADATA_PER_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/3_final/1_full-metadata-per-mission/"
+FULL_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/3_final/2_full-metadata-per-sub-mission/"
 
-SORTED_IMAGERY_FOLDER = "/ofo-share/drone-imagery-organization/2_sorted"
+SORTED_IMAGERY_PATH = "/ofo-share/drone-imagery-organization/2_sorted"
 
 PUBLISHABLE_IMAGES_PATH = "/ofo-share/drone-imagery-organization/4_to-publish"
 

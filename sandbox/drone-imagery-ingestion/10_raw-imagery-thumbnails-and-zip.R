@@ -42,7 +42,7 @@ imagery_publish_prep_mission = function(mission_id_foc) {
   mission_images_metadata = st_read(points_filepath)
 
   # Get the mission footprint (polygon gpkg)
-  footprint_filepath = file.path(FULL_METADATA_MISSION_PATH, paste0(mission_id_foc, "_mission-metadata.gpkg"))
+  footprint_filepath = file.path(FULL_METADATA_PER_MISSION_PATH, paste0(mission_id_foc, "_mission-metadata.gpkg"))
   mission_footprint = st_read(footprint_filepath)
 
   # Project mission image locs and footprint to the local UTM zone
@@ -97,7 +97,7 @@ imagery_publish_prep_mission = function(mission_id_foc) {
   }
 
   # Hardlink the selected images to the publishable folder
-  inpaths = file.path(SORTED_IMAGERY_FOLDER, selected_images$image_path_ofo)
+  inpaths = file.path(SORTED_IMAGERY_PATH, selected_images$image_path_ofo)
   extensions = tools::file_ext(inpaths)
   outpaths = file.path(PUBLISHABLE_IMAGES_PATH, mission_id_foc, "images", "examples", "fullsize", paste0("example_", 1:N_EXAMPLE_IMAGES, ".", extensions))
 
@@ -128,7 +128,7 @@ imagery_publish_prep_mission = function(mission_id_foc) {
   # Zip the entirety of the raw images folder and save to the publishable folder
   # Save to a tempfile while creating the zip, then move to the final location, because if the
   # process is terminated we don't want to leave a partial temp file in the file tree
-  inpath = file.path(SORTED_IMAGERY_FOLDER, mission_id_foc)
+  inpath = file.path(SORTED_IMAGERY_PATH, mission_id_foc)
 
   tempfile = paste0("/ofo-share/tmp/ofor_tempzip/tempzip_", mission_id_foc, ".zip")
   # Delete if exists

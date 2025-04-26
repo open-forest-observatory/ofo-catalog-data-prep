@@ -59,7 +59,7 @@ parse_mission_exif_at_image_level = function(mission_id_foc) {
   # before the real warning. warning(paste("Parsing EXIF for mission ID:", mission_id_foc))
 
   # Input data
-  exif_filepath = file.path(IMAGE_EXIF_W_SORTING_PLAN_FOLDER, paste0(mission_id_foc, ".csv"))
+  exif_filepath = file.path(IMAGE_EXIF_W_SORTING_PLAN_PATH, paste0(mission_id_foc, ".csv"))
   exif = read_csv(exif_filepath)
 
   # All sub-mission contributed metadata files (at the sub-mission level) for the focal mission, to

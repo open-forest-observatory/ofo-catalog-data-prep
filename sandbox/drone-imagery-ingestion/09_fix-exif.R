@@ -30,7 +30,7 @@ run_cmd_chunks = function(cmd, filepaths, chunk_size = 500) {
 
 fix_orientation_flag = function(mission_id_foc) {
   # Get each mission folder (for parallelizing)
-  folder = file.path(SORTED_IMAGERY_FOLDER, mission_id_foc)
+  folder = file.path(SORTED_IMAGERY_PATH, mission_id_foc)
 
   # Get all images in the folder
   image_filepaths = list.files(folder, full.names = TRUE, recursive = TRUE, pattern = "(.jpg$)|(.jpeg$)|(.JPG$)|(.JPEG$)")
@@ -42,7 +42,7 @@ fix_orientation_flag = function(mission_id_foc) {
                       filepath = image_filepaths)
 
   # Load the previously extracted EXIF data and keep only the relevant columns
-  exif = read.csv(file.path(IMAGE_EXIF_W_SORTING_PLAN_FOLDER, paste0(mission_id_foc, ".csv"))) |>
+  exif = read.csv(file.path(IMAGE_EXIF_W_SORTING_PLAN_PATH, paste0(mission_id_foc, ".csv"))) |>
     select(any_of(c("image_filename_out", "Orientation", "GPSTimeStamp")))
 
   # Sort the exif to match the image filepaths

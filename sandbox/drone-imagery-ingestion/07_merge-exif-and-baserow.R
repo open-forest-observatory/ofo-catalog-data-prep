@@ -16,15 +16,15 @@ missions_to_process = read_csv(MISSIONS_TO_PROCESS_LIST_PATH) |>
   pull(mission_id)
 
 # Create the output folders
-create_dir(FULL_METADATA_MISSION_PATH)
-create_dir(FULL_METADATA_SUB_MISSION_PATH)
+create_dir(FULL_METADATA_PER_MISSION_PATH)
+create_dir(FULL_METADATA_PER_SUB_MISSION_PATH)
 
 
 merge_derived_and_contributed_metadata = function(mission_foc) {
 
   # Derived filepaths
   baserow_mission_filepath = file.path(EXTRACTED_METADATA_PER_MISSION_PATH, paste0(mission_foc, ".csv"))
-  exif_metadata_mission_filepath = file.path(DERIVED_METADATA_MISSION_PATH, paste0(mission_foc, ".gpkg"))
+  exif_metadata_mission_filepath = file.path(DERIVED_METADATA_PER_MISSION_PATH, paste0(mission_foc, ".gpkg"))
 
   # Load the mission-level metadata
   baserow_mission = read_csv(baserow_mission_filepath)
@@ -47,7 +47,7 @@ merge_derived_and_contributed_metadata = function(mission_foc) {
     select(!ends_with("_derived"), everything())
 
   # Write it
-  full_metadata_mission_filepath = file.path(FULL_METADATA_MISSION_PATH, paste0(mission_foc, "_mission-metadata.gpkg"))
+  full_metadata_mission_filepath = file.path(FULL_METADATA_PER_MISSION_PATH, paste0(mission_foc, "_mission-metadata.gpkg"))
   st_write(full_metadata_mission, full_metadata_mission_filepath, delete_dsn = TRUE)
 
   # Get the sub-missions that make up the mission
@@ -63,7 +63,7 @@ merge_derived_and_contributed_metadata = function(mission_foc) {
   for (sub_mission_id_foc in sub_mission_ids) {
     # Load the sub-mission metadata
     baserow_sub_mission = read_csv(file.path(EXTRACTED_METADATA_PER_SUB_MISSION_PATH, paste0(sub_mission_id_foc, ".csv")))
-    exif_metadata_sub_mission = st_read(file.path(DERIVED_METADATA_SUB_MISSION_PATH, paste0(sub_mission_id_foc, ".gpkg")))
+    exif_metadata_sub_mission = st_read(file.path(DERIVED_METADATA_PER_SUB_MISSION_PATH, paste0(sub_mission_id_foc, ".gpkg")))
 
     # Bind together the derived and contributed sub-mission-level metadata
     full_metadata_sub_mission = bind_cols(
@@ -74,7 +74,7 @@ merge_derived_and_contributed_metadata = function(mission_foc) {
       select(!ends_with("_derived"), everything())
 
     # Write it
-    full_metadata_sub_mission_filepath = file.path(FULL_METADATA_SUB_MISSION_PATH, paste0(sub_mission_id_foc, "_sub-mission-metadata.gpkg"))
+    full_metadata_sub_mission_filepath = file.path(FULL_METADATA_PER_SUB_MISSION_PATH, paste0(sub_mission_id_foc, "_sub-mission-metadata.gpkg"))
     st_write(full_metadata_sub_mission, full_metadata_sub_mission_filepath, delete_dsn = TRUE)
   }
 }

@@ -11,8 +11,8 @@ source("sandbox/drone-imagery-ingestion/00_set-constants.R")
 ## Workflow
 
 # Create the output folder
-if (!dir.exists(SORTED_IMAGERY_FOLDER)) {
-  dir.create(SORTED_IMAGERY_FOLDER, recursive = TRUE)
+if (!dir.exists(SORTED_IMAGERY_PATH)) {
+  dir.create(SORTED_IMAGERY_PATH, recursive = TRUE)
 }
 
 # Determine which missions to process
@@ -34,7 +34,7 @@ copy_mission_images = function(mission_id_foc) {
   )
 
   image_metadata$image_path_ofo_abs = file.path(
-    SORTED_IMAGERY_FOLDER,
+    SORTED_IMAGERY_PATH,
     image_metadata$image_path_ofo
   )
 
