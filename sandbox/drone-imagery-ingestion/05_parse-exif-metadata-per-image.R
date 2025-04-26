@@ -7,19 +7,11 @@
 # understand the concept of dispatching and why this is required.
 library(sf)
 library(tidyverse)
-library(ofo)
 library(furrr)
 
-## Constants
-
-# In
-IMAGE_EXIF_W_SORTING_PLAN_PATH = "/ofo-share/drone-imagery-organization/metadata/1_reconciling-contributions/2_exif-w-sorting-plan"
-CONTRIBUTED_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/2_contributed-metadata-per-sub-mission/"
-MISSIONS_TO_PROCESS_LIST_PATH = file.path("sandbox", "drone-imagery-ingestion", "missions-to-process.csv")
-
-# Out
-PARSED_EXIF_METADATA_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/4_parsed-exif"
-
+source("sandbox/drone-imagery-ingestion/00_set-constants.R")
+source("src/metadata-extraction_imagery_perimage.R")
+source("src/utils.R")
 
 ## Functions
 
@@ -67,7 +59,7 @@ parse_mission_exif_at_image_level = function(mission_id_foc) {
   # before the real warning. warning(paste("Parsing EXIF for mission ID:", mission_id_foc))
 
   # Input data
-  exif_filepath = file.path(IMAGE_EXIF_W_SORTING_PLAN_PATH, paste0(mission_id_foc, ".csv"))
+  exif_filepath = file.path(IMAGE_EXIF_W_SORTING_PLAN_FOLDER, paste0(mission_id_foc, ".csv"))
   exif = read_csv(exif_filepath)
 
   # All sub-mission contributed metadata files (at the sub-mission level) for the focal mission, to
@@ -75,7 +67,7 @@ parse_mission_exif_at_image_level = function(mission_id_foc) {
   # within the mission)
   pattern = paste0(mission_id_foc, "-[0-9]{2}.csv")
   files = list.files(
-    path = CONTRIBUTED_METADATA_PER_SUB_MISSION_PATH,
+    path = EXTRACTED_METADATA_PER_SUB_MISSION_PATH,
     pattern = pattern,
     full.names = TRUE
   )

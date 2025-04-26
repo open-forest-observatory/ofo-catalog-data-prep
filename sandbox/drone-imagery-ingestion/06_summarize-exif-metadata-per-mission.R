@@ -7,23 +7,9 @@ library(tidyverse)
 library(sf)
 library(furrr)
 
-# devtools::document()
-# devtools::install()
-library(ofo)
-
-IMAGE_MERGE_DISTANCE = 50
-
-# If processing NRS datasets, use a larger merge distance because some datasets used very low overlap
-IMAGE_MERGE_DISTANCE = 100
-
-# In
-MISSIONS_TO_PROCESS_LIST_PATH = file.path("sandbox", "drone-imagery-ingestion", "missions-to-process.csv")
-PARSED_EXIF_METADATA_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/4_parsed-exif"
-
-# Out
-PARSED_EXIF_FOR_RETAINED_IMAGES_PATH = "/ofo-share/drone-imagery-organization/metadata/3_final/3_parsed-exif-per-image"
-DERIVED_METADATA_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/6_derived-metadata-per-mission"
-DERIVED_METADATA_SUB_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/7_derived-metadata-per-sub-mission"
+source("sandbox/drone-imagery-ingestion/00_set-constants.R")
+source("src/metadata-extraction_imagery_dataset.R")
+source("src/utils.R")
 
 
 ## Functions

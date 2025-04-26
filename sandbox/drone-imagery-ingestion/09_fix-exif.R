@@ -9,9 +9,7 @@ library(furrr)
 library(tidyverse)
 library(exifr)
 
-SORTED_MISSIONS_FOLDER = "/ofo-share/drone-imagery-organization/2_sorted"
-MISSIONS_TO_PROCESS_LIST_PATH = file.path("sandbox", "drone-imagery-ingestion", "missions-to-process.csv")
-IMAGE_EXIF_W_SORTING_PLAN_FOLDER = "/ofo-share/drone-imagery-organization/metadata/1_reconciling-contributions/2_exif-w-sorting-plan/"
+source("sandbox/drone-imagery-ingestion/00_set-constants.R")
 
 
 # Function to run a system command on a list of files, but break it into smaller chunks
@@ -30,15 +28,9 @@ run_cmd_chunks = function(cmd, filepaths, chunk_size = 500) {
 
 # Workflow
 
-
-# Determine which missions to process
-missions_to_process = read_csv(MISSIONS_TO_PROCESS_LIST_PATH) |>
-  pull(mission_id)
-
-
 fix_orientation_flag = function(mission_id_foc) {
   # Get each mission folder (for parallelizing)
-  folder = file.path(SORTED_MISSIONS_FOLDER, mission_id_foc)
+  folder = file.path(SORTED_IMAGERY_FOLDER, mission_id_foc)
 
   # Get all images in the folder
   image_filepaths = list.files(folder, full.names = TRUE, recursive = TRUE, pattern = "(.jpg$)|(.jpeg$)|(.JPG$)|(.JPEG$)")
@@ -116,6 +108,10 @@ fix_orientation_flag = function(mission_id_foc) {
   }
 
 }
+
+# Determine which missions to process
+missions_to_process = read_csv(MISSIONS_TO_PROCESS_LIST_PATH) |>
+  pull(mission_id)
 
 # Run in parallel across all specified missions
 future::plan(future::multisession, workers = future::availableCores() * 1.9)

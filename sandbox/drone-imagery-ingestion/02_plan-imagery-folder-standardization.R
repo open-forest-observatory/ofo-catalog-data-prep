@@ -5,42 +5,21 @@
 
 library(tidyverse)
 
-# Handle difference in how the current directory is set between debugging and command line call
-if (file.exists("sandbox/drone-imagery-ingestion/imagery_project_name.txt")) {
-  IMAGERY_PROJECT_NAME_FILE = "sandbox/drone-imagery-ingestion/imagery_project_name.txt"
-} else {
-  IMAGERY_PROJECT_NAME_FILE = "imagery_project_name.txt"
-}
-IMAGERY_PROJECT_NAME = read_lines(IMAGERY_PROJECT_NAME_FILE)
-
-BASEROW_DATA_PATH = "/ofo-share/drone-imagery-organization/ancillary/baserow-snapshots"
-EXIF_INPUT_PATH = "/ofo-share/drone-imagery-organization/metadata/1_reconciling-contributions/1_raw-exif/"
-
-# Out
-CROSSWALK_OUTPUT_PATH = "/ofo-share/drone-imagery-organization/metadata/1_reconciling-contributions/3_contributed-to-sorted-id-crosswalk/"
-SORTED_IMAGERY_OUT_FOLDER = "/ofo-share/drone-imagery-organization/2_sorted"
-IMAGE_EXIF_W_SORTING_PLAN_FOLDER = "/ofo-share/drone-imagery-organization/metadata/1_reconciling-contributions/2_exif-w-sorting-plan/"
-
-# What is the padding width for the dataset ID in the folder names of the imagery folders to be ingested? (New format) This is used to
-# force the Baserow dataset ID column to conform to the image folder names, so this should reflect
-# the padding used when naming the image folders in the 1_manually-cleaned folder.
-FOLDER_DATASET_ID_PADDING = 6
-
-## END CONSTANTS
+source("sandbox/drone-imagery-ingestion/00_set-constants.R")
 
 ## Set up derived constants
-exif_input_path = file.path(EXIF_INPUT_PATH, paste0(IMAGERY_PROJECT_NAME, ".csv"))
-crosswalk_output_path = file.path(CROSSWALK_OUTPUT_PATH, paste0(IMAGERY_PROJECT_NAME, ".csv"))
+raw_exif_path_project = file.path(RAW_EXIF_PATH, paste0(IMAGERY_PROJECT_NAME, ".csv"))
+contributed_sorted_id_crosswalk_project = file.path(CONTRIBUTED_SORTED_ID_CROSSWALK, paste0(IMAGERY_PROJECT_NAME, ".csv"))
 
-if (!dir.exists(CROSSWALK_OUTPUT_PATH)) {
-  dir.create(CROSSWALK_OUTPUT_PATH, recursive = TRUE)
+if (!dir.exists(contributed_sorted_id_crosswalk_project)) {
+  dir.create(contributed_sorted_id_crosswalk_project, recursive = TRUE)
 }
 
 ## Prep baserow metadata
 
 # Load baserow records
-baserow = read_csv(file.path(BASEROW_DATA_PATH, "export - datasets-imagery.csv"))
-dataset_associations = read.csv(file.path(BASEROW_DATA_PATH, "export - dataset-associations - Grid.csv"))
+baserow = read_csv(file.path(CONTRIBUTED_METADATA_PATH, "export - datasets-imagery.csv"))
+dataset_associations = read.csv(file.path(CONTRIBUTED_METADATA_PATH, "export - dataset-associations - Grid.csv"))
 # ^ Needed to use the base R read.csv because read_csv was removing the comma from column values
 # when the values were numeric.
 if ("notes" %in% colnames(dataset_associations)) stop("You need to export the dataset associations table without comments because they screw up the cell delimitations for some reason.")
@@ -133,7 +112,7 @@ b2 = b |>
 # We need read.csv instead of read_csv because the latter was removing the decimal portion of the
 # GPSTimeStamp tag, which is needed to determine whether we need to apply an EXIF fix to timestamps
 # formatted that way (because it will cause an error in Metashape)
-image_data = read.csv(file.path(exif_input_path))
+image_data = read.csv(file.path(raw_exif_path_project))
 
 # Remove images without a date (likely corrupted)
 image_data = image_data |>
@@ -609,7 +588,7 @@ if (nrow(datasets_not_separable) > 0) {
 
 }
 
-write_csv(folderid_baserow_crosswalk, crosswalk_output_path)
+write_csv(folderid_baserow_crosswalk, contributed_sorted_id_crosswalk_project)
 
 ## NEW, formerly from script 04_copy-images-to-sorted-folders.R
 # Determine the output folder and filename for each image

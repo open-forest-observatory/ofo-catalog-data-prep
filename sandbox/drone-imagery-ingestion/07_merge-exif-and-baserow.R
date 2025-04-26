@@ -4,18 +4,10 @@
 library(tidyverse)
 library(sf)
 library(furrr)
-library(ofo)
 
-# In
-MISSIONS_TO_PROCESS_LIST_PATH = file.path("sandbox", "drone-imagery-ingestion", "missions-to-process.csv")
-CONTRIBUTED_METADATA_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/1_contributed-metadata-per-mission/"
-CONTRIBUTED_METADATA_SUB_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/2_contributed-metadata-per-sub-mission/"
-DERIVED_METADATA_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/6_derived-metadata-per-mission"
-DERIVED_METADATA_SUB_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/7_derived-metadata-per-sub-mission"
+source("sandbox/drone-imagery-ingestion/00_set-constants.R")
+source("src/utils.R")
 
-# Out
-FULL_METADATA_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/3_final/1_full-metadata-per-mission/"
-FULL_METADATA_SUB_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/3_final/2_full-metadata-per-sub-mission/"
 
 ## Workflow
 
@@ -31,7 +23,7 @@ create_dir(FULL_METADATA_SUB_MISSION_PATH)
 merge_derived_and_contributed_metadata = function(mission_foc) {
 
   # Derived filepaths
-  baserow_mission_filepath = file.path(CONTRIBUTED_METADATA_MISSION_PATH, paste0(mission_foc, ".csv"))
+  baserow_mission_filepath = file.path(EXTRACTED_METADATA_PER_MISSION_PATH, paste0(mission_foc, ".csv"))
   exif_metadata_mission_filepath = file.path(DERIVED_METADATA_MISSION_PATH, paste0(mission_foc, ".gpkg"))
 
   # Load the mission-level metadata
@@ -60,7 +52,7 @@ merge_derived_and_contributed_metadata = function(mission_foc) {
 
   # Get the sub-missions that make up the mission
   sub_mission_files = list.files(
-    path = file.path(CONTRIBUTED_METADATA_SUB_MISSION_PATH),
+    path = file.path(EXTRACTED_METADATA_PER_SUB_MISSION_PATH),
     pattern = paste0(mission_foc, "-[0-9]{2}"),
     full.names = TRUE
   )
@@ -70,7 +62,7 @@ merge_derived_and_contributed_metadata = function(mission_foc) {
 
   for (sub_mission_id_foc in sub_mission_ids) {
     # Load the sub-mission metadata
-    baserow_sub_mission = read_csv(file.path(CONTRIBUTED_METADATA_SUB_MISSION_PATH, paste0(sub_mission_id_foc, ".csv")))
+    baserow_sub_mission = read_csv(file.path(EXTRACTED_METADATA_PER_SUB_MISSION_PATH, paste0(sub_mission_id_foc, ".csv")))
     exif_metadata_sub_mission = st_read(file.path(DERIVED_METADATA_SUB_MISSION_PATH, paste0(sub_mission_id_foc, ".gpkg")))
 
     # Bind together the derived and contributed sub-mission-level metadata

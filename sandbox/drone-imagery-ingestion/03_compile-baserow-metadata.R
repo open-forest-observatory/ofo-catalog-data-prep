@@ -13,30 +13,15 @@
 
 library(tidyverse)
 
-# Handle difference in how the current directory is set between debugging and command line call
-if (file.exists("sandbox/drone-imagery-ingestion/imagery_project_name.txt")) {
-  IMAGERY_PROJECT_NAME_FILE = "sandbox/drone-imagery-ingestion/imagery_project_name.txt"
-} else {
-  IMAGERY_PROJECT_NAME_FILE = "imagery_project_name.txt"
-}
-IMAGERY_PROJECT_NAME = readr::read_lines(IMAGERY_PROJECT_NAME_FILE)
-
-BASEROW_DATA_PATH = "/ofo-share/drone-imagery-organization/ancillary/baserow-snapshots"
-FOLDER_BASEROW_CROSSWALK_PATH = "/ofo-share/drone-imagery-organization/metadata/1_reconciling-contributions/3_contributed-to-sorted-id-crosswalk/"
-
-# Out
-EXTRACTED_METADATA_PER_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/1_contributed-metadata-per-mission/"
-EXTRACTED_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/2_contributed-metadata-per-sub-mission/"
+source("sandbox/drone-imagery-ingestion/00_set-constants.R")
 
 # Derived constants
-crosswalk_filepath = file.path(FOLDER_BASEROW_CROSSWALK_PATH, paste0(IMAGERY_PROJECT_NAME, ".csv"))
-# metadata_sub_mission_filepath = file.path(EXTRACTED_METADATA_PATH, paste0("sub-mission-baserow-metadata_", IMAGERY_PROJECT_NAME, ".csv"))
-# metadata_mission_filepath = file.path(EXTRACTED_METADATA_PATH, paste0("mission-baserow-metadata_",
-# IMAGERY_PROJECT_NAME, ".csv"))
+crosswalk_filepath = file.path(CONTRIBUTED_SORTED_ID_CROSSWALK, paste0(IMAGERY_PROJECT_NAME, ".csv"))
+
 # Pull in the baserow (human-entered) metadata
-baserow_datasets = read_csv(file.path(BASEROW_DATA_PATH, "export - datasets-imagery.csv"))
-baserow_projects = read_csv(file.path(BASEROW_DATA_PATH, "export - acquisition-projects.csv"))
-baserow_dataset_associations = read.csv(file.path(BASEROW_DATA_PATH, "export - dataset-associations - Grid.csv"))
+baserow_datasets = read_csv(file.path(CONTRIBUTED_METADATA_PATH, "export - datasets-imagery.csv"))
+baserow_projects = read_csv(file.path(CONTRIBUTED_METADATA_PATH, "export - acquisition-projects.csv"))
+baserow_dataset_associations = read.csv(file.path(CONTRIBUTED_METADATA_PATH, "export - dataset-associations - Grid.csv"))
 
 # Fix the formatting of the Baserow dataset_id, and remove the internal baserow 'id' column
 baserow_datasets = baserow_datasets |>
