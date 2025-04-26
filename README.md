@@ -1,3 +1,3 @@
-# `ofo` R package
+# OFO drone data catalog prep
 
-This is an in-development R package called `ofo` for ingesting, processing, and comparing drone- and field-derived forest datasets.
+
