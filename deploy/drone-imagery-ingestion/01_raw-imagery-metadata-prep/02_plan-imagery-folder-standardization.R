@@ -5,7 +5,7 @@
 
 library(tidyverse)
 
-source("sandbox/drone-imagery-ingestion/00_set-constants.R")
+source("deploy/drone-imagery-ingestion/00_set-constants.R")
 
 ## Set up derived constants
 raw_exif_path_project = file.path(RAW_EXIF_PATH, paste0(IMAGERY_PROJECT_NAME, ".csv"))

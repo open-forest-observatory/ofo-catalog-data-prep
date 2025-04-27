@@ -4,8 +4,8 @@ devtools::load_all()
 library(tidyverse)
 library(sf)
 
-datadir_field = readLines("sandbox/data-dirs/derek-fieldref-laptop.txt")
-datadir_imagery = readLines("sandbox/data-dirs/derek-map-imagery-laptop.txt")
+datadir_field = readLines("deploy/data-dirs/derek-fieldref-laptop.txt")
+datadir_imagery = readLines("deploy/data-dirs/derek-map-imagery-laptop.txt")
 
 
 

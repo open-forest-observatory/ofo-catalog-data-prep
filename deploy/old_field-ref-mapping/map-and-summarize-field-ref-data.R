@@ -6,7 +6,7 @@ library(tidyverse)
 library(sf)
 library(readxl)
 
-datadir = readLines("sandbox/data-dirs/derek-fieldref-laptop.txt")
+datadir = readLines("deploy/data-dirs/derek-fieldref-laptop.txt")
 
 projects = read_excel(file.path(datadir, "field-reference-data.xlsx"), sheet = "field-projects")
 plots = read_excel(file.path(datadir, "field-reference-data.xlsx"), sheet = "field-plots")

@@ -3,7 +3,7 @@
 
 library(tidyverse)
 
-source("sandbox/drone-imagery-ingestion/00_set-constants.R")
+source("deploy/drone-imagery-ingestion/00_set-constants.R")
 
 # Read the crosswalk file that contains the mission IDs for the project
 crosswalk_file = file.path(CONTRIBUTED_TO_SORTED_MISSION_ID_CROSSWALK_PATH, paste0(IMAGERY_PROJECT_NAME, ".csv"))
