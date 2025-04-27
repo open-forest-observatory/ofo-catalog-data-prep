@@ -23,7 +23,7 @@ run_cmd_chunks = function(cmd, filepaths, chunk_size = 500) {
 }
 
 
-fix_orientation_flag = function(mission_id_foc) {
+fix_exif = function(mission_id_foc) {
   # Get each mission folder (for parallelizing)
   folder = file.path(SORTED_IMAGERY_PATH, mission_id_foc)
 
@@ -98,6 +98,11 @@ fix_orientation_flag = function(mission_id_foc) {
 
     cmd = "exiftool -n -r -fast4 -overwrite_original -Orientation=1 -GPSTimeStamp= "
     run_cmd_chunks(cmd, exif_to_fix_both$filepath)
+  }
+
+  # If none needed fixing, print a message
+  if (nrow(exif_to_fix_orientation) == 0 && nrow(exif_to_fix_gpstimestamp) == 0 && nrow(exif_to_fix_both) == 0) {
+    cat("No EXIF fixes needed for ", mission_id_foc, "\n")
   }
 
 }

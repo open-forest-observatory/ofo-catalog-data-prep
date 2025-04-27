@@ -18,7 +18,7 @@ magick:::magick_threads(1)
 
 
 # Function to do all the imagery prep for a given mission, with pre-subsetted metadata and footprint
-imagery_publish_prep_mission = function(mission_id_foc) {
+make_raw_imagery_thumbnails_and_zip = function(mission_id_foc) {
 
   cat("Processing mission", mission_id_foc, "\n")
 
