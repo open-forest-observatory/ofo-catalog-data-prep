@@ -9,11 +9,8 @@ library(furrr)
 library(tidyverse)
 library(exifr)
 
-source("sandbox/drone-imagery-ingestion/00_set-constants.R")
-
-
-# Function to run a system command on a list of files, but break it into smaller chunks
-# to avoid command line length limits
+# Helper function to create a system command that runs a list of files as the final argument, but break it
+# into smaller chunks (multiple system calls) to avoid command line length limits
 run_cmd_chunks = function(cmd, filepaths, chunk_size = 500) {
   # Split the filepaths into chunks
   chunks = split(filepaths, ceiling(seq_along(filepaths) / chunk_size))
@@ -25,8 +22,6 @@ run_cmd_chunks = function(cmd, filepaths, chunk_size = 500) {
   }
 }
 
-
-# Workflow
 
 fix_orientation_flag = function(mission_id_foc) {
   # Get each mission folder (for parallelizing)
@@ -58,8 +53,6 @@ fix_orientation_flag = function(mission_id_foc) {
     # if both are true, then set the other two to false
     mutate(fix_orientation = ifelse(fix_both, FALSE, fix_orientation),
            fix_gpstimestamp = ifelse(fix_both, FALSE, fix_gpstimestamp))
-
-
 
 
   # # Alternatively: 
@@ -108,11 +101,3 @@ fix_orientation_flag = function(mission_id_foc) {
   }
 
 }
-
-# Determine which missions to process
-missions_to_process = read_csv(MISSIONS_TO_PROCESS_LIST_PATH) |>
-  pull(mission_id)
-
-# Run in parallel across all specified missions
-future::plan(future::multisession, workers = future::availableCores() * 1.9)
-res = future_map(missions_to_process, fix_orientation_flag, .progress = TRUE)

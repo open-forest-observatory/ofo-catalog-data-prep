@@ -5,11 +5,6 @@
 library(furrr)
 library(tidyverse)
 
-source("sandbox/drone-imagery-ingestion/00_set-constants.R")
-
-
-## Workflow
-
 copy_raw_imagery_to_publishable_tree = function(mission_id_foc) {
   # For tracking down the mission ID(s) that produces warnings when this function is called inside a
   # map() function, you can include this line and see which mission ID warning was printed just
@@ -56,14 +51,3 @@ copy_raw_imagery_to_publishable_tree = function(mission_id_foc) {
   return(TRUE)
 
 }
-
-# Determine which missions to process
-mission_ids_to_process = read_csv(MISSIONS_TO_PROCESS_LIST_PATH) |>
-  pull(mission_id)
-
-future::plan("multisession", workers = future::availableCores() * 1.9)
-future_map(
-  mission_ids_to_process,
-  copy_raw_imagery_to_publishable_tree,
-  .progress = TRUE
-)

@@ -12,11 +12,10 @@ library(sf)
 library(magick)
 library(furrr)
 
-source("sandbox/drone-imagery-ingestion/00_set-constants.R")
 source("src/utils.R")
 
+magick:::magick_threads(1)
 
-## Functions
 
 # Function to do all the imagery prep for a given mission, with pre-subsetted metadata and footprint
 imagery_publish_prep_mission = function(mission_id_foc) {
@@ -147,23 +146,3 @@ imagery_publish_prep_mission = function(mission_id_foc) {
   gc()
 
 }
-
-## Workflow
-
-# Determine which missions to process
-mission_ids_to_process = read_csv(MISSIONS_TO_PROCESS_LIST_PATH) |>
-  pull(mission_id)
-
-future::plan("multisession", workers = future::availableCores() * 1.9)
-magick:::magick_threads(1)
-
-# # Read in the raw image locations and the mission footptings (both with metadata)
-# raw_images_metadata = st_read(RAW_IMAGES_METADATA_PATH)
-# mission_footprints = st_read(MISSION_FOOTPRINTS_PATH)
-
-future_walk(
-  mission_ids_to_process,
-  imagery_publish_prep_mission,
-  .progress = TRUE,
-  .options = furrr_options(seed = TRUE,
-                           scheduling = Inf))

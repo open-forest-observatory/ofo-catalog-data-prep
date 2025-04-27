@@ -6,26 +6,9 @@ library(tidyverse)
 library(furrr)
 library(sf)
 
-source("sandbox/drone-imagery-ingestion/00_set-constants.R")
-
-## Workflow
-
-# Create the output folder
-if (!dir.exists(SORTED_IMAGERY_PATH)) {
-  dir.create(SORTED_IMAGERY_PATH, recursive = TRUE)
-}
-
-# Determine which missions to process
-missions_to_process = read_csv(MISSIONS_TO_PROCESS_LIST_PATH) |>
-  pull(mission_id)
-
-
 copy_mission_images = function(mission_id_foc) {
   image_metadata_file = file.path(PARSED_EXIF_FOR_RETAINED_IMAGES_PATH, paste0(mission_id_foc, "_image-metadata.gpkg"))
   image_metadata = st_read(image_metadata_file)
-
-
-  # Perform the file copy, specifically as hardlinks
 
   # Determine the absolute input and output paths
   image_metadata$image_path_contrib_abs = file.path(
@@ -38,8 +21,6 @@ copy_mission_images = function(mission_id_foc) {
     image_metadata$image_path_ofo
   )
 
-
-
   # Create the output folder(s)
   folders_out_abs = unique(dirname(image_metadata$image_path_ofo_abs))
   sapply(folders_out_abs, dir.create, recursive = TRUE, showWarnings = FALSE)
@@ -47,7 +28,3 @@ copy_mission_images = function(mission_id_foc) {
   # Copy files as hardlinks
   walk2(image_metadata$image_path_contrib_abs, image_metadata$image_path_ofo_abs, file.link)
 }
-
-
-future::plan(multisession, workers = future::availableCores() * 1.9)
-furrr::future_walk(missions_to_process, copy_mission_images, .progress = TRUE)
