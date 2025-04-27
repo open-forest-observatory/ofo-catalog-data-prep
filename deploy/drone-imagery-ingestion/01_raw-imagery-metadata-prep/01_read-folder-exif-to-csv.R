@@ -4,18 +4,9 @@
 library(tidyverse)
 library(exifr)
 library(furrr)
-library(ofo)
 
-# Handle difference in how the current directory is set between debugging and command line call
-if (file.exists("sandbox/drone-imagery-ingestion/imagery_project_name.txt")) {
-  IMAGERY_PROJECT_NAME_FILE = "sandbox/drone-imagery-ingestion/imagery_project_name.txt"
-} else {
-  IMAGERY_PROJECT_NAME_FILE = "imagery_project_name.txt"
-}
-IMAGERY_PROJECT_NAME = read_lines(IMAGERY_PROJECT_NAME_FILE)
-
-IMAGERY_INPUT_PATH = "/ofo-share/drone-imagery-organization/1_manually-cleaned"
-EXIF_OUTPUT_PATH = "/ofo-share/drone-imagery-organization/metadata/1_reconciling-contributions/1_raw-exif/"
+source("sandbox/drone-imagery-ingestion/00_set-constants.R")
+source("src/metadata-extraction_imagery_general.R")
 
 
 get_image_data = function(dataset_folder) {
@@ -57,7 +48,7 @@ get_image_data = function(dataset_folder) {
   return(exif)
 }
 
-imagery_input_path = file.path(IMAGERY_INPUT_PATH, IMAGERY_PROJECT_NAME)
+imagery_input_path = file.path(CONTRIBUTED_IMAGERY_PATH, IMAGERY_PROJECT_NAME)
 
 # All folders
 folders = list.dirs(imagery_input_path, full.names = TRUE, recursive = FALSE)
@@ -68,7 +59,7 @@ exif_list = future_map(folders, get_image_data, .progress = TRUE, .options = fur
 
 exif = bind_rows(exif_list)
 
-exif_output_path = file.path(EXIF_OUTPUT_PATH, paste0(IMAGERY_PROJECT_NAME, ".csv"))
+exif_output_path = file.path(RAW_EXIF_PATH, paste0(IMAGERY_PROJECT_NAME, ".csv"))
 if(!dir.exists(dirname(exif_output_path))) {
   dir.create(dirname(exif_output_path), recursive = TRUE)
 }

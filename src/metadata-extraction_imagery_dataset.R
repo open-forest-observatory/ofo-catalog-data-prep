@@ -374,7 +374,7 @@ extract_file_size_summary = function(metadata) {
 #'
 #' @export
 extract_pct_images_rtk = function(metadata) {
-  rtk_fix = extract_rtk_fix(metadata)
+  rtk_fix = metadata$rtk_fix
 
   percent_images_rtk = round((sum(rtk_fix == TRUE) / nrow(metadata)) * 100)
 

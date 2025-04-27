@@ -7,23 +7,9 @@ library(tidyverse)
 library(sf)
 library(furrr)
 
-# devtools::document()
-# devtools::install()
-library(ofo)
-
-IMAGE_MERGE_DISTANCE = 50
-
-# If processing NRS datasets, use a larger merge distance because some datasets used very low overlap
-IMAGE_MERGE_DISTANCE = 100
-
-# In
-MISSIONS_TO_PROCESS_LIST_PATH = file.path("sandbox", "drone-imagery-ingestion", "missions-to-process.csv")
-PARSED_EXIF_METADATA_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/4_parsed-exif"
-
-# Out
-PARSED_EXIF_FOR_RETAINED_IMAGES_PATH = "/ofo-share/drone-imagery-organization/metadata/3_final/3_parsed-exif-per-image"
-DERIVED_METADATA_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/6_derived-metadata-per-mission"
-DERIVED_METADATA_SUB_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/7_derived-metadata-per-sub-mission"
+source("sandbox/drone-imagery-ingestion/00_set-constants.R")
+source("src/metadata-extraction_imagery_dataset.R")
+source("src/utils.R")
 
 
 ## Functions
@@ -79,8 +65,8 @@ missions_to_process = read_csv(MISSIONS_TO_PROCESS_LIST_PATH) |>
   pull(mission_id)
 
 # Create the output folder
-create_dir(DERIVED_METADATA_MISSION_PATH)
-create_dir(DERIVED_METADATA_SUB_MISSION_PATH)
+create_dir(DERIVED_METADATA_PER_MISSION_PATH)
+create_dir(DERIVED_METADATA_PER_SUB_MISSION_PATH)
 create_dir(PARSED_EXIF_FOR_RETAINED_IMAGES_PATH)
 
 
@@ -145,7 +131,7 @@ summarize_exif = function(mission_id_foc) {
   mission_poly_attributed$mission_id = mission_id_foc
 
   # Write
-  metadata_per_mission_filepath = file.path(DERIVED_METADATA_MISSION_PATH, paste0(mission_id_foc, ".gpkg"))
+  metadata_per_mission_filepath = file.path(DERIVED_METADATA_PER_MISSION_PATH, paste0(mission_id_foc, ".gpkg"))
   st_write(
     mission_poly_attributed,
     metadata_per_mission_filepath,
@@ -176,7 +162,7 @@ summarize_exif = function(mission_id_foc) {
     sub_mission_poly_attributed$mission_id = mission_id_foc
     sub_mission_poly_attributed$sub_mission_id = sub_mission_id_foc
 
-    metadata_per_sub_mission_filepath = file.path(DERIVED_METADATA_SUB_MISSION_PATH, paste0(sub_mission_id_foc, ".gpkg"))
+    metadata_per_sub_mission_filepath = file.path(DERIVED_METADATA_PER_SUB_MISSION_PATH, paste0(sub_mission_id_foc, ".gpkg"))
 
     # Write
     st_write(
