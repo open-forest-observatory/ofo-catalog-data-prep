@@ -24,7 +24,7 @@ make_raw_imagery_thumbnails_and_zip = function(mission_id_foc) {
 
   # Skip if the mission already has all outputs, asuming that if the zip file exists, the entire
   # mission was processed to completion
-  zip_outpath = file.path(PUBLISHABLE_IMAGES_PATH, mission_id_foc, "images", paste0(mission_id_foc, "_images.zip"))
+  zip_outpath = file.path(IMAGERY_ZIP_AND_EXAMPLES_PATH, mission_id_foc, "images", paste0(mission_id_foc, "_images.zip"))
 
   if (SKIP_EXISTING && file.exists(zip_outpath)) {
     cat("Already exists. Skipping.\n")
@@ -98,7 +98,7 @@ make_raw_imagery_thumbnails_and_zip = function(mission_id_foc) {
   # Hardlink the selected images to the publishable folder
   inpaths = file.path(SORTED_IMAGERY_PATH, selected_images$image_path_ofo)
   extensions = tools::file_ext(inpaths)
-  outpaths = file.path(PUBLISHABLE_IMAGES_PATH, mission_id_foc, "images", "examples", "fullsize", paste0("example_", 1:N_EXAMPLE_IMAGES, ".", extensions))
+  outpaths = file.path(IMAGERY_ZIP_AND_EXAMPLES_PATH, mission_id_foc, "images", "examples", "fullsize", paste0("example_", 1:N_EXAMPLE_IMAGES, ".", extensions))
 
   outdirs = unique(dirname(outpaths))
   walk(outdirs, dir.create, recursive = TRUE)
@@ -116,7 +116,7 @@ make_raw_imagery_thumbnails_and_zip = function(mission_id_foc) {
     dim_string = paste0(THUMBNAIL_SIZE, "x", THUMBNAIL_SIZE)
     img = image_resize(img, dim_string)
 
-    thumb_outpath = file.path(PUBLISHABLE_IMAGES_PATH, mission_id_foc, "images", "examples", "thumbnails", paste0("example_", i, ".", extensions[i]))
+    thumb_outpath = file.path(IMAGERY_ZIP_AND_EXAMPLES_PATH, mission_id_foc, "images", "examples", "thumbnails", paste0("example_", i, ".", extensions[i]))
 
     outdirs = unique(dirname(thumb_outpath))
     walk(outdirs, dir.create, recursive = TRUE, showWarnings = FALSE)

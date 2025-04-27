@@ -56,8 +56,8 @@ FULL_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/drone-imagery-organization/meta
 
 SORTED_IMAGERY_PATH = "/ofo-share/drone-imagery-organization/2_sorted"
 
-PUBLISHABLE_IMAGES_PATH = "/ofo-share/drone-imagery-organization/4_to-publish"
+IMAGERY_ZIP_AND_EXAMPLES_PATH = "/ofo-share/drone-imagery-organization/4_raw-imagery-zip-and-examples"
 
 IN_PROCESS_PATH = "/ofo-share/tmp/raw-imagery-publish-prep-progress-tracking/"
 
-PUBLISHABLE_DATA_TREE = "/ofo-share/drone-data-publish/02/"
+UPLOAD_STAGING_DIR_PATH = "/ofo-share/drone-imagery-organization/9_temp-upload-staging"
