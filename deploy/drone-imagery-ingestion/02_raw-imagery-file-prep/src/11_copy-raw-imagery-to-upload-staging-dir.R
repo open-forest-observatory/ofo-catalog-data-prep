@@ -9,7 +9,7 @@ copy_raw_imagery_to_upload_staging_dir = function(mission_id_foc) {
   # For tracking down the mission ID(s) that produces warnings when this function is called inside a
   # map() function, you can include this line and see which mission ID warning was printed just
   # before the real warning. warning(paste("Parsing EXIF for mission ID:", mission_id_foc))
-  cat("Processing mission", mission_id_foc, "\n")
+  cat("\n **** Copying raw imagery to upload staging dir for mission", mission_id_foc, "**** \n")
 
   # MISSION FOOTPRINTS
 

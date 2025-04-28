@@ -24,7 +24,10 @@ run_cmd_chunks = function(cmd, filepaths, chunk_size = 500) {
 
 
 fix_exif = function(mission_id_foc) {
-  # Get each mission folder (for parallelizing)
+
+cat("\n **** Fixing EXIF for mission", mission_id_foc, "**** \n")
+
+  # Get mission folder
   folder = file.path(SORTED_IMAGERY_PATH, mission_id_foc)
 
   # Get all images in the folder

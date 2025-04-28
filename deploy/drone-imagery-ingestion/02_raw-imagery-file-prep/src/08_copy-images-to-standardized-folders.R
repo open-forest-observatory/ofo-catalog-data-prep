@@ -7,6 +7,9 @@ library(furrr)
 library(sf)
 
 copy_mission_images = function(mission_id_foc) {
+
+  cat("\n **** Copying images for mission", mission_id_foc, "**** \n")
+
   image_metadata_file = file.path(PARSED_EXIF_FOR_RETAINED_IMAGES_PATH, paste0(mission_id_foc, "_image-metadata.gpkg"))
   image_metadata = st_read(image_metadata_file)
 
