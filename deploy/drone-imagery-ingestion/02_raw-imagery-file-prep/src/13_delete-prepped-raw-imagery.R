@@ -6,6 +6,8 @@
 
 delete_prepped_raw_imagery = function(mission_id_foc) {
 
+  cat("\n **** Deleting prepped raw imagery for mission", mission_id_foc, "**** \n")
+
   # Raw imagery zip and example images
   dir = file.path(IMAGERY_ZIP_AND_EXAMPLES_PATH, mission_id_foc)
   unlink(dir, recursive = TRUE)
