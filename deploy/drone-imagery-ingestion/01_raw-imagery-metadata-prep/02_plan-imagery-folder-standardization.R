@@ -11,10 +11,6 @@ source("deploy/drone-imagery-ingestion/00_set-constants.R")
 raw_exif_path_project = file.path(RAW_EXIF_PATH, paste0(IMAGERY_PROJECT_NAME, ".csv"))
 contributed_to_sorted_mision_id_crosswalk_path_project = file.path(CONTRIBUTED_TO_SORTED_MISSION_ID_CROSSWALK_PATH, paste0(IMAGERY_PROJECT_NAME, ".csv"))
 
-if (!dir.exists(contributed_to_sorted_mision_id_crosswalk_path_project)) {
-  dir.create(contributed_to_sorted_mision_id_crosswalk_path_project, recursive = TRUE)
-}
-
 ## Prep baserow metadata
 
 # Load baserow records
@@ -586,6 +582,11 @@ if (nrow(datasets_not_separable) > 0) {
   folderid_baserow_crosswalk = folderid_baserow_crosswalk |>
     left_join(datasets_not_separable2, by = "dataset_id_baserow")
 
+}
+
+# Make sure the crosswalk dir exists
+if (!dir.exists(CONTRIBUTED_TO_SORTED_MISSION_ID_CROSSWALK_PATH)) {
+  dir.create(CONTRIBUTED_TO_SORTED_MISSION_ID_CROSSWALK_PATH, recursive = TRUE)
 }
 
 write_csv(folderid_baserow_crosswalk, contributed_to_sorted_mision_id_crosswalk_path_project)
