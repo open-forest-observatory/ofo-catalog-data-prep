@@ -16,11 +16,12 @@ source("deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/src/11_copy-raw-
 source("deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/src/12_upload-raw-imagery-to-cyverse.R")
 source("deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/src/13_delete-prepped-raw-imagery.R")
 
-mission_id_foc = "000351"
 
-copy_mission_images(mission_id_foc)
-fix_exif(mission_id_foc)
-make_raw_imagery_thumbnails_and_zip(mission_id_foc)
-copy_raw_imagery_to_upload_staging_dir(mission_id_foc)
-upload_raw_imagery_to_cyverse(mission_id_foc)
-delete_prepped_raw_imagery(mission_id_foc)
+prep_raw_imagery_files_per_mission = function(mission_id_foc) {
+  copy_mission_images(mission_id_foc)
+  fix_exif(mission_id_foc)
+  make_raw_imagery_thumbnails_and_zip(mission_id_foc)
+  copy_raw_imagery_to_upload_staging_dir(mission_id_foc)
+  upload_raw_imagery_to_cyverse(mission_id_foc)
+  delete_prepped_raw_imagery(mission_id_foc)
+}
