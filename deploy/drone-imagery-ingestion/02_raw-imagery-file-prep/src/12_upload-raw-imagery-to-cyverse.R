@@ -5,6 +5,8 @@
 
 upload_raw_imagery_to_cyverse = function(mission_id_foc) {
 
+  cat("\n **** Uploading raw imagery to CyVerse for mission", mission_id_foc, "**** \n")
+
   # Construct data transfer command line call
   local_dir = file.path(UPLOAD_STAGING_DIR_PATH, mission_id_foc)
 
@@ -18,7 +20,27 @@ upload_raw_imagery_to_cyverse = function(mission_id_foc) {
 
   command = paste("iput -P -f -T -K -r", local_dir, CYVERSE_MISSIONS_DIR)
 
-  system(command)
+  # result_file = "/ofo-share/drone-imagery-organization/temp/cyverse-upload-log.txt"
+  # to_write = paste0("\n **** Uploading raw imagery to CyVerse for mission", mission_id_foc, "**** \n",
+  #     "Command: ", command, "\n")
+  # write(to_write, file = result_file, append = TRUE)
+
+  result = system(command, intern = TRUE)
+  result = paste(result, collapse = "\n")
+
+  # Check if we got an error
+  if (any(grepl("ERROR", result))) {
+    toprint = (paste("*#*#*#*#*# Error uploading raw imagery to CyVerse for mission", mission_id_foc, ". Result was:\n", result))
+    cat(toprint)
+  } else {
+    toprint = paste0("\n **** Successfully uploaded raw imagery to CyVerse for mission", mission_id_foc,
+        ". Result was :\n", result, "\n")
+    cat(toprint)
+  }
+
+  # Append result to a file
+  result_file = "/ofo-share/drone-imagery-organization/temp/cyverse-upload-log.txt"
+  write(toprint, file = result_file, append = TRUE)
 
   return(TRUE)
 }
