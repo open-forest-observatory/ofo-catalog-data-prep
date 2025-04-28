@@ -7,7 +7,7 @@ library(tidyverse)
 library(sf)
 library(furrr)
 
-source("sandbox/drone-imagery-ingestion/00_set-constants.R")
+source("deploy/drone-imagery-ingestion/00_set-constants.R")
 source("src/metadata-extraction_imagery_dataset.R")
 source("src/utils.R")
 

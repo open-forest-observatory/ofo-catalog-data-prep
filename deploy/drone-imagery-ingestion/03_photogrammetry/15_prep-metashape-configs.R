@@ -3,16 +3,16 @@
 library(dplyr)
 
 # Handle difference in how the current directory is set between debugging and command line call
-if (file.exists("sandbox/drone-imagery-ingestion/imagery_project_name.txt")) {
-  IMAGERY_PROJECT_NAME_FILE = "sandbox/drone-imagery-ingestion/imagery_project_name.txt"
+if (file.exists("deploy/drone-imagery-ingestion/imagery_project_name.txt")) {
+  IMAGERY_PROJECT_NAME_FILE = "deploy/drone-imagery-ingestion/imagery_project_name.txt"
 } else {
   IMAGERY_PROJECT_NAME_FILE = "imagery_project_name.txt"
 }
 IMAGERY_PROJECT_NAME = readr::read_lines(IMAGERY_PROJECT_NAME_FILE)
 
 DATASET_DIR = "/ofo-share/drone-imagery-organization/2_sorted"
-BASE_YAML_FILEPATH = "/ofo-share/repos-derek/ofo-catalog-data-prep/sandbox/drone-imagery-ingestion/full-run-configs/base.yml"
-DERIVED_YAML_OUTFOLDER = "/ofo-share/repos-derek/ofo-catalog-data-prep/sandbox/drone-imagery-ingestion/full-run-configs/02"
+BASE_YAML_FILEPATH = "/ofo-share/repos-derek/ofo-catalog-data-prep/deploy/drone-imagery-ingestion/full-run-configs/base.yml"
+DERIVED_YAML_OUTFOLDER = "/ofo-share/repos-derek/ofo-catalog-data-prep/deploy/drone-imagery-ingestion/full-run-configs/02"
 AUTOMATE_METASHAPE_PATH = "/ofo-share/repos-derek/automate-metashape"
 METASHAPE_OUTPUT_PATH = "/ofo-share/drone-imagery-processed/01/metashape-outputs"
 METASHAPE_PROJECT_PATH = "/ofo-share/drone-imagery-processed/01/metashape-projects"

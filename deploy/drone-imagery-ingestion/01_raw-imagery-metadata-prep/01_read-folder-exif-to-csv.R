@@ -5,7 +5,7 @@ library(tidyverse)
 library(exifr)
 library(furrr)
 
-source("sandbox/drone-imagery-ingestion/00_set-constants.R")
+source("deploy/drone-imagery-ingestion/00_set-constants.R")
 source("src/metadata-extraction_imagery_general.R")
 
 

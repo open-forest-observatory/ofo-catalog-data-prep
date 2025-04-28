@@ -1,6 +1,8 @@
 # Purpose: set global constants for the imagery data processing pipeline. They mostly consist of
 # paths to files/dirs for input/output data.
 
+library(tidyverse)
+
 # What is the padding width for the dataset ID in the folder names of the imagery folders to be ingested? (New format) This is used to
 # force the Baserow dataset ID column to conform to the image folder names, so this should reflect
 # the padding used when naming the image folders in the 1_manually-cleaned folder.
@@ -18,8 +20,8 @@ SKIP_EXISTING = FALSE # Skip processing for missions that already have all outpu
 
 
 # Handle difference in how the current directory is set between debugging and command line call
-if (file.exists("sandbox/drone-imagery-ingestion/imagery_project_name.txt")) {
-  IMAGERY_PROJECT_NAME_FILE = "sandbox/drone-imagery-ingestion/imagery_project_name.txt"
+if (file.exists("deploy/drone-imagery-ingestion/imagery_project_name.txt")) {
+  IMAGERY_PROJECT_NAME_FILE = "deploy/drone-imagery-ingestion/imagery_project_name.txt"
 } else {
   IMAGERY_PROJECT_NAME_FILE = "imagery_project_name.txt"
 }
@@ -43,7 +45,7 @@ EXTRACTED_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/drone-imagery-organization
 IMAGERY_PROJECT_SUBSET_MISSIONS = NULL
 # IMAGERY_PROJECT_SUBSET_MISSIONS = c(000643:000900) |> str_pad(6, pad = "0", side = "left")
 
-MISSIONS_TO_PROCESS_LIST_PATH = file.path("sandbox", "drone-imagery-ingestion", "missions-to-process.csv")
+MISSIONS_TO_PROCESS_LIST_PATH = file.path("deploy", "drone-imagery-ingestion", "missions-to-process.csv")
 
 PARSED_EXIF_METADATA_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/4_parsed-exif"
 
@@ -56,8 +58,16 @@ FULL_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/drone-imagery-organization/meta
 
 SORTED_IMAGERY_PATH = "/ofo-share/drone-imagery-organization/2_sorted"
 
-PUBLISHABLE_IMAGES_PATH = "/ofo-share/drone-imagery-organization/4_to-publish"
+IMAGERY_ZIP_AND_EXAMPLES_PATH = "/ofo-share/drone-imagery-organization/4_raw-imagery-zip-and-examples"
 
 IN_PROCESS_PATH = "/ofo-share/tmp/raw-imagery-publish-prep-progress-tracking/"
 
-PUBLISHABLE_DATA_TREE = "/ofo-share/drone-data-publish/02/"
+UPLOAD_STAGING_DIR_PATH = "/ofo-share/drone-imagery-organization/9_temp-upload-staging"
+
+# Remote patih in the CyVerse data store where all mission data is stored. Must end with a trailing
+# slash.
+CYVERSE_MISSIONS_DIR = paste0("/iplant/home/shared/ofo/public/missions_03/")
+
+UPLOAD_ERROR_LOG = "/ofo-share/drone-imagery-organization/temp/cyverse-upload-log.txt"
+
+DOWNLOADED_IMAGERY_ZIP_DIR = "/ofo-share/catalog-data-prep/photogrammetry/01_downloaded-imagery-zip"
