@@ -45,7 +45,7 @@ EXTRACTED_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/drone-imagery-organization
 IMAGERY_PROJECT_SUBSET_MISSIONS = NULL
 # IMAGERY_PROJECT_SUBSET_MISSIONS = c(000643:000900) |> str_pad(6, pad = "0", side = "left")
 
-MISSIONS_TO_PROCESS_LIST_PATH = file.path("sandbox", "drone-imagery-ingestion", "missions-to-process.csv")
+MISSIONS_TO_PROCESS_LIST_PATH = file.path("deploy", "drone-imagery-ingestion", "missions-to-process.csv")
 
 PARSED_EXIF_METADATA_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/4_parsed-exif"
 
