@@ -35,10 +35,10 @@ furrr::future_map(
   .progress = TRUE
 )
 
-########
-# Check uploaded files to ensure all are present
-########
 
+######## Check uploaded files to ensure all are present and return a vector of missing mission IDs
+# for re-processing
+########
 
 # Example images
 coll_name = shQuote(paste0(CYVERSE_MISSIONS_DIR, "______/images/examples/%"))

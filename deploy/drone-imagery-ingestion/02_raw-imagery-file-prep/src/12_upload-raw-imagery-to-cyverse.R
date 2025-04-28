@@ -15,32 +15,29 @@ upload_raw_imagery_to_cyverse = function(mission_id_foc) {
   # dir.
   
   # Make sure the remote dir ends with a trailing slash. It's OK if it ends in 2, so we don't need to
-  # check if it already does
+  # check if it already does and can just add one regardless.
   CYVERSE_MISSIONS_DIR = paste0(CYVERSE_MISSIONS_DIR, "/")
 
   command = paste("iput -P -f -T -K -r", local_dir, CYVERSE_MISSIONS_DIR)
 
-  # result_file = "/ofo-share/drone-imagery-organization/temp/cyverse-upload-log.txt"
-  # to_write = paste0("\n **** Uploading raw imagery to CyVerse for mission", mission_id_foc, "**** \n",
-  #     "Command: ", command, "\n")
-  # write(to_write, file = result_file, append = TRUE)
-
-  result = system(command, intern = TRUE)
-  result = paste(result, collapse = "\n")
-
-  # Check if we got an error
-  if (any(grepl("ERROR", result))) {
-    toprint = (paste("*#*#*#*#*# Error uploading raw imagery to CyVerse for mission", mission_id_foc, ". Result was:\n", result))
-    cat(toprint)
-  } else {
-    toprint = paste0("\n **** Successfully uploaded raw imagery to CyVerse for mission", mission_id_foc,
-        ". Result was :\n", result, "\n")
-    cat(toprint)
+  result = system(command)
+  # With intern = FALSE (default), the result is the return code (0 for success, 2 for failure)
+  
+  # Check if we got an error, and if so, retry up to 3 times
+  tries = 0
+  while (result == 2 && tries < 3) {
+    tries = tries + 1
+    cat("\n **** Uploading raw imagery to CyVerse for mission", mission_id_foc, "failed. Retrying... (attempt", tries, ") **** \n")
+    result = system(command)
   }
 
-  # Append result to a file
-  result_file = "/ofo-share/drone-imagery-organization/temp/cyverse-upload-log.txt"
-  write(toprint, file = result_file, append = TRUE)
+  # If we still got an upload error, print a warning and save to log and return false
+  if (result == 2) {
+    toprint = (paste(Sys.time, "- Error uploading raw imagery to CyVerse for mission", mission_id_foc, "(all 3 tries failed).\n"))
+    warning(toprint)
+    write(toprint, file = UPLOAD_ERROR_LOG, append = TRUE)
+    return(FALSE)
+  }
 
   return(TRUE)
 }

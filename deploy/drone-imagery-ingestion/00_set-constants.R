@@ -66,4 +66,8 @@ UPLOAD_STAGING_DIR_PATH = "/ofo-share/drone-imagery-organization/9_temp-upload-s
 
 # Remote patih in the CyVerse data store where all mission data is stored. Must end with a trailing
 # slash.
-CYVERSE_MISSIONS_DIR = paste0("/iplant/home/shared/ofo/public/missions_02/")
+CYVERSE_MISSIONS_DIR = paste0("/iplant/home/shared/ofo/public/missions_03/")
+
+UPLOAD_ERROR_LOG = "/ofo-share/drone-imagery-organization/temp/cyverse-upload-log.txt"
+
+DOWNLOADED_IMAGERY_ZIP_DIR = "/ofo-share/catalog-data-prep/photogrammetry/01_downloaded-imagery-zip"
