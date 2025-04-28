@@ -1,6 +1,8 @@
 # Purpose: set global constants for the imagery data processing pipeline. They mostly consist of
 # paths to files/dirs for input/output data.
 
+library(tidyverse)
+
 # What is the padding width for the dataset ID in the folder names of the imagery folders to be ingested? (New format) This is used to
 # force the Baserow dataset ID column to conform to the image folder names, so this should reflect
 # the padding used when naming the image folders in the 1_manually-cleaned folder.
@@ -61,3 +63,7 @@ IMAGERY_ZIP_AND_EXAMPLES_PATH = "/ofo-share/drone-imagery-organization/4_raw-ima
 IN_PROCESS_PATH = "/ofo-share/tmp/raw-imagery-publish-prep-progress-tracking/"
 
 UPLOAD_STAGING_DIR_PATH = "/ofo-share/drone-imagery-organization/9_temp-upload-staging"
+
+# Remote patih in the CyVerse data store where all mission data is stored. Must end with a trailing
+# slash.
+CYVERSE_MISSIONS_DIR = paste0("/iplant/home/shared/ofo/public/missions_02/")
