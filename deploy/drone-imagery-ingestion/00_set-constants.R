@@ -71,3 +71,4 @@ CYVERSE_MISSIONS_DIR = paste0("/iplant/home/shared/ofo/public/missions_05/")
 UPLOAD_ERROR_LOG = "/ofo-share/drone-imagery-organization/temp/cyverse-upload-log.txt"
 
 DOWNLOADED_IMAGERY_ZIP_DIR = "/ofo-share/catalog-data-prep/photogrammetry/01_downloaded-imagery-zip"
+INPUT_IMAGES_DIR = "/ofo-share/catalog-data-prep/photogrammetry/02_input-images"
