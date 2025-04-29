@@ -18,10 +18,23 @@ source("deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/src/13_delete-pr
 
 
 prep_raw_imagery_files_per_mission = function(mission_id_foc) {
+
+  # # Check if it's already completed (based on existence of the zip file on cyverse) and skip if so
+  # # But note that currently this won't work when parallelized because irods blocks the simultaneous
+  # # queries. Such cases result in us assuming the mission is not completed and running the pipeline
+  # # for it. 
+  # already_run = check_if_zip_file_exists(mission_id_foc)
+  # if (already_run) {
+  #   cat("Mission", mission_id_foc, "already completed. Skipping.\n")
+  #   return(FALSE)
+  # }
+
   copy_mission_images(mission_id_foc)
   fix_exif(mission_id_foc)
   make_raw_imagery_thumbnails_and_zip(mission_id_foc)
   copy_raw_imagery_to_upload_staging_dir(mission_id_foc)
   upload_raw_imagery_to_cyverse(mission_id_foc)
   delete_prepped_raw_imagery(mission_id_foc)
+
+  return(TRUE)
 }
