@@ -17,17 +17,14 @@ missions_to_process = read_csv(MISSIONS_TO_PROCESS_LIST_PATH) |> pull(mission_id
 
 # # Use (and update) this if you want to override the missions to process determined above, such as if
 # # the final check revealed some missions were completed all the way through to cyverse upload
-# missions_to_process = c("000644", "000645", "000646", "000647", "000648", "000649", 
-# "000709", "000745", "000747", "000775", "000776", "000780", "000782", 
-# "000808", "000938", "000939", "001012", "001015", "001039", "001040", 
-# "001058", "001062", "001063", "001065", "001070", "001073", "001109", 
-# "001111", "001141", "001142", "001143", "001172", "001173", "001174", 
-# "001205", "001212", "001216", "001218", "001221", "001271", "001272", 
-# "001273", "001304", "001306", "001307", "001309", "001310", "001369", 
-# "001406", "001410", "001411", "001414", "001421", "001437", "001438", 
-# "001441", "001470", "001501")
+missions_to_process = c("000646", "000647", "000648", "000649", "000650", "000676", 
+"000709", "000743", "000779", "000780", "000781", "000782", "000808", 
+"000810", "000874", "000932", "000934", "001403", "001405", "001406", 
+"001407", "001408", "001409", "001410", "001469", "001470", "001471", 
+"001501", "001502", "001534", "001535", "001536", "001537", "001567", 
+"001600")
 
-future::plan(multicore, workers = 64) # Hard-coded as max that will avoid exceeding cyverse rate limit
+future::plan(multicore, workers = 16) # Hard-coded as max that will avoid exceeding cyverse rate limit
 
 furrr::future_map(
   missions_to_process,
@@ -106,6 +103,6 @@ fully_missing_mission_ids = setdiff(missions_to_process, mission_id_counts$missi
 missing_mission_ids = c(partially_missing_mission_ids, fully_missing_mission_ids)
 
 if (length(missing_mission_ids) > 0) {
-  warning("Some missions failed to upload some or all files. Here's a dput of the missing mission IDs so they can be re-run.\n")
+  cat("Some missions failed to upload some or all files. Here's a dput of the missing mission IDs so they can be re-run.\n")
   dput(missing_mission_ids)
 }
