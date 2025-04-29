@@ -173,5 +173,5 @@ parse_mission_exif_at_image_level = function(mission_id_foc) {
 }
 
 # Run the function for each mission
-future::plan("multisession")
+future::plan("multicore")
 furrr::future_walk(missions_to_process, parse_mission_exif_at_image_level)
