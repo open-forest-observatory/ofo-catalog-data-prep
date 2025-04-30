@@ -66,10 +66,20 @@ CYVERSE_MISSIONS_DIR = paste0("/iplant/home/shared/ofo/public/missions_05/")
 
 UPLOAD_ERROR_LOG = "/ofo-share/drone-imagery-organization/temp/cyverse-upload-log.txt"
 
-DOWNLOADED_IMAGERY_ZIP_DIR = "/ofo-share/catalog-data-prep/photogrammetry/01_downloaded-imagery-zip"
 
-INPUT_IMAGES_DIR = "/ofo-share/catalog-data-prep/photogrammetry/02_input-images"
+# OFO_R_REPO_PATH = "/ofo-share/repos-derek/ofo-r"
 
+AUTOMATE_METASHAPE_PATH = "/ofo-share/repos-derek/automate-metashape"
+
+PHOTOGRAMMETRY_DIR = "/ofo-share/catalog-data-prep/02_photogrammetry"
+
+# All of these are relative to PHOTOGRAMMETRY_DIR:
+BASE_METASHAPE_CONFIG_FILE_SUBPATH = "01_base-metashape-config/base_01.yml"
+DOWNLOADED_IMAGERY_ZIP_SUBDIR = "02_downloaded-imagery-zip"
+INPUT_IMAGES_SUBDIR = "03_input-images"
+DERIVED_METASHAPE_CONFIG_SUBDIR = "04_derived-metashape-configs/01"
+METASHAPE_PROJECT_SUBDIR = "05_photogrammetry-projects"
+METASHAPE_OUTPUT_SUBDIR = "06_photogrammetry-outputs"
 
 # Handle difference in how the current directory is set between debugging and command line call
 if (file.exists("deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/projects-to-process.txt")) {

@@ -34,14 +34,16 @@ unnest_list = function(x) {
 
 # Take a base metashape config (as a nested list) and a set of replacements (for one scenario), and
 # write out a derived yaml file
-make_derived_yaml = function(cfg_base, replacements, derived_yaml_dir) {
+make_derived_yaml = function(cfg_base_filepath, replacements, derived_yaml_dir) {
 
   cfg_filename = paste0(replacements$config_filename, ".yml")
 
   # remove the filename since that doesn't go into the yaml
   replacements = replacements |> dplyr::select(-"config_filename")
 
-  cfg_derived = cfg_base
+  cfg = yaml::read_yaml(cfg_base_filepath)
+
+  cfg_derived = cfg
 
   # Replace the values in the base config with the values from the scenario
   for (key in names(replacements)) {
@@ -80,8 +82,7 @@ make_derived_configs = function(base_yaml_filepath,
 
     scenario = scenarios[i, ]
 
-    cfg_base = yaml::read_yaml(base_yaml_filepath)
-    filename = make_derived_yaml(cfg_base, scenario, derived_yaml_dir = derived_yaml_out_folder)
+    filename = make_derived_yaml(cfg_base = base_yaml_filepath, scenario, derived_yaml_dir = derived_yaml_out_folder)
 
     config_files_created = c(config_files_created,filename)
 
