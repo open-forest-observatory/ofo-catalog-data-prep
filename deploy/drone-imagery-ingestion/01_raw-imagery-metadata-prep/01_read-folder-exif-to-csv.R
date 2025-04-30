@@ -48,7 +48,7 @@ get_image_data = function(dataset_folder) {
   return(exif)
 }
 
-imagery_input_path = file.path(CONTRIBUTED_IMAGERY_PATH, IMAGERY_PROJECT_NAME)
+imagery_input_path = file.path(CONTRIBUTED_IMAGERY_PATH, PROJECT_NAME_TO_PROCESS_RAW_IMAGERY_METADATA)
 
 # All folders
 folders = list.dirs(imagery_input_path, full.names = TRUE, recursive = FALSE)
@@ -59,7 +59,7 @@ exif_list = future_map(folders, get_image_data, .progress = TRUE, .options = fur
 
 exif = bind_rows(exif_list)
 
-exif_output_path = file.path(RAW_EXIF_PATH, paste0(IMAGERY_PROJECT_NAME, ".csv"))
+exif_output_path = file.path(RAW_EXIF_PATH, paste0(PROJECT_NAME_TO_PROCESS_RAW_IMAGERY_METADATA, ".csv"))
 if(!dir.exists(dirname(exif_output_path))) {
   dir.create(dirname(exif_output_path), recursive = TRUE)
 }

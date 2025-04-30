@@ -47,7 +47,7 @@ extract_aircraft_model_name = function(unique_sub_mission_id) {
 ## Workflow
 
 # Determine which missions to process
-missions_to_process = read_csv(MISSIONS_TO_PROCESS_LIST_PATH) |>
+missions_to_process = read_csv(MISSIONS_TO_PROCESS_RAW_IMAGERY_METADATA_LIST_PATH) |>
   pull(mission_id)
 
 # Run for each mission_id
@@ -174,4 +174,5 @@ parse_mission_exif_at_image_level = function(mission_id_foc) {
 
 # Run the function for each mission
 future::plan("multicore")
+options(future.globals.maxSize= 1000*1024^2) # 1000 MB
 furrr::future_walk(missions_to_process, parse_mission_exif_at_image_level)

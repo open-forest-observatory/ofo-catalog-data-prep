@@ -61,7 +61,7 @@ compute_polygons_and_images_retained = function(image_metadata, column_to_split_
 ## Workflow
 
 # Determine which missions to process
-missions_to_process = read_csv(MISSIONS_TO_PROCESS_LIST_PATH) |>
+missions_to_process = read_csv(MISSIONS_TO_PROCESS_RAW_IMAGERY_METADATA_LIST_PATH) |>
   pull(mission_id)
 
 # Create the output folder
