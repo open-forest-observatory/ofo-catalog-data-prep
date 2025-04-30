@@ -20,12 +20,14 @@ SKIP_EXISTING = FALSE # Skip processing for missions that already have all outpu
 
 
 # Handle difference in how the current directory is set between debugging and command line call
-if (file.exists("deploy/drone-imagery-ingestion/imagery_project_name.txt")) {
-  IMAGERY_PROJECT_NAME_FILE = "deploy/drone-imagery-ingestion/imagery_project_name.txt"
+if (file.exists("deploy/drone-imagery-ingestion/01_raw-imagery-metadata-prep/project-to-process.txt")) {
+  PROJECT_TO_PROCESS_RAW_IMAGERY_METADATA_FILEPATH = "deploy/drone-imagery-ingestion/01_raw-imagery-metadata-prep/project-to-process.txt"
 } else {
-  IMAGERY_PROJECT_NAME_FILE = "imagery_project_name.txt"
+  PROJECT_TO_PROCESS_RAW_IMAGERY_METADATA_FILEPATH = "project-to-process.txt"
 }
-IMAGERY_PROJECT_NAME = read_lines(IMAGERY_PROJECT_NAME_FILE)
+PROJECT_NAME_TO_PROCESS_RAW_IMAGERY_METADATA = read_lines(PROJECT_TO_PROCESS_RAW_IMAGERY_METADATA_FILEPATH)
+
+MISSIONS_TO_PROCESS_RAW_IMAGERY_METADATA_LIST_PATH = file.path("deploy", "drone-imagery-ingestion", "01_raw-imagery-metadata-prep", "missions-to-process.csv")
 
 
 CONTRIBUTED_IMAGERY_PATH = "/ofo-share/drone-imagery-organization/1_manually-cleaned"
@@ -40,12 +42,6 @@ IMAGE_EXIF_W_SORTING_PLAN_PATH = "/ofo-share/drone-imagery-organization/metadata
 # Should be "conributed"
 EXTRACTED_METADATA_PER_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/1_contributed-metadata-per-mission/"
 EXTRACTED_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/2_contributed-metadata-per-sub-mission/"
-
-# # Optionally can specify a subset of missions to process (for the mission-level processing)
-IMAGERY_PROJECT_SUBSET_MISSIONS = NULL
-# IMAGERY_PROJECT_SUBSET_MISSIONS = c(000643:000900) |> str_pad(6, pad = "0", side = "left")
-
-MISSIONS_TO_PROCESS_LIST_PATH = file.path("deploy", "drone-imagery-ingestion", "missions-to-process.csv")
 
 PARSED_EXIF_METADATA_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/4_parsed-exif"
 
@@ -71,3 +67,15 @@ CYVERSE_MISSIONS_DIR = paste0("/iplant/home/shared/ofo/public/missions_05/")
 UPLOAD_ERROR_LOG = "/ofo-share/drone-imagery-organization/temp/cyverse-upload-log.txt"
 
 DOWNLOADED_IMAGERY_ZIP_DIR = "/ofo-share/catalog-data-prep/photogrammetry/01_downloaded-imagery-zip"
+
+# Handle difference in how the current directory is set between debugging and command line call
+if (file.exists("deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/projects-to-process.txt")) {
+  PROJECTS_TO_PROCESS_RAW_IMAGERY_FILES_FILEPATH = "deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/projects-to-process.txt"
+} else {
+  PROJECTS_TO_PROCESS_RAW_IMAGERY_FILES_FILEPATH = "projects-to-process.txt"
+}
+PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES = read_lines(PROJECTS_TO_PROCESS_RAW_IMAGERY_FILES_FILEPATH)
+# Remove any project names starting in "#" (commented out)
+PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES = PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES[!grepl("^#", PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES)]
+
+MISSIONS_TO_PROCESS_RAW_IMAGERY_FILES_LIST_PATH = file.path("deploy", "drone-imagery-ingestion", "02_raw-imagery-file-prep", "missions-to-process.csv")

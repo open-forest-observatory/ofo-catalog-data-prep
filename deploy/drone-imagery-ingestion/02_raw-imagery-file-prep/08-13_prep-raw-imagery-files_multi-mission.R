@@ -9,20 +9,15 @@ source("deploy/drone-imagery-ingestion/00_set-constants.R")
 source("deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/08-13_prep-raw-imagery-files_per-mission.R")
 
 # Determine the missions to process. This depends on having set the project name in the file
-# "imagery_project_name.txt". It puts the list of missions to process in the file
+# "imagery-project-to-process-raw-imagery-metadata.txt". It puts the list of missions to process in the file
 # "missions-to-process.csv". Note that the script that is sourced here does not define a function,
 # it actually runds the code complete the task described in this comment.
-source("deploy/drone-imagery-ingestion/01_raw-imagery-metadata-prep/04_determine-missions-to-process.R")
-missions_to_process = read_csv(MISSIONS_TO_PROCESS_LIST_PATH) |> pull(mission_id)
+source("deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/src/08_0pre_determine-missions-to-process.R")
+missions_to_process = read_csv(MISSIONS_TO_PROCESS_RAW_IMAGERY_FILES_LIST_PATH) |> pull(mission_id)
 
-# # Use (and update) this if you want to override the missions to process determined above, such as if
-# # the final check revealed some missions were completed all the way through to cyverse upload
-missions_to_process = c("000646", "000647", "000648", "000649", "000650", "000676", 
-"000709", "000743", "000779", "000780", "000781", "000782", "000808", 
-"000810", "000874", "000932", "000934", "001403", "001405", "001406", 
-"001407", "001408", "001409", "001410", "001469", "001470", "001471", 
-"001501", "001502", "001534", "001535", "001536", "001537", "001567", 
-"001600")
+# Use (and update) this if you want to override the missions to process determined above, such as if
+# the final check revealed some missions were completed all the way through to cyverse upload
+# missions_to_process = c("000162", "000186")
 
 future::plan(multicore, workers = 16) # Hard-coded as max that will avoid exceeding cyverse rate limit
 

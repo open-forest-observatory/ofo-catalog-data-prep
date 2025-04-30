@@ -8,8 +8,8 @@ library(tidyverse)
 source("deploy/drone-imagery-ingestion/00_set-constants.R")
 
 ## Set up derived constants
-raw_exif_path_project = file.path(RAW_EXIF_PATH, paste0(IMAGERY_PROJECT_NAME, ".csv"))
-contributed_to_sorted_mision_id_crosswalk_path_project = file.path(CONTRIBUTED_TO_SORTED_MISSION_ID_CROSSWALK_PATH, paste0(IMAGERY_PROJECT_NAME, ".csv"))
+raw_exif_path_project = file.path(RAW_EXIF_PATH, paste0(PROJECT_NAME_TO_PROCESS_RAW_IMAGERY_METADATA, ".csv"))
+contributed_to_sorted_mision_id_crosswalk_path_project = file.path(CONTRIBUTED_TO_SORTED_MISSION_ID_CROSSWALK_PATH, paste0(PROJECT_NAME_TO_PROCESS_RAW_IMAGERY_METADATA, ".csv"))
 
 ## Prep baserow metadata
 
@@ -571,7 +571,7 @@ folderid_baserow_crosswalk = image_data |>
   group_by(dataset_id_baserow, sub_mission_id, mission_id) |>
   summarize(n_images = n()) |>
   ungroup() |>
-  mutate(project_name = IMAGERY_PROJECT_NAME)
+  mutate(project_name = PROJECT_NAME_TO_PROCESS_RAW_IMAGERY_METADATA)
 
 if (nrow(datasets_not_separable) > 0) {
 
@@ -601,8 +601,8 @@ image_data = image_data |>
   mutate(extension = tools::file_ext(image_path_in)) |>
   rename(mission_id = dataset_id_out_final,
          sub_mission_id = folder_out_final) |>
-  mutate(image_path_in_rel = str_replace(image_path_in, paste0(".*", IMAGERY_PROJECT_NAME, "\\/"), "")) |>
-  mutate(image_path_in_rel = paste0(IMAGERY_PROJECT_NAME, "/", image_path_in_rel)) |>
+  mutate(image_path_in_rel = str_replace(image_path_in, paste0(".*", PROJECT_NAME_TO_PROCESS_RAW_IMAGERY_METADATA, "\\/"), "")) |>
+  mutate(image_path_in_rel = paste0(PROJECT_NAME_TO_PROCESS_RAW_IMAGERY_METADATA, "/", image_path_in_rel)) |>
   group_by(sub_mission_id) |>
   mutate(image_number = row_number()) |>
   ungroup() |>
