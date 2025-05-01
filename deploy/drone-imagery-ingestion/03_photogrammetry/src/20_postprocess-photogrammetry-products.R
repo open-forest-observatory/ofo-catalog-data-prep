@@ -21,7 +21,7 @@ terra::terraOptions(memfrac = TERRA_MEMFRAC)
 
 
 # Function to crop raster to mission polygon and write as COG
-crop_raster_save_cog = function(raster_filepath_foc, mission_polygon) {
+crop_raster_save_cog = function(raster_filepath_foc, mission_polygon, output_path) {
 
   # Read, crop, and write the raster as COG
   raster = terra::rast(raster_filepath_foc)
@@ -159,11 +159,11 @@ postprocess_photogrammetry = function(mission_id_foc) {
   purrr::walk(
     rast_filepath_foc,
     crop_raster_save_cog,
+    output_path = output_path,
     mission_polygon = mission_polygon
   )
 
   ## Make CHMs
-
 
   # Determine what would be the filepaths of the potential DSM and DTM files (if they exist):
   dem_filepath_foc = output_files_foc |>
