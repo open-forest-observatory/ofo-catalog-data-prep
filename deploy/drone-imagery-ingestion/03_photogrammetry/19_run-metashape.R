@@ -13,7 +13,7 @@ run_metashape = function(mission_id_foc) {
 
   # Template for docker run command: docker run -v /ofo-share/catalog-data-prep/02_photogrammetry:/data -e AGISOFT_FLS=$AGISOFT_FLS ghcr.io/open-forest-observatory/automate-metashape --config_file /data/04_derived-metashape-configs/01/000574.yml
   docker_command = paste0(
-    "docker run -v ", PHOTOGRAMMETRY_DIR, ":/data -e AGISOFT_FLS=$AGISOFT_FLS ",
+    "docker run -v ", PHOTOGRAMMETRY_DIR, ":/data -e AGISOFT_FLS=$AGISOFT_FLS --gpus all ",
     "ghcr.io/open-forest-observatory/automate-metashape --config_file ", config_filpath_in_container
   )
 
@@ -28,5 +28,4 @@ run_metashape = function(mission_id_foc) {
   return(TRUE)
 }
 
-mission_id_foc = "000574"
-run_metashape(mission_id_foc)
+

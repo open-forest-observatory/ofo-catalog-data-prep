@@ -82,5 +82,5 @@ download_unzip_images = function(mission_id_foc) {
   return(TRUE)
 }
 
-mission_id = "000574"
-download_unzip_images(mission_id)
+# mission_id = "000574"
+# download_unzip_images(mission_id)

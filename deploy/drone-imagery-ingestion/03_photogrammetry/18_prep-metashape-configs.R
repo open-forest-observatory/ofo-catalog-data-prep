@@ -41,5 +41,4 @@ prep_metashape_config = function(mission_id_foc) {
 
 }
 
-mission_id_foc = "000574"
-prep_metashape_config(mission_id_foc)
+
