@@ -80,6 +80,7 @@ INPUT_IMAGES_SUBDIR = "03_input-images"
 DERIVED_METASHAPE_CONFIG_SUBDIR = "04_derived-metashape-configs/01"
 METASHAPE_PROJECT_SUBDIR = "05_photogrammetry-projects"
 METASHAPE_OUTPUT_SUBDIR = "06_photogrammetry-outputs"
+PHOTOGRAMMETRY_POSTPROCESSED_SUBDIR = "07_photogrammetry-outputs-postprocessed"
 
 # Handle difference in how the current directory is set between debugging and command line call
 if (file.exists("deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/projects-to-process.txt")) {
@@ -92,3 +93,10 @@ PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES = read_lines(PROJECTS_TO_PROCESS_RAW_
 PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES = PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES[!grepl("^#", PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES)]
 
 MISSIONS_TO_PROCESS_RAW_IMAGERY_FILES_LIST_PATH = file.path("deploy", "drone-imagery-ingestion", "02_raw-imagery-file-prep", "missions-to-process.csv")
+
+# For photogrammetry post-processing
+
+# What fraction of the system RAM can TERRA use. The terra default is 0.6, you cannot go above 0.9
+# without a warning.
+TERRA_MEMFRAC = 0.9
+OUTPUT_MAX_DIM = 800
