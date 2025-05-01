@@ -358,4 +358,7 @@ postprocess_photogrammetry = function(mission_id_foc) {
     "sudo rm -rf ", file.path(PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_SUBDIR, paste0(mission_id_foc, "_", run_id_foc, "_*"))
   )
   system(command)
+
+  # TODO: Also delete Metashape project?
+
 }
