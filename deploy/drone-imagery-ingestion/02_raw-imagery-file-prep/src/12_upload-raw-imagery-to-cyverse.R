@@ -1,7 +1,11 @@
 ## Purpose: Upload the data in the upload staging directory created in previous step to CyVerse.
 
 # IMPORTANT NOTE: You must have already authenticated irods with your CyVerse account on this
-# machine using iinit
+# machine using iinit. Note that by default, OFO dev instances come pre-authenticated for an
+# anonymous (read-only) user, so you will need to run the following lines (change the username to
+# yours) to authenticate as yourself and then type in your password when prompted
+## echo '{"irods_host": "data.cyverse.org", "irods_port": 1247, "irods_user_name": "djyoung", "irods_zone_name": "iplant"}' > /home/exouser/.irods/irods_environment.json; iinit
+
 
 upload_raw_imagery_to_cyverse = function(mission_id_foc) {
 
@@ -25,14 +29,14 @@ upload_raw_imagery_to_cyverse = function(mission_id_foc) {
   
   # Check if we got an error, and if so, retry up to 3 times
   tries = 0
-  while (result == 2 && tries < 3) {
+  while (result != 0 && tries < 3) {
     tries = tries + 1
     cat("\n **** Uploading raw imagery to CyVerse for mission", mission_id_foc, "failed. Retrying... (attempt", tries, ") **** \n")
     result = system(command)
   }
 
   # If we still got an upload error, print a warning and save to log and return false
-  if (result == 2) {
+  if (result != 0) {
     toprint = (paste(Sys.time(), "- Error uploading raw imagery to CyVerse for mission", mission_id_foc, "(all 3 tries failed).\n"))
     warning(toprint)
     write(toprint, file = UPLOAD_ERROR_LOG, append = TRUE)
