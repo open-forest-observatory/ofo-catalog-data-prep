@@ -2,6 +2,7 @@
 # paths to files/dirs for input/output data.
 
 library(tidyverse)
+library(unixtools) # To set tempdir during session
 
 # What is the padding width for the dataset ID in the folder names of the imagery folders to be ingested? (New format) This is used to
 # force the Baserow dataset ID column to conform to the image folder names, so this should reflect
@@ -19,16 +20,9 @@ THUMBNAIL_SIZE = "800"
 SKIP_EXISTING = FALSE # Skip processing for missions that already have all outputs
 
 
-# Handle difference in how the current directory is set between debugging and command line call
-if (file.exists("deploy/drone-imagery-ingestion/01_raw-imagery-metadata-prep/project-to-process.txt")) {
-  PROJECT_TO_PROCESS_RAW_IMAGERY_METADATA_FILEPATH = "deploy/drone-imagery-ingestion/01_raw-imagery-metadata-prep/project-to-process.txt"
-} else {
-  PROJECT_TO_PROCESS_RAW_IMAGERY_METADATA_FILEPATH = "project-to-process.txt"
-}
+PROJECT_TO_PROCESS_RAW_IMAGERY_METADATA_FILEPATH = "/ofo-share/catalog-data-prep/00_missions-to-process/01_raw-imagery-meatadata-prep/project-to-process.txt"
 PROJECT_NAME_TO_PROCESS_RAW_IMAGERY_METADATA = read_lines(PROJECT_TO_PROCESS_RAW_IMAGERY_METADATA_FILEPATH)
-
-MISSIONS_TO_PROCESS_RAW_IMAGERY_METADATA_LIST_PATH = file.path("deploy", "drone-imagery-ingestion", "01_raw-imagery-metadata-prep", "missions-to-process.csv")
-
+MISSIONS_TO_PROCESS_RAW_IMAGERY_METADATA_LIST_PATH = "/ofo-share/catalog-data-prep/00_missions-to-process/01_raw-imagery-meatadata-prep/missions-to-process.csv"
 
 CONTRIBUTED_IMAGERY_PATH = "/ofo-share/drone-imagery-organization/1_manually-cleaned"
 RAW_EXIF_PATH = "/ofo-share/drone-imagery-organization/metadata/1_reconciling-contributions/1_raw-exif/"
@@ -53,22 +47,12 @@ FULL_METADATA_PER_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata
 FULL_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/3_final/2_full-metadata-per-sub-mission/"
 
 
-
-
-# Handle difference in how the current directory is set between debugging and command line call
-if (file.exists("deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/projects-to-process.txt")) {
-  PROJECTS_TO_PROCESS_RAW_IMAGERY_FILES_FILEPATH = "deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/projects-to-process.txt"
-} else {
-  PROJECTS_TO_PROCESS_RAW_IMAGERY_FILES_FILEPATH = "projects-to-process.txt"
-}
-PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES = read_lines(PROJECTS_TO_PROCESS_RAW_IMAGERY_FILES_FILEPATH)
-# Remove any project names starting in "#" (commented out)
+PROJECT_TO_PROCESS_RAW_IMAGERY_FILES_FILEPATH = "/ofo-share/catalog-data-prep/00_missions-to-process/02_raw-imagery-file-prep/projects-to-process.txt"
+PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES = read_lines(PROJECT_TO_PROCESS_RAW_IMAGERY_FILES_FILEPATH)
+# Exclude "commented out" project names
 PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES = PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES[!grepl("^#", PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES)]
 
-MISSIONS_TO_PROCESS_RAW_IMAGERY_FILES_LIST_PATH = file.path("deploy", "drone-imagery-ingestion", "02_raw-imagery-file-prep", "missions-to-process.csv")
-
-
-
+MISSIONS_TO_PROCESS_RAW_IMAGERY_FILES_LIST_PATH = "/ofo-share/catalog-data-prep/00_missions-to-process/02_raw-imagery-file-prep/missions-to-process.csv"
 
 
 
@@ -87,17 +71,13 @@ CYVERSE_MISSIONS_DIR = paste0("/iplant/home/shared/ofo/public/missions_05/")
 UPLOAD_ERROR_LOG = "/ofo-share/drone-imagery-organization/temp/cyverse-upload-log.txt"
 
 
-# Handle difference in how the current directory is set between debugging and command line call
-if (file.exists("deploy/drone-imagery-ingestion/03_photogrammetry/projects-to-process.txt")) {
-  PROJECTS_TO_PROCESS_PHOTOGRAMMETRY_FILEPATH = "deploy/drone-imagery-ingestion/03_photogrammetry/projects-to-process.txt"
-} else {
-  PROJECTS_TO_PROCESS_PHOTOGRAMMETRY_FILEPATH = "projects-to-process.txt"
-}
+PROJECTS_TO_PROCESS_PHOTOGRAMMETRY_FILEPATH = "/ofo-share/catalog-data-prep/00_missions-to-process/03_photogrammetry/projects-to-process.txt"
 PROJECT_NAMES_TO_PROCESS_PHOTOGRAMMETRY = read_lines(PROJECTS_TO_PROCESS_PHOTOGRAMMETRY_FILEPATH)
-# Remove any project names starting in "#" (commented out)
+# Exclude "commented out" project names
 PROJECT_NAMES_TO_PROCESS_PHOTOGRAMMETRY = PROJECT_NAMES_TO_PROCESS_PHOTOGRAMMETRY[!grepl("^#", PROJECT_NAMES_TO_PROCESS_PHOTOGRAMMETRY)]
 
-MISSIONS_TO_PROCESS_PHOTOGRAMMETRY_LIST_PATH = file.path("deploy", "drone-imagery-ingestion", "03_photogrammetry", "missions-to-process.csv")
+MISSIONS_TO_PROCESS_PHOTOGRAMMETRY_LIST_PATH = "/ofo-share/catalog-data-prep/00_missions-to-process/03_photogrammetry/missions-to-process.csv"
+
 
 
 
@@ -122,3 +102,13 @@ PHOTOGRAMMETRY_POSTPROCESSED_SUBDIR = "07_photogrammetry-outputs-postprocessed"
 # without a warning.
 TERRA_MEMFRAC = 0.9
 OUTPUT_MAX_DIM = 800
+
+TEMPDIR = "/ofo-share/tmp/data-catalog-prep/"
+
+## Some setup that should apply to any scripts we run
+
+terra::terraOptions(memfrac = TERRA_MEMFRAC)
+
+# Set the tempdir
+unixtools::set.tempdir(TEMPDIR)
+cat("Tempdir is:", tempdir(), "\n")
