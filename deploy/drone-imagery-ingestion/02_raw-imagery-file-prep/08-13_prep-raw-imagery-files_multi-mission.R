@@ -1,5 +1,12 @@
 # Purpose: Run the imagery prep steps 08 through 14 for a set of specified mission IDs.
 
+# IMPORTANT NOTE: You must have already authenticated irods with your CyVerse account on this
+# machine using iinit. Note that by default, OFO dev instances come pre-authenticated for an
+# anonymous (read-only) user, so you will need to run the following lines (change the username to
+# yours) to authenticate as yourself and then type in your password when prompted
+## echo '{"irods_host": "data.cyverse.org", "irods_port": 1247, "irods_user_name": "djyoung", "irods_zone_name": "iplant"}' > /home/exouser/.irods/irods_environment.json; iinit
+
+
 library(tidyverse)
 library(furrr)
 

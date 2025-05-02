@@ -4,6 +4,13 @@
 # file paths) and will result in the final curated set of raw imagery (zipped) and associated metada for
 # the mission uploaded to the cyverse data store.
 
+# IMPORTANT NOTE: You must have already authenticated irods with your CyVerse account on this
+# machine using iinit. Note that by default, OFO dev instances come pre-authenticated for an
+# anonymous (read-only) user, so you will need to run the following lines (change the username to
+# yours) to authenticate as yourself and then type in your password when prompted
+## echo '{"irods_host": "data.cyverse.org", "irods_port": 1247, "irods_user_name": "djyoung", "irods_zone_name": "iplant"}' > /home/exouser/.irods/irods_environment.json; iinit
+
+
 library(tidyverse)
 
 source("deploy/drone-imagery-ingestion/00_set-constants.R")
