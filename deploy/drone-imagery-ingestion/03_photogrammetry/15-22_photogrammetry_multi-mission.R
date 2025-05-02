@@ -1,11 +1,17 @@
 # Purpose: Run the imagery prep steps 08 through 14 for a set of specified mission IDs.
 
+# IMPORTANT NOTE: You must have already authenticated irods with your CyVerse account on this
+# machine using iinit. Note that by default, OFO dev instances come pre-authenticated for an
+# anonymous (read-only) user, so you will need to run the following lines (change the username to
+# yours) to authenticate as yourself and then type in your password when prompted
+## echo '{"irods_host": "data.cyverse.org", "irods_port": 1247, "irods_user_name": "djyoung", "irods_zone_name": "iplant"}' > /home/exouser/.irods/irods_environment.json; iinit
+
 library(tidyverse)
 library(furrr)
 
 source("deploy/drone-imagery-ingestion/00_set-constants.R")
 
-# Load the function that calls steps 08 through 14 for a specified mission ID
+# Load the function that calls steps 15-22 for a specified mission ID
 source("deploy/drone-imagery-ingestion/03_photogrammetry/15-22_photogrammetry_per-mission.R")
 
 # Determine the missions to process. This depends on having set the project name in the file
@@ -19,8 +25,8 @@ missions_to_process = read_csv(MISSIONS_TO_PROCESS_PHOTOGRAMMETRY_LIST_PATH) |> 
 # the final check revealed some missions were completed all the way through to cyverse upload
 # missions_to_process = c("000162", "000186")
 
-missions_to_process = c("000574", "000565", "000570", missions_to_process)
-missions_to_process = missions_to_process[!duplicated(missions_to_process)]
+# missions_to_process = c("000574", "000565", "000570", missions_to_process)
+# missions_to_process = missions_to_process[!duplicated(missions_to_process)]
 
 purrr::walk(
   missions_to_process,
@@ -28,77 +34,62 @@ purrr::walk(
   .progress = TRUE
 )
 
+# Of the missions_to_process, see which (if any) have not been uploaded (based on which ones still
+# have local files -- since a successful upload is followed by local deletion) and return a vector
+# of those mission IDs for re-upload.
+get_unuploaded_missions = function(missions_to_process) {
+  local_postprocessed_folders = list.files(
+    path = file.path(
+      PHOTOGRAMMETRY_DIR,
+      PHOTOGRAMMETRY_POSTPROCESSED_SUBDIR
+    ),
+    pattern = "^processed_",
+    full.names = FALSE,
+    recursive = TRUE,
+    include.dirs = TRUE
+  )
 
-# ######## Check uploaded files to ensure all are present and return a vector of missing mission IDs
-# # for re-processing
-# ########
+  # Extract the mission_id and run_id from the returned folder names, which have the format
+  # {mission_id}/processed_{run_id}
 
-# # Example images
-# coll_name = shQuote(paste0(CYVERSE_MISSIONS_DIR, "______/images/examples/%"))
-# data_name = shQuote("example\\__.JPG")
-# call = paste0("iquest --no-page '%s/%s' \"select COLL_NAME, DATA_NAME where COLL_NAME like ", coll_name, " and DATA_NAME like ", data_name, "\"")
-# example_images = system(call, intern = TRUE)
+  folder_parts = str_split(local_postprocessed_folders, "/")
+  mission_ids = map_chr(folder_parts, 1)
+  run_ids = map_chr(folder_parts, 2) |> str_remove("processed_")
+  local_mission_and_run = data.frame(
+    mission_id = mission_ids,
+    run_id = run_ids
+  )
 
-# # Image zip
-# coll_name = shQuote(paste0(CYVERSE_MISSIONS_DIR, "______/images"))
-# data_name = shQuote("______\\_images.zip")
-# call = paste0("iquest --no-page '%s/%s' \"select COLL_NAME, DATA_NAME where COLL_NAME like ", coll_name, " and DATA_NAME like ", data_name, "\"")
-# zip_images = system(call, intern = TRUE)
+  # Which mission IDs are still present locally?
+  unuploaded_missions = local_mission_and_run |>
+    filter((mission_id %in% missions_to_process))
 
-# # Metadata images
-# coll_name = shQuote(paste0(CYVERSE_MISSIONS_DIR, "______/metadata-images"))
-# data_name = shQuote("______\\_image-metadata.gpkg")
-# call = paste0("iquest --no-page '%s/%s' \"select COLL_NAME, DATA_NAME where COLL_NAME like ", coll_name, " and DATA_NAME like ", data_name, "\"")
-# metadata_images = system(call, intern = TRUE)
+  return(unuploaded_missions)
+}
 
-# # Metadata missions
-# coll_name = shQuote(paste0(CYVERSE_MISSIONS_DIR, "______/metadata-mission"))
-# data_name = shQuote("______\\_mission-metadata.gpkg")
-# call = paste0("iquest --no-page '%s/%s' \"select COLL_NAME, DATA_NAME where COLL_NAME like ", coll_name, " and DATA_NAME like ", data_name, "\"")
-# metadata_missions = system(call, intern = TRUE)
 
-# # For each of these, get the mission ID as the 6 digit number in the file path
-# mission_id_example_images = str_extract(example_images, "/[0-9]{6}/") |> str_remove_all("/")
-# mission_id_zip_images = str_extract(zip_images, "/[0-9]{6}/") |> str_remove_all("/")
-# mission_id_metadata_images = str_extract(metadata_images, "/[0-9]{6}/") |> str_remove_all("/")
-# mission_id_metadata_missions = str_extract(metadata_missions, "/[0-9]{6}/") |> str_remove_all("/")
+# Get the unuploaded missions
+unuploaded_missions = get_unuploaded_missions(missions_to_process)
 
-# df_of_mission_id_count = function(mission_ids, count_col_name) {
-#   table = table(mission_ids) |> as.data.frame(stringsAsFactors = FALSE)
-#   colnames(table) = c("mission_id", count_col_name)
-#   return(table)
-# }
+# Re-attempt upload of the unuploaded missions
+if (nrow(unuploaded_missions) > 0) {
+  cat("\n\n **** Re-attempting upload of unuploaded missions **** \n")
+  for (i in 1:nrow(unuploaded_missions)) {
+    mission_id = unuploaded_missions$mission_id[i]
+    run_id = unuploaded_missions$run_id[i]
+    upload_postprocessed_photogrammetry_to_cyverse(mission_id, run_id)
+  }
+} else {
+  cat("\n\n **** All missions have been uploaded successfully. **** \n")
+}
 
-# # There should be 1 file for each mission ID, except 8 for the example images. So, summarize each
-# # into a table
-# mission_id_table_example_images = df_of_mission_id_count(mission_id_example_images, count_col_name = "example_images")
-# mission_id_table_zip_images = df_of_mission_id_count(mission_id_zip_images, count_col_name = "zip_images")
-# mission_id_table_metadata_images = df_of_mission_id_count(mission_id_metadata_images, count_col_name = "metadata_images")
-# mission_id_table_metadata_missions = df_of_mission_id_count(mission_id_metadata_missions, count_col_name = "metadata_missions")
+# Are there still any unuploaded missions? If so, print a warning and `dput` the data frame of
+# unuploaded missions.
 
-# # Comine the tables into one with a series of left_joins
-# mission_id_counts = purrr::reduce(
-#   list(
-#     mission_id_table_example_images,
-#     mission_id_table_zip_images,
-#     mission_id_table_metadata_images,
-#     mission_id_table_metadata_missions
-#   ),
-#   dplyr::left_join,
-#   by = 'mission_id'
-# )
-
-# # Check the counts
-# partially_missing_mission_ids = mission_id_counts |>
-#   filter(example_images != 8 | zip_images != 1 | metadata_images != 1 | metadata_missions != 1) |>
-#   pull(mission_id)
-
-# # Make sure every mission is represented
-# fully_missing_mission_ids = setdiff(missions_to_process, mission_id_counts$mission_id)
-
-# missing_mission_ids = c(partially_missing_mission_ids, fully_missing_mission_ids)
-
-# if (length(missing_mission_ids) > 0) {
-#   cat("Some missions failed to upload some or all files. Here's a dput of the missing mission IDs so they can be re-run.\n")
-#   dput(missing_mission_ids)
-# }
+if (nrow(unuploaded_missions) > 0) {
+  cat(
+    "\n\n **** WARNING: The following missions were still not uploaded successfully after a second attempt:",
+    paste(unuploaded_missions$mission_id, collapse = ", "),
+    " **** \n")
+  dput(unuploaded_missions)
+}

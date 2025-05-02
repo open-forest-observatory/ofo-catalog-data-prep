@@ -16,10 +16,6 @@ source("src/utils.R")
 
 ## Workflow
 
-terra::terraOptions(memfrac = TERRA_MEMFRAC)
-
-
-
 # Function to crop raster to mission polygon and write as COG
 crop_raster_save_cog = function(raster_filepath_foc, mission_polygon, output_path) {
 
@@ -119,18 +115,18 @@ postprocess_photogrammetry = function(mission_id_foc) {
     mission_id_foc, "_mission-metadata.gpkg"
   )
 
-  tempfile = tempfile(fileext = ".gpkg")
+  polygon_tempfile = tempfile(fileext = ".gpkg")
 
   download.file(
     url = cyverse_url,
-    destfile = tempfile,
+    destfile = polygon_tempfile,
     method = "curl",
     extra = "-L" # Follow redirects
   )
 
   # Confirm that file download worked
-  if (file.exists(tempfile)) {
-    size = file.info(tempfile)$size
+  if (file.exists(polygon_tempfile)) {
+    size = file.info(polygon_tempfile)$size
 
     if (size < 5000) {
       warning("Downloaded mission polygon file is too small (is it an error message?) for mission: ", mission_id_foc)
@@ -141,7 +137,7 @@ postprocess_photogrammetry = function(mission_id_foc) {
       return(FALSE)
   }
 
-  mission_polygon = st_read(tempfile)
+  mission_polygon = st_read(polygon_tempfile)
 
 
   ## Crop DSMs, DTM, ortho to mission polygon and write as COG
@@ -352,13 +348,46 @@ postprocess_photogrammetry = function(mission_id_foc) {
     dev.off()
   }
 
+  ## Delete the intermediate files no longer needed
+  
+  # TODO: Consider breaking out the deletion steps below into a separate function(s); some (the ones
+  # that delete the photogrammetry inputs) can come even sooner than here.
 
-  # Delete the files from this mission * processing_run from the photogrammetry-outputs folder
+  # Delete the files from this mission * processing_run from the photogrammetry-outputs folder. Need
+  # to run this as a system command with sudo in case the files were owned by root due to being
+  # created by Docker.
   command = paste0(
-    "sudo rm -rf ", file.path(PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_SUBDIR, paste0(mission_id_foc, "_", run_id_foc, "_*"))
+    "sudo rm -rf ",
+    file.path(
+      PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_SUBDIR,
+      paste0(mission_id_foc, "_", run_id_foc, "_*")
+    )
   )
   system(command)
 
-  # TODO: Also delete Metashape project?
+  # Delete Metashape project. Need to run this as a system command with sudo in case the files were
+  # owned by root due to being created by Docker.
+  command = paste0(
+    "sudo rm -rf ",
+    file.path(
+      PHOTOGRAMMETRY_DIR, METASHAPE_PROJECT_SUBDIR,
+      paste0(mission_id_foc, "_", run_id_foc, "*")
+    )
+  )
+  system(command)
+
+
+  # Delete the mission polygon tempfile
+  file.remove(polygon_tempfile)
+
+  # Delete the downloaded zip file of images and the unzipped folder of images.
+  zip_to_delete = file.path(PHOTOGRAMMETRY_DIR, DOWNLOADED_IMAGERY_ZIP_SUBDIR, 
+                             paste0(mission_id_foc, "_images.zip"))
+  file.remove(zip_to_delete)
+  folder_to_delete = file.path(PHOTOGRAMMETRY_DIR, INPUT_IMAGES_SUBDIR, mission_id_foc)
+  unlink(folder_to_delete, recursive = TRUE)
+
+  ## Return the processing_id so next function can: Upload the post-processed files to CyVerse
+  return(run_id_foc)
 
 }
