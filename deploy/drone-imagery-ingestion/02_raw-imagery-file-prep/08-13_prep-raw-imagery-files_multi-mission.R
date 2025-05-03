@@ -27,7 +27,7 @@ missions_to_process = read_csv(MISSIONS_TO_PROCESS_RAW_IMAGERY_FILES_LIST_PATH) 
 # the final check revealed some missions were completed all the way through to cyverse upload
 # missions_to_process = c("000162", "000186")
 
-future::plan(multicore, workers = 16) # Hard-coded as max that will avoid exceeding cyverse rate limit
+future::plan(multicore, workers = 12) # Hard-coded as max that should avoid exceeding cyverse rate limit
 
 furrr::future_map(
   missions_to_process,
