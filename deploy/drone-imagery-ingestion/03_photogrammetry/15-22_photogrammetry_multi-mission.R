@@ -14,7 +14,7 @@ source("deploy/drone-imagery-ingestion/00_set-constants.R")
 # Load the function that calls steps 15-22 for a specified mission ID
 source("deploy/drone-imagery-ingestion/03_photogrammetry/15-22_photogrammetry_per-mission.R")
 
-# Determine the missions to process. This depends on having set the project name in the file
+# Run this once per processing run: Determine the missions to process. This depends on having set the project name in the file
 # "imagery-project-to-process-raw-imagery-metadata.txt". It puts the list of missions to process in the file
 # "missions-to-process.csv". Note that the script that is sourced here does not define a function,
 # it actually runds the code complete the task described in this comment.
