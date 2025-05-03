@@ -6,6 +6,7 @@
 # yours) to authenticate as yourself and then type in your password when prompted
 ## echo '{"irods_host": "data.cyverse.org", "irods_port": 1247, "irods_user_name": "djyoung", "irods_zone_name": "iplant"}' > /home/exouser/.irods/irods_environment.json; iinit
 
+# NOTE: Requires 'exiftool' be installed.
 
 library(tidyverse)
 library(furrr)
