@@ -9,6 +9,7 @@ library(tidyverse)
 library(purrr)
 
 source("deploy/drone-imagery-ingestion/00_set-constants.R")
+source("src/utils.R")
 
 get_missions_per_project = function(project_name) {
 
@@ -31,3 +32,16 @@ missions_to_process_df = map_df(PROJECT_NAMES_TO_PROCESS_PHOTOGRAMMETRY, get_mis
 
 # Write
 write_csv(missions_to_process_df, MISSIONS_TO_PROCESS_PHOTOGRAMMETRY_LIST_PATH)
+
+## As an alternative, break into chunks and write to a separate file per chunk
+create_dir(file.path(MISSIONS_TO_PROCESS_PHOTOGRAMMETRY_PATH, "chunks"))
+
+chunks = chunk_up_collate(missions_to_process_df$mission_id, N_CHUNKS_PHOTOGRAMMETRY)
+
+for (i in seq_along(chunks)) {
+  chunk = chunks[[i]]
+  chunk_df = data.frame(mission_id = chunk)
+  chunk_filename = paste0("missions-to-process_", i, ".csv")
+  chunk_filepath = file.path(MISSIONS_TO_PROCESS_PHOTOGRAMMETRY_PATH, "chunks", chunk_filename)
+  write_csv(chunk_df, chunk_filepath)
+}

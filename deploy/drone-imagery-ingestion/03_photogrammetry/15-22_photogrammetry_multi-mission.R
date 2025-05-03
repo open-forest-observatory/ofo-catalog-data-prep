@@ -19,12 +19,24 @@ source("deploy/drone-imagery-ingestion/03_photogrammetry/15-22_photogrammetry_pe
 # "missions-to-process.csv". Note that the script that is sourced here does not define a function,
 # it actually runds the code complete the task described in this comment.
 source("deploy/drone-imagery-ingestion/03_photogrammetry/16_determine-missions-to-process.R")
-missions_to_process = read_csv(MISSIONS_TO_PROCESS_PHOTOGRAMMETRY_LIST_PATH) |> pull(mission_id)
 
-# Use (and update) this if you want to override the missions to process determined above, such as if
-# the final check revealed some missions were completed all the way through to cyverse upload
-# missions_to_process = c("000162", "000186")
+# If there is a command line arg, use that as the chunk of missions to process and load the list of
+# mission IDs in that chunk
+args = commandArgs(trailingOnly = TRUE)
+chunk = args[1]
+cat("Processing chunk ", chunk, "\n")
 
+if (!is.na(chunk)) {
+  # Read the chunk file
+  chunk_filepath = file.path(MISSIONS_TO_PROCESS_PHOTOGRAMMETRY_PATH, "chunks", paste0("missions-to-process_", chunk, ".csv"))
+  missions_to_process = read_csv(chunk_filepath) |> pull(mission_id)
+} else {
+  # If no chunk is specified, use all the missions to process
+  missions_to_process = read_csv(MISSIONS_TO_PROCESS_PHOTOGRAMMETRY_LIST_PATH) |> pull(mission_id)
+}
+
+# Use (and update) the following if you want to override the missions to process determined above, such as if
+# the final check revealed some missions were not completed
 # missions_to_process = c("000574", "000565", "000570", missions_to_process)
 # missions_to_process = missions_to_process[!duplicated(missions_to_process)]
 

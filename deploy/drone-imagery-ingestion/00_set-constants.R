@@ -77,6 +77,7 @@ PROJECT_NAMES_TO_PROCESS_PHOTOGRAMMETRY = read_lines(PROJECTS_TO_PROCESS_PHOTOGR
 PROJECT_NAMES_TO_PROCESS_PHOTOGRAMMETRY = PROJECT_NAMES_TO_PROCESS_PHOTOGRAMMETRY[!grepl("^#", PROJECT_NAMES_TO_PROCESS_PHOTOGRAMMETRY)]
 
 MISSIONS_TO_PROCESS_PHOTOGRAMMETRY_LIST_PATH = "/ofo-share/catalog-data-prep/00_missions-to-process/03_photogrammetry/missions-to-process.csv"
+MISSIONS_TO_PROCESS_PHOTOGRAMMETRY_PATH = "/ofo-share/catalog-data-prep/00_missions-to-process/03_photogrammetry"
 
 
 
@@ -95,6 +96,10 @@ DERIVED_METASHAPE_CONFIG_SUBDIR = "04_derived-metashape-configs/01"
 METASHAPE_PROJECT_SUBDIR = "05_photogrammetry-projects"
 METASHAPE_OUTPUT_SUBDIR = "06_photogrammetry-outputs"
 PHOTOGRAMMETRY_POSTPROCESSED_SUBDIR = "07_photogrammetry-outputs-postprocessed"
+
+# The number of chunks to break the photogrammetry processing into (one chunk for each instance)
+N_CHUNKS_PHOTOGRAMMETRY = 10
+
 
 # For photogrammetry post-processing
 

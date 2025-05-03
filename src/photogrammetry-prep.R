@@ -119,3 +119,17 @@ make_derived_configs = function(base_yaml_filepath,
 
 # Convenience function to split a vector x into n chunks
 chunk_up = function(x, n) split(x, cut(seq_along(x), n, labels = FALSE))
+
+# Alternative approach that "collates" or deals out the vector into chunks sequentially
+chunk_up_collate = function(x, n) {
+  # Create a list to hold the chunks
+  chunks = vector("list", n)
+
+  # Loop through the elements of x and assign them to the chunks
+  for (i in seq_along(x)) {
+    chunk_index = (i - 1) %% n + 1
+    chunks[[chunk_index]] = c(chunks[[chunk_index]], x[i])
+  }
+
+  return(chunks)
+}
