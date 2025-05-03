@@ -10,6 +10,7 @@ library(purrr)
 
 source("deploy/drone-imagery-ingestion/00_set-constants.R")
 source("src/utils.R")
+source("src/photogrammetry-prep.R")
 
 get_missions_per_project = function(project_name) {
 
