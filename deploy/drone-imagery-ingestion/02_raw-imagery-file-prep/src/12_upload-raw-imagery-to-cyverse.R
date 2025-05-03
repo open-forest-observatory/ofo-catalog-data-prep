@@ -27,17 +27,18 @@ upload_raw_imagery_to_cyverse = function(mission_id_foc) {
   result = system(command)
   # With intern = FALSE (default), the result is the return code (0 for success, 2 for failure)
   
-  # Check if we got an error, and if so, retry up to 3 times
+  # Check if we got an error, and if so, retry up to 10 times, waiting 1 minute between each
   tries = 0
-  while (result != 0 && tries < 3) {
+  while (result != 0 && tries < 10) {
     tries = tries + 1
+    Sys.sleep(60) # Wait 1 minute before retrying
     cat("\n **** Uploading raw imagery to CyVerse for mission", mission_id_foc, "failed. Retrying... (attempt", tries, ") **** \n")
     result = system(command)
   }
 
   # If we still got an upload error, print a warning and save to log and return false
   if (result != 0) {
-    toprint = (paste(Sys.time(), "- Error uploading raw imagery to CyVerse for mission", mission_id_foc, "(all 3 tries failed).\n"))
+    toprint = (paste(Sys.time(), "- Error uploading raw imagery to CyVerse for mission", mission_id_foc, "(all 10 tries failed).\n"))
     warning(toprint)
     write(toprint, file = UPLOAD_ERROR_LOG, append = TRUE)
     return(FALSE)
