@@ -2,14 +2,10 @@
 # input) the contributor-provided raw imagery folder and parsed metadata at the mission level
 # (including which images belong with which mission and sub-mission and their source and destination
 # file paths) and will result in the final curated set of raw imagery (zipped) and associated metada for
-# the mission uploaded to the cyverse data store.
+# the mission uploaded to the remote object store.
 
-# IMPORTANT NOTE: You must have already authenticated irods with your CyVerse account on this
-# machine using iinit. Note that by default, OFO dev instances come pre-authenticated for an
-# anonymous (read-only) user, so you will need to run the following lines (change the username to
-# yours) to authenticate as yourself and then type in your password when prompted
-## echo '{"irods_host": "data.cyverse.org", "irods_port": 1247, "irods_user_name": "djyoung", "irods_zone_name": "iplant"}' > /home/exouser/.irods/irods_environment.json; iinit
-
+# IMPORTANT NOTE: You must have already configure an rclone remote on this machine for the object
+# store. See the upload task source script for details.
 
 library(tidyverse)
 
@@ -20,7 +16,7 @@ source("deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/src/08_copy-imag
 source("deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/src/09_fix-exif.R")
 source("deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/src/10_raw-imagery-thumbnails-and-zip.R")
 source("deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/src/11_copy-raw-imagery-to-upload-staging-dir.R")
-source("deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/src/12_upload-raw-imagery-to-cyverse.R")
+source("deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/src/12_upload-raw-imagery-to-object-store.R")
 source("deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/src/13_delete-prepped-raw-imagery.R")
 
 
@@ -37,10 +33,16 @@ prep_raw_imagery_files_per_mission = function(mission_id_foc) {
   # }
 
   copy_mission_images(mission_id_foc)
-  fix_exif(mission_id_foc)
+  exif_success = fix_exif(mission_id_foc)
+
+  if (!exif_success) {
+    warning("EXIF fix failed for mission", mission_id_foc, ". Skipping remaining image file prep steps for this mission.\n")
+    return(FALSE)
+  }
+
   make_raw_imagery_thumbnails_and_zip(mission_id_foc)
   copy_raw_imagery_to_upload_staging_dir(mission_id_foc)
-  upload_raw_imagery_to_cyverse(mission_id_foc)
+  upload_raw_imagery_to_object_store(mission_id_foc)
   delete_prepped_raw_imagery(mission_id_foc)
 
   return(TRUE)

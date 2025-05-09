@@ -1,6 +1,8 @@
 # Purpose: set global constants for the imagery data processing pipeline. They mostly consist of
 # paths to files/dirs for input/output data.
 
+# nolint start
+
 library(tidyverse)
 library(unixtools) # To set tempdir during session
 
@@ -24,27 +26,27 @@ PROJECT_TO_PROCESS_RAW_IMAGERY_METADATA_FILEPATH = "/ofo-share/catalog-data-prep
 PROJECT_NAME_TO_PROCESS_RAW_IMAGERY_METADATA = read_lines(PROJECT_TO_PROCESS_RAW_IMAGERY_METADATA_FILEPATH)
 MISSIONS_TO_PROCESS_RAW_IMAGERY_METADATA_LIST_PATH = "/ofo-share/catalog-data-prep/00_missions-to-process/01_raw-imagery-meatadata-prep/missions-to-process.csv"
 
-CONTRIBUTED_IMAGERY_PATH = "/ofo-share/drone-imagery-organization/1_manually-cleaned"
-RAW_EXIF_PATH = "/ofo-share/drone-imagery-organization/metadata/1_reconciling-contributions/1_raw-exif/"
+CONTRIBUTED_IMAGERY_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/1_manually-cleaned"
+RAW_EXIF_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/1_reconciling-contributions/1_raw-exif/"
 
-CONTRIBUTED_METADATA_PATH = "/ofo-share/drone-imagery-organization/ancillary/baserow-snapshots"
+CONTRIBUTED_METADATA_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/ancillary/baserow-snapshots"
 
-CONTRIBUTED_TO_SORTED_MISSION_ID_CROSSWALK_PATH = "/ofo-share/drone-imagery-organization/metadata/1_reconciling-contributions/3_contributed-to-sorted-id-crosswalk/"
+CONTRIBUTED_TO_SORTED_MISSION_ID_CROSSWALK_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/1_reconciling-contributions/3_contributed-to-sorted-id-crosswalk/"
 
-IMAGE_EXIF_W_SORTING_PLAN_PATH = "/ofo-share/drone-imagery-organization/metadata/1_reconciling-contributions/2_exif-w-sorting-plan/"
+IMAGE_EXIF_W_SORTING_PLAN_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/1_reconciling-contributions/2_exif-w-sorting-plan/"
 
 # Should be "conributed"
-EXTRACTED_METADATA_PER_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/1_contributed-metadata-per-mission/"
-EXTRACTED_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/2_contributed-metadata-per-sub-mission/"
+EXTRACTED_METADATA_PER_MISSION_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/2_intermediate/1_contributed-metadata-per-mission/"
+EXTRACTED_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/2_intermediate/2_contributed-metadata-per-sub-mission/"
 
-PARSED_EXIF_METADATA_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/4_parsed-exif"
+PARSED_EXIF_METADATA_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/2_intermediate/4_parsed-exif"
 
-PARSED_EXIF_FOR_RETAINED_IMAGES_PATH = "/ofo-share/drone-imagery-organization/metadata/3_final/3_parsed-exif-per-image"
-DERIVED_METADATA_PER_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/6_derived-metadata-per-mission"
-DERIVED_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/2_intermediate/7_derived-metadata-per-sub-mission"
+PARSED_EXIF_FOR_RETAINED_IMAGES_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/3_final/3_parsed-exif-per-image"
+DERIVED_METADATA_PER_MISSION_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/2_intermediate/6_derived-metadata-per-mission"
+DERIVED_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/2_intermediate/7_derived-metadata-per-sub-mission"
 
-FULL_METADATA_PER_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/3_final/1_full-metadata-per-mission/"
-FULL_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/drone-imagery-organization/metadata/3_final/2_full-metadata-per-sub-mission/"
+FULL_METADATA_PER_MISSION_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/3_final/1_full-metadata-per-mission/"
+FULL_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/3_final/2_full-metadata-per-sub-mission/"
 
 
 PROJECT_TO_PROCESS_RAW_IMAGERY_FILES_FILEPATH = "/ofo-share/catalog-data-prep/00_missions-to-process/02_raw-imagery-file-prep/projects-to-process.txt"
@@ -56,19 +58,19 @@ MISSIONS_TO_PROCESS_RAW_IMAGERY_FILES_LIST_PATH = "/ofo-share/catalog-data-prep/
 
 
 
-SORTED_IMAGERY_PATH = "/ofo-share/drone-imagery-organization/2_sorted"
+SORTED_IMAGERY_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/2_sorted"
 
-IMAGERY_ZIP_AND_EXAMPLES_PATH = "/ofo-share/drone-imagery-organization/4_raw-imagery-zip-and-examples"
+IMAGERY_ZIP_AND_EXAMPLES_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/4_raw-imagery-zip-and-examples"
 
 IN_PROCESS_PATH = "/ofo-share/tmp/raw-imagery-publish-prep-progress-tracking/"
 
-UPLOAD_STAGING_DIR_PATH = "/ofo-share/drone-imagery-organization/9_temp-upload-staging"
+UPLOAD_STAGING_DIR_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/9_temp-upload-staging"
 
-# Remote patih in the CyVerse data store where all mission data is stored. Must end with a trailing
-# slash.
-CYVERSE_MISSIONS_DIR = paste0("/iplant/home/shared/ofo/public/missions_05/")
+# Name of configured rclone remote for object storage
+RCLONE_REMOTE = "js2s3"
+REMOTE_MISSIONS_DIR = "/ofo-public/drone/missions_01/"
 
-UPLOAD_ERROR_LOG = "/ofo-share/drone-imagery-organization/temp/cyverse-upload-log.txt"
+UPLOAD_ERROR_LOG = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/temp/cyverse-upload-log.txt"
 
 
 PROJECTS_TO_PROCESS_PHOTOGRAMMETRY_FILEPATH = "/ofo-share/catalog-data-prep/00_missions-to-process/03_photogrammetry/projects-to-process.txt"
@@ -89,16 +91,21 @@ AUTOMATE_METASHAPE_PATH = "/ofo-share/repos-derek/automate-metashape"
 PHOTOGRAMMETRY_DIR = "/ofo-share/catalog-data-prep/02_photogrammetry"
 
 # All of these are relative to PHOTOGRAMMETRY_DIR:
-BASE_METASHAPE_CONFIG_FILE_SUBPATH = "01_base-metashape-config/base_01.yml"
+BASE_METASHAPE_CONFIG_SUBPATH = "01_base-metashape-config"
 DOWNLOADED_IMAGERY_ZIP_SUBDIR = "02_downloaded-imagery-zip"
 INPUT_IMAGES_SUBDIR = "03_input-images"
-DERIVED_METASHAPE_CONFIG_SUBDIR = "04_derived-metashape-configs/01"
+DERIVED_METASHAPE_CONFIG_SUBDIR = "04_derived-metashape-configs"
 METASHAPE_PROJECT_SUBDIR = "05_photogrammetry-projects"
 METASHAPE_OUTPUT_SUBDIR = "06_photogrammetry-outputs"
 PHOTOGRAMMETRY_POSTPROCESSED_SUBDIR = "07_photogrammetry-outputs-postprocessed"
 
+# The photogrammetry base config file in BASE_METASHAPE_CONFIG_SUBPATH should have the following ID
+# as its filename (with a .yml extension)
+PHOTOGRAMMETRY_CONFIG_ID = "01"
+
 # The number of chunks to break the photogrammetry processing into (one chunk for each instance)
-N_CHUNKS_PHOTOGRAMMETRY = 10
+N_CHUNKS_PHOTOGRAMMETRY = 12
+
 
 
 # For photogrammetry post-processing
@@ -117,3 +124,5 @@ terra::terraOptions(memfrac = TERRA_MEMFRAC)
 # Set the tempdir
 unixtools::set.tempdir(TEMPDIR)
 cat("Tempdir is:", tempdir(), "\n")
+
+# nolint end

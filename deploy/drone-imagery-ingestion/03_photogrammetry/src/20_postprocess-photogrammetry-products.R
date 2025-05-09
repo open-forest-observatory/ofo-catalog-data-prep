@@ -56,48 +56,37 @@ make_chm = function(dsm_filepath_foc, dtm_filepath_foc) {
 }
 
 
-postprocess_photogrammetry = function(mission_id_foc) {
+postprocess_photogrammetry = function(mission_id_foc, config_id_foc) {
 
   # Change ownership of all these files to the current user
   command = paste0(
     "sudo chown ", Sys.getenv("USER"), " ",
-    file.path(PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_SUBDIR, paste0(mission_id_foc, "_*"))
+    file.path(PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_SUBDIR, paste0(mission_id_foc, "_", config_id_foc, "_*"))
   )
   system(command)
 
-  # Get the list of photogrammetry outputs from the most recent processing run of this mission. TODO:
-  # note that if the naming convention for the processing run ID changes, taking the `max` may not
-  # necessarily get the most recent run.
+  # Get the list of photogrammetry outputs from the specified processing run of this mission
+  # (config_id_foc)
 
-  output_filenames_allruns = list.files(
+  output_filenames = list.files(
     path = file.path(PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_SUBDIR),
-    pattern = paste0("^", mission_id_foc, "_")
+    pattern = paste0("^", mission_id_foc, "_", config_id_foc, "_"),
   )
 
-  output_files_allruns = data.frame(
-    output_filenames = output_filenames_allruns
+  output_files = data.frame(
+    output_filename = output_filenames
   )
 
-  # Extract the processing run ID from all products. The filename convention is
-  # <mission_id>_<processing_run_id>_<output_type>.<ext>
-  output_files_allruns = output_files_allruns |>
-    dplyr::mutate(run_id = str_split(output_filenames, "_") |> map(2) |> unlist()) |>
-    # Extract the extension
+  # Make a data frame with the product type and extension for each file
+  output_files = output_files |>
     dplyr::mutate(extension = str_split(output_filenames, "\\.") |> map(2) |> unlist()) |>
     dplyr::mutate(type = str_split(output_filenames, "_") |> map(3) |> unlist()) |>
     dplyr::mutate(type = str_split(type, "\\.") |> map(1) |> unlist())
 
-  # The highest value is the most recent processing run
-  run_id_foc = max(output_files_allruns$run_id)
-
-  # Get the list of files in the most recent run. These are the ones to post-process.
-  output_files_foc = output_files_allruns |>
-    dplyr::filter(run_id == run_id_foc)
-
   # Create output folder
   output_path = file.path(
     PHOTOGRAMMETRY_DIR, PHOTOGRAMMETRY_POSTPROCESSED_SUBDIR,
-    mission_id_foc, paste0("processed_", run_id_foc)
+    mission_id_foc, paste0("processed_", config_id_foc)
   )
 
   # Create the output file dirs
@@ -105,28 +94,15 @@ postprocess_photogrammetry = function(mission_id_foc) {
   create_dir(file.path(output_path, "full"))
   create_dir(file.path(output_path, "thumbnails"))
 
-
-  ## Get the mission polygon (for cropping) by downloading from cyverse
-
-  cyverse_url = paste0(
-    "https://data.cyverse.org/dav-anon/",
-    CYVERSE_MISSIONS_DIR, mission_id_foc,
-    "/metadata-mission/",
-    mission_id_foc, "_mission-metadata.gpkg"
-  )
-
-  polygon_tempfile = tempfile(fileext = ".gpkg")
-
-  download.file(
-    url = cyverse_url,
-    destfile = polygon_tempfile,
-    method = "curl",
-    extra = "-L" # Follow redirects
-  )
+  ## Get the mission polygon (for cropping) by downloading from Object Store
+  polygon_temp_file = tempfile(fileext = ".gpkg")
+  remote_file = paste0(RCLONE_REMOTE, ":", REMOTE_MISSIONS_DIR, mission_id_foc, "/metadata-mission/", mission_id_foc, "_mission-metadata.gpkg")
+  command = paste("rclone copyto", remote_file, polygon_temp_file, "--progress --transfers 32 --checkers 32 --stats 1s --retries 5 --retries-sleep=15s --s3-upload-cutoff 100Mi --s3-chunk-size 100Mi --s3-upload-concurrency 16 --multi-thread-streams 2", sep = " ")
+  system(command)
 
   # Confirm that file download worked
-  if (file.exists(polygon_tempfile)) {
-    size = file.info(polygon_tempfile)$size
+  if (file.exists(polygon_temp_file)) {
+    size = file.info(polygon_temp_file)$size
 
     if (size < 5000) {
       warning("Downloaded mission polygon file is too small (is it an error message?) for mission: ", mission_id_foc)
@@ -137,23 +113,23 @@ postprocess_photogrammetry = function(mission_id_foc) {
       return(FALSE)
   }
 
-  mission_polygon = st_read(polygon_tempfile)
+  mission_polygon = st_read(polygon_temp_file)
 
 
   ## Crop DSMs, DTM, ortho to mission polygon and write as COG
 
-  rast_file_foc = output_files_foc |>
+  rast_files = output_files |>
     dplyr::filter(extension %in% c("tif", "tiff")) |>
-    dplyr::pull(output_filenames)
+    dplyr::pull(output_filename)
 
-  rast_filepath_foc = file.path(
+  rast_filepaths = file.path(
     PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_SUBDIR,
-    rast_file_foc
+    rast_files
   )
 
   # Apply the raster crop & write function to all the rasters
   purrr::walk(
-    rast_filepath_foc,
+    rast_filepaths,
     crop_raster_save_cog,
     output_path = output_path,
     mission_polygon = mission_polygon
@@ -162,32 +138,32 @@ postprocess_photogrammetry = function(mission_id_foc) {
   ## Make CHMs
 
   # Determine what would be the filepaths of the potential DSM and DTM files (if they exist):
-  dem_filepath_foc = output_files_foc |>
+  dem_filepaths = output_files |>
     dplyr::filter(extension %in% c("tif", "tiff")) |>
     dplyr::filter(type %in% c("dsm-ptcloud", "dsm-mesh", "dtm-ptcloud")) |>
     # Add the paths of the cropped, COG versions
     dplyr::mutate(full_filepath = file.path(
-      output_path, "full", output_filenames
+      output_path, "full", output_filename
     ))
 
   # If there is both a dsm-mesh and a dtm-ptcloud, make a chm-mesh
-  if("dsm-mesh" %in% dem_filepath_foc$type && 
-      "dtm-ptcloud" %in% dem_filepath_foc$type) {
+  if("dsm-mesh" %in% dem_filepaths$type &&
+       "dtm-ptcloud" %in% dem_filepaths$type) {
 
-    dsm_filepath_foc = dem_filepath_foc |>
+    dsm_filepaths = dem_filepaths |>
       dplyr::filter(type == "dsm-mesh") |>
       dplyr::pull(full_filepath)
 
-    dtm_filepath_foc = dem_filepath_foc |>
+    dtm_filepaths = dem_filepaths |>
       dplyr::filter(type == "dtm-ptcloud") |>
       dplyr::pull(full_filepath)
 
-    chm = make_chm(dsm_filepath_foc, dtm_filepath_foc)
+    chm = make_chm(dsm_filepaths, dtm_filepaths)
 
     # Write the CHM as a COG
     output_file_path = file.path(
       output_path, "full",
-      paste0(mission_id_foc, "_", run_id_foc, "_chm-mesh.tif")
+      paste0(mission_id_foc, "_", config_id_foc, "_chm-mesh.tif")
     )
 
     terra::writeRaster(
@@ -201,23 +177,23 @@ postprocess_photogrammetry = function(mission_id_foc) {
   }
 
   # If there is both a dsm-ptcloud and a dtm-ptcloud, make a chm-ptcloud
-  if("dsm-ptcloud" %in% dem_filepath_foc$type && 
-      "dtm-ptcloud" %in% dem_filepath_foc$type) {
+  if("dsm-ptcloud" %in% dem_filepaths$type && 
+      "dtm-ptcloud" %in% dem_filepaths$type) {
 
-    dsm_filepath_foc = dem_filepath_foc |>
+    dsm_filepaths = dem_filepaths |>
       dplyr::filter(type == "dsm-ptcloud") |>
       dplyr::pull(full_filepath)
 
-    dtm_filepath_foc = dem_filepath_foc |>
+    dtm_filepaths = dem_filepaths |>
       dplyr::filter(type == "dtm-ptcloud") |>
       dplyr::pull(full_filepath)
 
-    chm = make_chm(dsm_filepath_foc, dtm_filepath_foc)
+    chm = make_chm(dsm_filepaths, dtm_filepaths)
 
     # Write the CHM as a COG
     output_file_path = file.path(
       output_path, "full",
-      paste0(mission_id_foc, "_", run_id_foc, "_chm-ptcloud.tif")
+      paste0(mission_id_foc, "_", config_id_foc, "_chm-ptcloud.tif")
     )
 
     terra::writeRaster(
@@ -233,26 +209,26 @@ postprocess_photogrammetry = function(mission_id_foc) {
 
   ## Crop and save point cloud as COPC (if it exists)
 
-  if ("points" %in% output_files_foc$type) {
+  if ("points" %in% output_files$type) {
 
     # Get the file path of the point cloud
-    point_cloud_filename_foc = output_files_foc |>
+    point_cloud_filename = output_files |>
       dplyr::filter(type == "points") |>
-      dplyr::pull(output_filenames)
+      dplyr::pull(output_filename)
 
     # Just in case there is anomalously more than one, we will take the first
-    point_cloud_filename_foc = point_cloud_filename_foc[1]
+    point_cloud_filename = point_cloud_filename[1]
 
     # Get the full path of the point cloud
     input_filepath = file.path(
       PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_SUBDIR,
-      point_cloud_filename_foc
+      point_cloud_filename
     )
 
     # Get the output file path
     output_filepath = file.path(
       output_path, "full",
-      paste0(mission_id_foc, "_", run_id_foc, "_points.laz")
+      paste0(mission_id_foc, "_", config_id_foc, "_points.laz")
     )
 
     # Read the pointcloud
@@ -281,14 +257,14 @@ postprocess_photogrammetry = function(mission_id_foc) {
 
   # Copy any other files that are not raster or point clouds straight to the output folder. TODO:
   # Spatially clip the mesh to the mission polygon before copying.
-  other_files = output_files_foc |>
+  other_files = output_files |>
     dplyr::filter(!(extension %in% c("tif", "laz"))) |>
     dplyr::mutate(output_filepath_full = file.path(
-      output_path, "full", output_filenames
+      output_path, "full", output_filename
     )) |>
     dplyr::mutate(input_filepath_full = file.path(
       PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_SUBDIR,
-      output_filenames
+      output_filename
     ))
 
   file.link(
@@ -332,7 +308,7 @@ postprocess_photogrammetry = function(mission_id_foc) {
     # Make sure the background is transperant
     png(output_file, width = new_n_col, height = new_n_row, bg = "transparent")
 
-    # Determine whether this is scalar or RGB data
+    # Determine whether this is single-channel or RGB data
     n_lyr = terra::nlyr(raster)
     if (n_lyr == 1) {
       # The mar argument ensures that there is not an excessive white border around the image
@@ -360,7 +336,7 @@ postprocess_photogrammetry = function(mission_id_foc) {
     "sudo rm -rf ",
     file.path(
       PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_SUBDIR,
-      paste0(mission_id_foc, "_", run_id_foc, "_*")
+      paste0(mission_id_foc, "_", config_id_foc, "_*")
     )
   )
   system(command)
@@ -371,14 +347,14 @@ postprocess_photogrammetry = function(mission_id_foc) {
     "sudo rm -rf ",
     file.path(
       PHOTOGRAMMETRY_DIR, METASHAPE_PROJECT_SUBDIR,
-      paste0(mission_id_foc, "_", run_id_foc, "*")
+      paste0(mission_id_foc, "_", config_id_foc, "*")
     )
   )
   system(command)
 
 
   # Delete the mission polygon tempfile
-  file.remove(polygon_tempfile)
+  file.remove(polygon_temp_file)
 
   # Delete the downloaded zip file of images and the unzipped folder of images.
   zip_to_delete = file.path(PHOTOGRAMMETRY_DIR, DOWNLOADED_IMAGERY_ZIP_SUBDIR, 
@@ -388,6 +364,6 @@ postprocess_photogrammetry = function(mission_id_foc) {
   unlink(folder_to_delete, recursive = TRUE)
 
   ## Return the processing_id so next function can: Upload the post-processed files to CyVerse
-  return(run_id_foc)
+  return(TRUE)
 
 }

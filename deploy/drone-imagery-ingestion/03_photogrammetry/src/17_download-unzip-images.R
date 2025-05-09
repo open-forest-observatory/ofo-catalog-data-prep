@@ -12,28 +12,40 @@ download_unzip_images = function(mission_id_foc) {
     paste0(mission_id_foc, "_images.zip")
   )
 
-  # Make sure the destination exists
+  # Make sure the destination folder exists
   dir.create(dirname(zip_filepath), recursive = TRUE, showWarnings = FALSE)
 
 
-  # Option 1: Download over HTTP
+  # Download from the object store
 
-  cyverse_url = paste0(
-    "https://data.cyverse.org/dav-anon/",
-    CYVERSE_MISSIONS_DIR, mission_id_foc,
-    "/images/",
-    mission_id_foc, "_images.zip"
-  )
+  remote_file = paste0(RCLONE_REMOTE, ":", REMOTE_MISSIONS_DIR, mission_id_foc, "/images/", mission_id_foc, "_images.zip")
 
-  download.file(
-    url = cyverse_url,
-    destfile = zip_filepath,
-    method = "curl",
-    extra = "-L" # Follow redirects
-  )
+  command = paste("rclone copyto", remote_file, zip_filepath, "--progress --transfers 32 --checkers 32 --stats 1s --retries 5 --retries-sleep=15s --s3-upload-cutoff 100Mi --s3-chunk-size 100Mi --s3-upload-concurrency 16 --multi-thread-streams 2", sep = " ")
+
+  system(command)
+  # TODO: use the return code of this command to check for success or failure, rather than needing
+  # to check if the file exists
+
+
+  # Old CyVerse data store options:
+  # # Option 1: Download over HTTP
+
+  # cyverse_url = paste0(
+  #   "https://data.cyverse.org/dav-anon/",
+  #   CYVERSE_MISSIONS_DIR, mission_id_foc,
+  #   "/images/",
+  #   mission_id_foc, "_images.zip"
+  # )
+
+  # download.file(
+  #   url = cyverse_url,
+  #   destfile = zip_filepath,
+  #   method = "curl",
+  #   extra = "-L" # Follow redirects
+  # )
 
   # # Option 2: Download with iRODS (2-3x faster, but still just a tiny fraction of the pipeline time,
-  # and more robust because it's not restricted to 10 simultaneous connections). But it will fail if
+  # and less robust because it's restricted to 10 simultaneous connections). It will fail if
   # there are more than 10 simultaneous requests to irods, which is the case e.g. at the very start of
   # running the parallelized pipeline. So we are not using it until that can be fixed.
 
