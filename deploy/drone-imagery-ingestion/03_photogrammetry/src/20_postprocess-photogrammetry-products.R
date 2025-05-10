@@ -207,9 +207,12 @@ postprocess_photogrammetry = function(mission_id_foc, config_id_foc) {
   }
 
 
-  ## Crop and save point cloud as COPC (if it exists)
+  ## Crop and save point cloud as COPC (if it exists) (if specified)
+  # TODO: Consider naming the output to *_points-copc.laz instead of *_points.laz, like Metashape we
+  # are having Metashape do. But note that if we do this, then the code below that copies all other
+  # files will have to be modified to not copy the *_points-copc.laz file.
 
-  if ("points" %in% output_files$type) {
+  if (CONVERT_TO_COPC & ("points" %in% output_files$type)) {
 
     # Get the file path of the point cloud
     point_cloud_filename = output_files |>
@@ -255,10 +258,12 @@ postprocess_photogrammetry = function(mission_id_foc, config_id_foc) {
     }
   }
 
-  # Copy any other files that are not raster or point clouds straight to the output folder. TODO:
-  # Spatially clip the mesh to the mission polygon before copying.
+  # Copy any other files that are not raster or point clouds straight to the output folder. Except
+  # that COPC-format points (filename ending *_points-copc.laz) should get copied because they are
+  # skipped by the COPC conversion above. TODO: Spatially clip the mesh to the mission polygon
+  # before copying.
   other_files = output_files |>
-    dplyr::filter(!(extension %in% c("tif", "laz"))) |>
+    dplyr::filter((!(extension %in% c("tif", "laz"))) | (type == "points-copc")) |>
     dplyr::mutate(output_filepath_full = file.path(
       output_path, "full", output_filename
     )) |>

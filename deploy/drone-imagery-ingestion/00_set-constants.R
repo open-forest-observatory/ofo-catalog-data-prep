@@ -110,6 +110,11 @@ N_CHUNKS_PHOTOGRAMMETRY = 12
 
 # For photogrammetry post-processing
 
+# For COPC conversion, the current approach of using Untwine is super slow for large point clouds
+# due to the extensive rapid file caching and the files being stored on the NFS server. Therefore we
+# can use Metashape for the conversion and disable here.
+CONVERT_TO_COPC = FALSE
+
 # What fraction of the system RAM can TERRA use. The terra default is 0.6, you cannot go above 0.9
 # without a warning.
 TERRA_MEMFRAC = 0.9
