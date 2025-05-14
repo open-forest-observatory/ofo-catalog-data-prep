@@ -10,8 +10,7 @@ library(htmlwidgets)
 library(DT)
 library(jinjar)
 
-devtools::load_all()
-
+source(file.path("src", "web-catalog-creation_ground-ref-data.R"))
 
 PLOT_BOUNDARIES_PATH = "~/Documents/repo-data-local/ofo-field/field-plot-boundaries"
 GOOGLE_SHEET_ID = "1GjDseDCR1BX_EIkJAni7rk2zvK6nHmZz1nOFBd1d6k4"
