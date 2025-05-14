@@ -31,6 +31,8 @@ make_raw_imagery_thumbnails_and_zip = function(mission_id_foc) {
     return()
   }
 
+
+
   # Save a file that indicates the mission is being processed
   processing_file = file.path(IN_PROCESS_PATH, paste0(mission_id_foc, ".csv"))
   fake_df = data.frame(a = 1, b = 1)

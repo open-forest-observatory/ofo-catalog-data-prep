@@ -2,7 +2,7 @@
 # other analyses, depending on how the downstream software handles them. This script fixes the EXIF
 # to avoid the poblems we have encountered. For all the images in the sorted missions folder
 # (including all subdirectories), set the "Orientation" flag to `1`. Also, for all images that have
-# GPSTimeStamp with decimal seconds, remove the GPSTimeStamp flag. Note that you must have exiftool
+# GPSTimeStamp with decimal seconds, remove the GPSTimeStamp tag. Note that you must have exiftool
 # installed first, such as by `sudo apt install libimage-exiftool-perl`.
 
 library(furrr)
@@ -33,7 +33,6 @@ fix_exif = function(mission_id_foc) {
   # Get all images in the folder
   image_filepaths = list.files(folder, full.names = TRUE, recursive = TRUE, pattern = "(.jpg$)|(.jpeg$)|(.JPG$)|(.JPEG$)")
 
-  # One approach is to pull the previously extracted EXIF data
   image_filenames = basename(image_filepaths)
 
   images = data.frame(filename = image_filenames,
@@ -46,9 +45,14 @@ fix_exif = function(mission_id_foc) {
   # Sort the exif to match the image filepaths
   exif = left_join(images, exif, by = c("filename" = "image_filename_out"))
 
-  # Redo in base R
+  # Determine which images need fixing
   exif$fix_orientation = ifelse(is.null(exif$Orientation), FALSE, (exif$Orientation != 1))
-  exif$fix_gpstimestamp = ifelse(is.null(exif$GPSTimeStamp), FALSE, (grepl("[0-9]+:[0-9]+:[0-9]+\\.[0-9]+", exif$GPSTimeStamp)))
+  
+  if(is.null(exif$GPSTimeStamp)) {
+    exif$fix_gpstimestamp = FALSE
+  } else {
+    exif$fix_gpstimestamp = ifelse(is.na(exif$GPSTimeStamp), FALSE, grepl("[0-9]+:[0-9]+:[0-9]+\\.[0-9]+", exif$GPSTimeStamp))
+  }
 
   # Encode as one-hot between orientation, gpstimestamp, or both
   exif = exif |>
@@ -107,5 +111,21 @@ fix_exif = function(mission_id_foc) {
   if (nrow(exif_to_fix_orientation) == 0 && nrow(exif_to_fix_gpstimestamp) == 0 && nrow(exif_to_fix_both) == 0) {
     cat("No EXIF fixes needed for ", mission_id_foc, "\n")
   }
+
+
+
+  # Confirm there are no exiftool temp files in the input image folder, suggesting that the exiftool conversion
+  # was incomplete
+
+  # Get all files in the folder matching the exiftool temp file pattern
+  exiftool_temp_files = list.files(folder, full.names = TRUE, recursive = TRUE, pattern = "_exiftool_tmp$")
+
+  # If there are any, return false (so the calling function can skip to the next mission) and alert the user
+  if (length(exiftool_temp_files) > 0) {
+    warning("There are exiftool temp files in the input image folder(s) for mission", mission_id_foc, ", suggesting incomplete exif correction. Rerun the exif correction step for this mission.\n")
+    return(FALSE)
+  }
+
+  return(TRUE)
 
 }

@@ -27,16 +27,16 @@ source("deploy/drone-imagery-ingestion/03_photogrammetry/src/20_postprocess-phot
 source("deploy/drone-imagery-ingestion/03_photogrammetry/src/21_upload-postprocessed-photogrammetry.R")
 
 
-photogrammetry_per_mission = function(mission_id) {
+photogrammetry_per_mission = function(mission_id, config_id) {
 
   download_unzip_images(mission_id)
-  prep_metashape_config(mission_id)
-  run_metashape(mission_id)
-  # TODO: Eventually, run_metashape should return the run_id, but for now we are inferring it as the
-  # most recent (i.e. highest) run_id in the directory for the mission. This is being determine in
-  # the next step, postprocess_photogrammetry, which then passes the run_id on to the next step.
-  run_id = postprocess_photogrammetry(mission_id)
-  upload_postprocessed_photogrammetry_to_cyverse(mission_id, run_id)
+  config_filename = prep_metashape_config(mission_id, config_id)
+  # config_filename has the form <mission_id>_<config_id> so it's redundant with the mission_id and
+  # config_id arguments passed in to this function, but this should be more robust in case the
+  # config filename convention changes.
+  run_metashape(config_filename)
+  postprocess_photogrammetry(mission_id, config_id)
+  upload_postprocessed_photogrammetry_to_data_store(mission_id, config_id)
 
   return(TRUE)
 
