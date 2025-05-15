@@ -113,7 +113,14 @@ prep_trees = function(trees, species_codes) {
     # TODO: Make this check whether the whole plot had height
     mutate(size = ifelse(is.na(dbh), height, dbh))
 
-  # Pull in 4-letter USDA species codes
+  # If there is numeric a code listed more than once in the species-codes table (which there is for species
+  # 64, JUOC and JUGR), use the first one and give a warning
+  if (any(duplicated(species_codes$code_numeric))) {
+    warning("There are duplicate numeric species codes in the species-codes table. Using the first one and ignoring the rest.")
+    species_codes = species_codes[!duplicated(species_codes$code_numeric), ]
+  }
+
+  # Pull in 4-letter USDA species codes  
   species_codes = species_codes |>
     mutate(code_numeric = as.character(code_numeric)) |>
     mutate(sp_code = ifelse(!is.na(code_usda), code_usda, code_supp))
