@@ -12,7 +12,7 @@ library(jinjar)
 
 source(file.path("src", "web-catalog-creation_ground-ref-data.R"))
 
-PLOT_BOUNDARIES_PATH = "~/Documents/repo-data-local/ofo-field/field-plot-boundaries"
+PLOT_BOUNDARIES_PATH = "~/Documents/repo-data-local/ofo-catalog-data-prep/field-plot-boundaries"
 GOOGLE_SHEET_ID = "1GjDseDCR1BX_EIkJAni7rk2zvK6nHmZz1nOFBd1d6k4"
 
 BASE_OFO_URL = "https://openforestobservatory.org/"
@@ -58,11 +58,11 @@ WEBSITE_CONTENT_PATH = file.path(WEBSITE_REPO_PATH, "content", "")
 # Load and prep field ref data
 
 tabular_data = read_and_standardize_tabular_field_ref_data(GOOGLE_SHEET_ID)
-bounds = read_and_merge_plot_boundaries(PLOT_BOUNDARIES_PATH, base_ofo_url = BASE_OFO_URL, plot_details_dir = PLOT_DETAILS_PAGE_DIR) 
+bounds = read_and_merge_plot_boundaries(PLOT_BOUNDARIES_PATH, base_ofo_url = BASE_OFO_URL, plot_details_dir = PLOT_DETAILS_PAGE_DIR)
 
 check_field_ref_data(tabular_data, bounds)
 
-trees = prep_trees(tabular_data$trees, tabular_data$species_codes)
+trees = prep_trees(trees = tabular_data$trees, species_codes = tabular_data$species_codes)
 plots = prep_plots(tabular_data$plots)
 
 trees_for_plot_summary = prep_trees_for_plot_summary(trees)
