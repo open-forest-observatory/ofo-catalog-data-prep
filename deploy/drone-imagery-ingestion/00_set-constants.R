@@ -48,6 +48,9 @@ DERIVED_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/catalog-data-prep/01_raw-ima
 FULL_METADATA_PER_MISSION_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/3_final/1_full-metadata-per-mission/"
 FULL_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/3_final/2_full-metadata-per-sub-mission/"
 
+# The following file should not be assumed to be there, since we are not necessarily keeping all
+# mission data combined locally, and it should not be assumed to contain every mission, but this is where the file will be if it has been created
+FULL_METADATA_PER_MISSION_COMBINED_FILEPATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/3_final/ofo-all-missions-metadata.gpkg"
 
 PROJECT_TO_PROCESS_RAW_IMAGERY_FILES_FILEPATH = "/ofo-share/catalog-data-prep/00_missions-to-process/02_raw-imagery-file-prep/projects-to-process.txt"
 PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES = read_lines(PROJECT_TO_PROCESS_RAW_IMAGERY_FILES_FILEPATH)
