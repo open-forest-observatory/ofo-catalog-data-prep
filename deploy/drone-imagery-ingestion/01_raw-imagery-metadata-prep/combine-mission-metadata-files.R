@@ -18,14 +18,6 @@ force_all_cols_to_character = function(df) {
     mutate(across(-any_of(c("geometry", "geom")), as.character))
 }
 
-# Infer column data types and convert as necessary, except geometry
-convert_all_cols_to_inferred_datatype = function(df) {
-  df |>
-    mutate(across(-any_of(c("geometry", "geom")), ~ type_convert()))
-}
-
-
-
 metadata_files = list.files(FULL_METADATA_PER_MISSION_PATH, pattern = "_mission-metadata.gpkg$", full.names = TRUE)
 
 metadata_sf_list = map(metadata_files, st_read)
