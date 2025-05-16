@@ -241,6 +241,12 @@ compile_plot_summary_table = function(plots, projects, plot_level_tree_summary, 
   # Prep plot bounds data (just plot area) for merging
   bounds_nosp = st_drop_geometry(bounds) |>
     select(plot_id, area_ha_sf)
+    
+  # Make sure project_id is numeric in both tables
+  plots = plots |>
+    mutate(project_id = as.numeric(project_id))
+  projects = projects |>
+    mutate(project_id = as.numeric(project_id))
 
   # To the plot data, join project data, tree-summary data, plot bounds area
   plotproj = left_join(plots, projects, by = "project_id") |>
