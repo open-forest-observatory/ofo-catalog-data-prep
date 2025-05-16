@@ -17,7 +17,7 @@ GOOGLE_SHEET_ID = "1GjDseDCR1BX_EIkJAni7rk2zvK6nHmZz1nOFBd1d6k4"
 # Load and prep field ref data
 
 tabular_data = read_and_standardize_tabular_field_ref_data(GOOGLE_SHEET_ID)
-bounds = read_and_merge_plot_boundaries(PLOT_BOUNDARIES_PATH, base_ofo_url = "", plot_details_dir = "")
+bounds = read_and_merge_plot_boundaries(plot_boundaries_dir = PLOT_BOUNDARIES_PATH, base_ofo_url = "", plot_details_dir = "")
 
 # Remove some fields that were added to the bounds table for web catalog creation that are not
 # needed for the publishable data files
@@ -177,4 +177,4 @@ trees = trees |>
 trees_sf = sf::st_as_sf(trees, coords = c("tree_lon", "tree_lat"), crs = 4326)
 
 # Write to gpkg
-st_write(trees, "~/Documents/temp/ofo_ground-reference_trees.gpkg", delete_dsn = TRUE)
+st_write(trees_sf, "~/Documents/temp/ofo_ground-reference_trees.gpkg", delete_dsn = TRUE)
