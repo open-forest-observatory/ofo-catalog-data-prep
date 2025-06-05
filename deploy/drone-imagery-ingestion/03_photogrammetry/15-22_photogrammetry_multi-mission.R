@@ -99,10 +99,10 @@ purrr::walk(
 # # Are there still any unuploaded missions? If so, print a warning and `dput` the data frame of
 # # unuploaded missions.
 
-if (nrow(unuploaded_missions) > 0) {
-  cat(
-    "\n\n **** WARNING: The following missions were still not uploaded successfully after a second attempt:",
-    paste(unuploaded_missions$mission_id, collapse = ", "),
-    " **** \n")
-  dput(unuploaded_missions)
-}
+# if (nrow(unuploaded_missions) > 0) {
+#   cat(
+#     "\n\n **** WARNING: The following missions were still not uploaded successfully after a second attempt:",
+#     paste(unuploaded_missions$mission_id, collapse = ", "),
+#     " **** \n")
+#   dput(unuploaded_missions)
+# }
