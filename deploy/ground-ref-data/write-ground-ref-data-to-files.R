@@ -29,12 +29,21 @@ check_field_ref_data(tabular_data, bounds)
 trees = prep_trees(trees = tabular_data$trees, species_codes = tabular_data$species_codes)
 plots = prep_plots(tabular_data$plots)
 
-# For some reason, subplot_shape is being read as a list column (just one entry per plot though), so
-# unlist it, first setting NULL to NA
+# For some reason, subplot_shape, project_id, contributor_plot_id is being read as a list column (just one entry per plot though), so
+# unlist it, first setting NULL to NA. Seems to be a bug in googlesheets4 that we should find a
+# better solution to.
 plots = plots |>
   mutate(subplot_shape = lapply(subplot_shape, function(x) ifelse(is.null(x), NA, x)))
 plots = plots |>
   mutate(subplot_shape = unlist(subplot_shape))
+plots = plots |>
+  mutate(project_id = lapply(project_id, function(x) ifelse(is.null(x), NA, x)))
+plots = plots |>
+  mutate(project_id = unlist(project_id))
+plots = plots |>
+  mutate(contributor_plot_id = lapply(contributor_plot_id, function(x) ifelse(is.null(x), NA, x)))
+plots = plots |>
+  mutate(contributor_plot_id = unlist(contributor_plot_id))
   
 # For some reason, contributor_tree_id is being read as a list column (just one entry per tree
 # though), so unlist it, first setting NULL to NA
@@ -125,11 +134,11 @@ st_write(plot_bounds_w_summary, "~/Documents/temp/ofo_ground-reference_plots.gpk
 
 ### Trees
 
-# Which trees to we not have plot data for?
+# Which trees to we not have plot data for (either because no polygon, or no plot-level tabular data)?
 trees_no_plot_data = trees |>
   filter(!plot_id %in% plot_bounds_w_summary$plot_id)
 table(trees_no_plot_data$plot_id)
-# It is just embargoed data
+# It is just embargoed data and ones with no polygons (in process of being entered)
 
 # Filter to the trees that are in the field plots that we have bounds & summary data for
 trees = trees |>
