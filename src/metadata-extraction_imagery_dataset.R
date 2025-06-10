@@ -32,7 +32,7 @@ extract_mission_polygon = function(
     image_merge_distance,
     min_contig_area = 1600,
     boundary_method = "dilate_erode",
-    simplification_tol = 10.0,
+    simplification_tol = 6,
     identify_images_in_polygon = FALSE) {
   # Check if the data is a data_frame, in which case it needs to be converted into an SF object.
   # Otherwise, it's assumed to be a valid SF object.
@@ -109,14 +109,16 @@ extract_mission_polygon = function(
 
   # If the polygon was simplified so much that it became empty, then redo with less simp
   if (sf::st_is_empty(simplified_poly)) {
+    simplification_tol = simplification_tol / 10
     simplified_poly = sf::st_simplify(poly,
-                                      dTolerance = simplification_tol / 10) |>
+                                      dTolerance = simplification_tol) |>
       sf::st_cast("MULTIPOLYGON")
   }
 
   if (sf::st_is_empty(simplified_poly)) {
+    simplification_tol = simplification_tol / 10
     simplified_poly = sf::st_simplify(poly,
-                                      dTolerance = simplification_tol / 100) |>
+                                      dTolerance = simplification_tol) |>
       sf::st_cast("MULTIPOLYGON")
   }
 
@@ -124,13 +126,15 @@ extract_mission_polygon = function(
     warning("Simplification of polygon for mission/sub-mission",
             dataset_id,
             "resulted in an empty polygon. No images will be retained.")
+  } else {
+    # Buffer the polygon back out by the simplification tolerance to ensure that the polygon does
+    # not exclude the images that were used to define it
+    simplified_poly = sf::st_buffer(simplified_poly, simplification_tol, nQuadSegs = 2, joinStyle = "MITRE", mitreLimit = 5)
   }
 
   # Identify which images are within the polygon if requested
   if (identify_images_in_polygon) {
-    # increase the region to account for the simplified polygon
-    simplified_poly_buffer = simplified_poly |> sf::st_buffer(simplification_tol)
-    intersection_mat = sf::st_intersects(metadata, simplified_poly_buffer, sparse = FALSE)
+    intersection_mat = sf::st_intersects(metadata, simplified_poly, sparse = FALSE)
     # Does the image intersect any of the polygons?
     intersection_bool = apply(intersection_mat, 1, any) 
     # Get the image IDs of the images that intersect the polygon
