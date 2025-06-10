@@ -4,14 +4,13 @@ read_and_standardize_tabular_field_ref_data = function(google_sheet_id) {
 
   ## Load field ref data (tabular)
   projects = read_sheet(google_sheet_id, sheet = "field-projects")
-  plots = read_sheet(google_sheet_id, sheet = "field-plots")
+  plots = read_sheet(google_sheet_id, sheet = "field-plots", col_types = "c")
   subplots = read_sheet(google_sheet_id, sheet = "field-subplots")
   trees = read_sheet(google_sheet_id, sheet = "field-trees")
   species_codes = read_sheet(google_sheet_id, sheet = "species-codes")
 
-  # Fix a col that's being imported as a list col even though it's character
-  plot = plots |>
-    mutate(contributor_plot_id = as.character(contributor_plot_id))
+  # Re-interpret all plot cols data types
+  plots = plots |> readr::type_convert()
 
   # Standardize tabular plot ID formatting
   plots = plots |>

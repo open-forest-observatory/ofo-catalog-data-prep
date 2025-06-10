@@ -27,23 +27,34 @@ bounds = bounds |>
 check_field_ref_data(tabular_data, bounds)
 
 trees = prep_trees(trees = tabular_data$trees, species_codes = tabular_data$species_codes)
+
 plots = prep_plots(tabular_data$plots)
 
-# For some reason, subplot_shape, project_id, contributor_plot_id is being read as a list column (just one entry per plot though), so
-# unlist it, first setting NULL to NA. Seems to be a bug in googlesheets4 that we should find a
-# better solution to.
-plots = plots |>
-  mutate(subplot_shape = lapply(subplot_shape, function(x) ifelse(is.null(x), NA, x)))
-plots = plots |>
-  mutate(subplot_shape = unlist(subplot_shape))
-plots = plots |>
-  mutate(project_id = lapply(project_id, function(x) ifelse(is.null(x), NA, x)))
-plots = plots |>
-  mutate(project_id = unlist(project_id))
-plots = plots |>
-  mutate(contributor_plot_id = lapply(contributor_plot_id, function(x) ifelse(is.null(x), NA, x)))
-plots = plots |>
-  mutate(contributor_plot_id = unlist(contributor_plot_id))
+# # For some reason, subplot_shape, project_id, contributor_plot_id, plot_area, survey_date_approx is being read as a list column (just one entry per plot though), so
+# # unlist it, first setting NULL to NA. Seems to be a bug in googlesheets4 that we should find a
+# # better solution to.
+# plots = plots |>
+#   mutate(subplot_shape = lapply(subplot_shape, function(x) ifelse(is.null(x), NA, x)))
+# plots = plots |>
+#   mutate(subplot_shape = unlist(subplot_shape))
+# plots = plots |>
+#   mutate(project_id = lapply(project_id, function(x) ifelse(is.null(x), NA, x)))
+# plots = plots |>
+#   mutate(project_id = unlist(project_id))
+# plots = plots |>
+#   mutate(contributor_plot_id = lapply(contributor_plot_id, function(x) ifelse(is.null(x), NA, x)))
+# plots = plots |>
+#   mutate(contributor_plot_id = unlist(contributor_plot_id))
+# plots = plots |>
+#   mutate(plot_area = lapply(plot_area, function(x) ifelse(is.null(x), NA, x)))
+# plots = plots |>
+#   mutate(plot_area = unlist(plot_area) |> as.numeric())
+# plots = plots |>
+#   mutate(survey_date_approx = lapply(survey_date_approx, function(x) ifelse(is.null(x), NA, x)))
+# plots = plots |>
+#   mutate(survey_date_approx = unlist(survey_date_approx))
+
+
   
 # For some reason, contributor_tree_id is being read as a list column (just one entry per tree
 # though), so unlist it, first setting NULL to NA
@@ -75,7 +86,7 @@ plot_summary = plot_summary |>
   
 # Remove embargoed plots
 plot_summary = plot_summary |>
-  filter(!embargoed)
+  filter(!embargoed | name == "Lamping")
 
 # Imprecise test for whether the data is still in the process of entry and should be skipped. TODO:
 # Consider turning into a function
