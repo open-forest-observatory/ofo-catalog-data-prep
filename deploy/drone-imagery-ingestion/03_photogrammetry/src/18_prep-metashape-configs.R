@@ -23,7 +23,7 @@ prep_metashape_config = function(mission_id_foc, config_id_foc) {
   subdirs = str_remove(subdirs, fixed(paste0(photogrammetry_dir_nofinalslash, "/")))
   photo_paths_in_container = paste0("/data/", subdirs)
 
-  config_filename = paste0(mission_id_foc, "_", config_id_foc)
+  config_filename = paste0(config_id_foc, "_", mission_id_foc)
 
   config_overrides = data.frame(
     photo_path = I(list(photo_paths_in_container)),
