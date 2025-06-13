@@ -58,13 +58,6 @@ make_chm = function(dsm_filepath_foc, dtm_filepath_foc) {
 
 postprocess_photogrammetry = function(mission_id_foc, config_id_foc) {
 
-  # Change ownership of all these files to the current user
-  command = paste0(
-    "sudo chown ", Sys.getenv("USER"), " ",
-    file.path(PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_SUBDIR, paste0(mission_id_foc, "_", config_id_foc, "_*"))
-  )
-  system(command)
-
   # Get the list of photogrammetry outputs from the specified processing run of this mission
   # (config_id_foc)
 
