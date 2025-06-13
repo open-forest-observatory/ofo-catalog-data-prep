@@ -101,6 +101,9 @@ INPUT_IMAGES_SUBDIR = "03_input-images"
 DERIVED_METASHAPE_CONFIG_SUBDIR = "04_derived-metashape-configs"
 METASHAPE_PROJECT_SUBDIR = "05_photogrammetry-projects"
 METASHAPE_OUTPUT_SUBDIR = "06_photogrammetry-outputs"
+# After the Metashape processing is done, the outputs are uploaded, deleted from the above
+# folder, then downloaded to the folder below
+METASHAPE_OUTPUT_DOWNLOADED_SUBDIR = "06_photogrammetry-outputs-downloaded"
 PHOTOGRAMMETRY_POSTPROCESSED_SUBDIR = "07_photogrammetry-outputs-postprocessed"
 
 # The photogrammetry base config file in BASE_METASHAPE_CONFIG_SUBPATH should have the following ID

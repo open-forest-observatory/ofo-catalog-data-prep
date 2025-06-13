@@ -58,6 +58,36 @@ make_chm = function(dsm_filepath_foc, dtm_filepath_foc) {
 
 postprocess_photogrammetry = function(mission_id_foc, config_id_foc) {
 
+
+  # Download the files to process
+
+  # Construct data transfer command line call
+  local_dir = file.path(PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_DOWNLOADED_SUBDIR)
+  remote_dir = paste0(RCLONE_REMOTE, ":", REMOTE_PHOTOGRAMMETRY_DIR, paste0("config_", config_id_foc))
+  filter_phrase = paste0("--include ", config_id_foc, "_", mission_id_foc, "_*")
+  command = paste("rclone copy", remote_dir, local_dir, filter_phrase, "--max-depth 1 --progress --transfers 32 --checkers 32 --stats 1s --retries 5 --retries-sleep=15s --s3-upload-cutoff 100Mi --s3-chunk-size 100Mi --s3-upload-concurrency 16", sep = " ")
+  result = system(command)
+
+  # Check if we got an error, and if so, retry up to 10 times, waiting 1 minute between each
+  tries = 0
+  while (result != 0 && tries < 10) {
+    tries = tries + 1
+    Sys.sleep(60) # Wait 1 minute before retrying
+    cat("\n **** Uploading photogrammetry outputs to object store for mission", mission_id_foc, "failed. Retrying... (attempt", tries, ") **** \n")
+    result = system(command)
+  }
+
+  # If we still got an upload error, print a warning and save to log and return false (don't do the
+  # next step which is deleting the local directory)
+  if (result != 0) {
+    toprint = (paste(Sys.time(), "- Error uploading photogrammetry outputs to object store for mission", mission_id_foc, "(all 10 tries failed).\n"))
+    warning(toprint)
+    write(toprint, file = UPLOAD_ERROR_LOG, append = TRUE)
+    return(FALSE)
+  }
+
+#####!!!! DEREK RESUME HERE
+
   # Get the list of photogrammetry outputs from the specified processing run of this mission
   # (config_id_foc)
 
