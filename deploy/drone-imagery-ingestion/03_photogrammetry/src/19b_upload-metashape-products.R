@@ -58,14 +58,14 @@ upload_photogrammetry_outputs_to_data_store = function(mission_id_foc, config_id
   while (result != 0 && tries < 10) {
     tries = tries + 1
     Sys.sleep(60) # Wait 1 minute before retrying
-    cat("\n **** Uploading postprocessed photogrammetry to object store for mission", mission_id_foc, "failed. Retrying... (attempt", tries, ") **** \n")
+    cat("\n **** Uploading photogrammetry outputs to object store for mission", mission_id_foc, "failed. Retrying... (attempt", tries, ") **** \n")
     result = system(command)
   }
 
   # If we still got an upload error, print a warning and save to log and return false (don't do the
   # next step which is deleting the local directory)
   if (result != 0) {
-    toprint = (paste(Sys.time(), "- Error uploading postprocessed photogrammetry to object store for mission", mission_id_foc, "(all 10 tries failed).\n"))
+    toprint = (paste(Sys.time(), "- Error uploading photogrammetry outputs to object store for mission", mission_id_foc, "(all 10 tries failed).\n"))
     warning(toprint)
     write(toprint, file = UPLOAD_ERROR_LOG, append = TRUE)
     return(FALSE)
@@ -80,6 +80,33 @@ upload_photogrammetry_outputs_to_data_store = function(mission_id_foc, config_id
   uploaded_files = list.files(local_dir, pattern = paste0(config_id_foc, "_", mission_id_foc, "_*"), full.names = TRUE)
 
   unlink(uploaded_files, recursive = TRUE)
+  # If the containing folder (photogrammetry-outputs) is now empty, delete that too
+  mission_dir = file.path(PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_SUBDIR)
+  files_in_mission_dir = list.files(mission_dir)
+  if (length(files_in_mission_dir) == 0) {
+    unlink(mission_dir, recursive = TRUE)
+  }
+
+  # Also delete the metashape project file for this mission and config
+  # First need to change ownership of the project files
+  project_files = list.files(
+    path = file.path(PHOTOGRAMMETRY_DIR, METASHAPE_PROJECT_SUBDIR),
+    pattern = paste0(config_id_foc, "_", mission_id_foc, "\\.*"),
+    full.names = TRUE
+  )
+
+  # Surround project-files in single quotes
+  project_files = paste0("'", project_files, "'")
+  command = paste0("sudo chown -R ", Sys.getenv("USER"), " ", paste(project_files, collapse = " "))
+  # Doesn't work on diretories: result = system(command)
+
+  # Try the deletion as a system command
+  command = paste0("rm -rf ", paste(project_files, collapse = " "))
+  result = system(command)
+
+
+
+  print(unlink(project_files, recursive = TRUE))
   # If the containing folder (photogrammetry-outputs) is now empty, delete that too
   mission_dir = file.path(PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_SUBDIR)
   files_in_mission_dir = list.files(mission_dir)
