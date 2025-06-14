@@ -34,7 +34,7 @@ missions_to_process_df = map_df(PROJECT_NAMES_TO_PROCESS_PHOTOGRAMMETRY, get_mis
 # Write
 write_csv(missions_to_process_df, MISSIONS_TO_PROCESS_PHOTOGRAMMETRY_LIST_PATH)
 
-## As an alternative, break into chunks and write to a separate file per chunk
+## As an alternative/addition, break into chunks and write to a separate file per chunk
 create_dir(file.path(MISSIONS_TO_PROCESS_PHOTOGRAMMETRY_PATH, "chunks"))
 
 chunks = chunk_up_collate(missions_to_process_df$mission_id, N_CHUNKS_PHOTOGRAMMETRY)
