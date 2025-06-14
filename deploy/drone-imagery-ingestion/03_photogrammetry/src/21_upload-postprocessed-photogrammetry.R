@@ -1,5 +1,7 @@
 # Purpose: For the provided mission_id and run_id, upload the post-processed files to CyVerse
 
+# IMPORTANT NOTE: This script will overwrite any existing photogrammetry output Object Store files
+
 # IMPORTANT NOTE: You must have already configured an rclone remote on this machine for the object
 # store. This is already done automatically on ofo dev images. The config should look like this:
 # https://github.com/open-forest-observatory/ofo-ansible/blob/main/roles/ofo/files/rclone.conf In
@@ -12,10 +14,10 @@ source("deploy/drone-imagery-ingestion/00_set-constants.R")
 
 ## Workflow
 
-upload_postprocessed_photogrammetry_to_data_store = function(mission_id_foc, config_id_foc) {
+upload_postprocessed_photogrammetry_to_object_store = function(mission_id_foc, config_id_foc) {
 
   cat(
-    "\n **** Uploading post-processed photogrammetry outputs to Data Store for mission",
+    "\n **** Uploading post-processed photogrammetry outputs to object store for mission",
     mission_id_foc,
     "run",
     config_id_foc,

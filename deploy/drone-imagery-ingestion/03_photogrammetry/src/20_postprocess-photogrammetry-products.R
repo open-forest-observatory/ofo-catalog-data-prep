@@ -17,15 +17,15 @@ source("src/utils.R")
 ## Workflow
 
 # Function to crop raster to mission polygon and write as COG
-crop_raster_save_cog = function(raster_filepath_foc, mission_polygon, output_path) {
+crop_raster_save_cog = function(raster_filepath_foc, output_filename, mission_polygon, output_path) {
 
   # Read, crop, and write the raster as COG
   raster = terra::rast(raster_filepath_foc)
   mission_polygon_matchedcrs = st_transform(mission_polygon, st_crs(raster))
-  raster_cropped = terra::crop(raster, mission_polygon_matchedcrs, mask = TRUE, extend = TRUE)
+  raster_cropped = terra::crop(raster, mission_polygon_matchedcrs, mask = TRUE)
   output_file_path = file.path(
     output_path, "full",
-    paste0(basename(raster_filepath_foc))
+    output_filename
   )
 
   terra::writeRaster(
@@ -61,7 +61,7 @@ postprocess_photogrammetry = function(mission_id_foc, config_id_foc) {
 
   # Download the files to process
 
-  # Construct data transfer command line call
+  # Construct data download command line call
   local_dir = file.path(PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_DOWNLOADED_SUBDIR)
   remote_dir = paste0(RCLONE_REMOTE, ":", REMOTE_PHOTOGRAMMETRY_DIR, paste0("config_", config_id_foc))
   filter_phrase = paste0("--include ", config_id_foc, "_", mission_id_foc, "_*")
@@ -86,36 +86,38 @@ postprocess_photogrammetry = function(mission_id_foc, config_id_foc) {
     return(FALSE)
   }
 
-#####!!!! DEREK RESUME HERE
-
   # Get the list of photogrammetry outputs from the specified processing run of this mission
-  # (config_id_foc)
+  # (config_id_foc) (the files we just downloaded)
 
-  output_filenames = list.files(
-    path = file.path(PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_SUBDIR),
-    pattern = paste0("^", mission_id_foc, "_", config_id_foc, "_"),
+  photogrammetry_output_filenames = list.files(
+    path = local_dir,
+    pattern = paste0("^", config_id_foc, "_", mission_id_foc, "_"),
   )
 
-  output_files = data.frame(
-    output_filename = output_filenames
+  photogrammetry_output_files = data.frame(
+    photogrammetry_output_filename = photogrammetry_output_filenames
   )
 
-  # Make a data frame with the product type and extension for each file
-  output_files = output_files |>
-    dplyr::mutate(extension = str_split(output_filenames, "\\.") |> map(2) |> unlist()) |>
-    dplyr::mutate(type = str_split(output_filenames, "_") |> map(3) |> unlist()) |>
-    dplyr::mutate(type = str_split(type, "\\.") |> map(1) |> unlist())
+  # Make a data frame with the product type, mission ID, processing config ID, and extension for
+  # each file, and also the postprocessed filename.
+  photogrammetry_output_files = photogrammetry_output_files |>
+    dplyr::mutate(extension = str_split(photogrammetry_output_filename, "\\.") |> map(2) |> unlist()) |>
+    dplyr::mutate(type = str_split(photogrammetry_output_filename, "_") |> map(3) |> unlist()) |>
+    dplyr::mutate(type = str_split(type, "\\.") |> map(1) |> unlist()) |>
+    dplyr::mutate(postprocessed_filename = paste0(
+      mission_id_foc, "_", type, ".", extension
+    ))
 
   # Create output folder
-  output_path = file.path(
+  postprocessed_path = file.path(
     PHOTOGRAMMETRY_DIR, PHOTOGRAMMETRY_POSTPROCESSED_SUBDIR,
     mission_id_foc, paste0("processed_", config_id_foc)
   )
 
   # Create the output file dirs
-  create_dir(output_path)
-  create_dir(file.path(output_path, "full"))
-  create_dir(file.path(output_path, "thumbnails"))
+  create_dir(postprocessed_path)
+  create_dir(file.path(postprocessed_path, "full"))
+  create_dir(file.path(postprocessed_path, "thumbnails"))
 
   ## Get the mission polygon (for cropping) by downloading from Object Store
   polygon_temp_file = tempfile(fileext = ".gpkg")
@@ -141,32 +143,34 @@ postprocess_photogrammetry = function(mission_id_foc, config_id_foc) {
 
   ## Crop DSMs, DTM, ortho to mission polygon and write as COG
 
-  rast_files = output_files |>
-    dplyr::filter(extension %in% c("tif", "tiff")) |>
-    dplyr::pull(output_filename)
+  photogrammetry_outputs_rast = photogrammetry_output_files |>
+    dplyr::filter(extension %in% c("tif", "tiff"))
 
-  rast_filepaths = file.path(
-    PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_SUBDIR,
-    rast_files
+  photogrammetry_output_rast_filepaths = file.path(
+    PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_DOWNLOADED_SUBDIR,
+    photogrammetry_outputs_rast$photogrammetry_output_filename
   )
 
+  photogrammetry_postprocessed_filenames = photogrammetry_outputs_rast$postprocessed_filename
+
   # Apply the raster crop & write function to all the rasters
-  purrr::walk(
-    rast_filepaths,
+  purrr::walk2(
+    photogrammetry_output_rast_filepaths,
+    photogrammetry_postprocessed_filenames,
     crop_raster_save_cog,
-    output_path = output_path,
+    output_path = postprocessed_path,
     mission_polygon = mission_polygon
   )
 
   ## Make CHMs
 
   # Determine what would be the filepaths of the potential DSM and DTM files (if they exist):
-  dem_filepaths = output_files |>
+  dem_filepaths = photogrammetry_output_files |>
     dplyr::filter(extension %in% c("tif", "tiff")) |>
     dplyr::filter(type %in% c("dsm-ptcloud", "dsm-mesh", "dtm-ptcloud")) |>
     # Add the paths of the cropped, COG versions
-    dplyr::mutate(full_filepath = file.path(
-      output_path, "full", output_filename
+    dplyr::mutate(postprocessed_filepath = file.path(
+      postprocessed_path, "full", postprocessed_filename
     ))
 
   # If there is both a dsm-mesh and a dtm-ptcloud, make a chm-mesh
@@ -175,23 +179,23 @@ postprocess_photogrammetry = function(mission_id_foc, config_id_foc) {
 
     dsm_filepaths = dem_filepaths |>
       dplyr::filter(type == "dsm-mesh") |>
-      dplyr::pull(full_filepath)
+      dplyr::pull(postprocessed_filepath)
 
     dtm_filepaths = dem_filepaths |>
       dplyr::filter(type == "dtm-ptcloud") |>
-      dplyr::pull(full_filepath)
+      dplyr::pull(postprocessed_filepath)
 
     chm = make_chm(dsm_filepaths, dtm_filepaths)
 
     # Write the CHM as a COG
-    output_file_path = file.path(
-      output_path, "full",
-      paste0(mission_id_foc, "_", config_id_foc, "_chm-mesh.tif")
+    postprocessed_file_path = file.path(
+      postprocessed_path, "full",
+      paste0(mission_id_foc, "_chm-mesh.tif")
     )
 
     terra::writeRaster(
       chm,
-      output_file_path,
+      postprocessed_file_path,
       overwrite = TRUE,
       filetype = "COG",
       gdal = "BIGTIFF=IF_SAFER",
@@ -200,23 +204,23 @@ postprocess_photogrammetry = function(mission_id_foc, config_id_foc) {
   }
 
   # If there is both a dsm-ptcloud and a dtm-ptcloud, make a chm-ptcloud
-  if("dsm-ptcloud" %in% dem_filepaths$type && 
+  if ("dsm-ptcloud" %in% dem_filepaths$type && 
       "dtm-ptcloud" %in% dem_filepaths$type) {
 
     dsm_filepaths = dem_filepaths |>
       dplyr::filter(type == "dsm-ptcloud") |>
-      dplyr::pull(full_filepath)
+      dplyr::pull(postprocessed_filepath)
 
     dtm_filepaths = dem_filepaths |>
       dplyr::filter(type == "dtm-ptcloud") |>
-      dplyr::pull(full_filepath)
+      dplyr::pull(postprocessed_filepath)
 
     chm = make_chm(dsm_filepaths, dtm_filepaths)
 
     # Write the CHM as a COG
     output_file_path = file.path(
-      output_path, "full",
-      paste0(mission_id_foc, "_", config_id_foc, "_chm-ptcloud.tif")
+      postprocessed_path, "full",
+      paste0(mission_id_foc, "_chm-ptcloud.tif")
     )
 
     terra::writeRaster(
@@ -230,31 +234,34 @@ postprocess_photogrammetry = function(mission_id_foc, config_id_foc) {
   }
 
 
-  ## Crop and save point cloud as COPC (if it exists) (if specified)
-  # TODO: Consider naming the output to *_points-copc.laz instead of *_points.laz, like Metashape we
-  # are having Metashape do. But note that if we do this, then the code below that copies all other
-  # files will have to be modified to not copy the *_points-copc.laz file.
+  # Crop and save point cloud as COPC (if it exists) (if specified) (NOTE that currently, we are
+  # having Metashape save a COPC so this is skipped) TODO: Consider naming the output to
+  # *_points-copc.laz instead of *_points.laz, like we are having Metashape do. But note that if we
+  # do this, then the code below that copies all other files will have to be modified to not copy
+  # the *_points-copc.laz file  (why? I think because then it would overwrite the just-converted
+  # one, but I'm not sure whether the photogrammetry outputs folder would ever have a copc and
+  # non-copc pointcloud).
 
-  if (CONVERT_TO_COPC & ("points" %in% output_files$type)) {
+  if (CONVERT_TO_COPC & ("points" %in% photogrammetry_output_files$type)) {
 
     # Get the file path of the point cloud
-    point_cloud_filename = output_files |>
+    point_cloud_filename = photogrammetry_output_files |>
       dplyr::filter(type == "points") |>
-      dplyr::pull(output_filename)
+      dplyr::pull(photogrammetry_output_filename)
 
     # Just in case there is anomalously more than one, we will take the first
     point_cloud_filename = point_cloud_filename[1]
 
     # Get the full path of the point cloud
     input_filepath = file.path(
-      PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_SUBDIR,
+      PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_DOWNLOADED_SUBDIR,
       point_cloud_filename
     )
 
     # Get the output file path
     output_filepath = file.path(
-      output_path, "full",
-      paste0(mission_id_foc, "_", config_id_foc, "_points.laz")
+      postprocessed_path, "full",
+      paste0(mission_id_foc, "_points.laz")
     )
 
     # Read the pointcloud
@@ -283,42 +290,42 @@ postprocess_photogrammetry = function(mission_id_foc, config_id_foc) {
 
   # Copy any other files that are not raster or point clouds straight to the output folder. Except
   # that COPC-format points (filename ending *_points-copc.laz) should get copied because they are
-  # skipped by the COPC conversion above. TODO: Spatially clip the mesh to the mission polygon
+  # skipped by the COPC conversion above. TODO: Spatially clip the COPC and mesh to the mission polygon
   # before copying.
-  other_files = output_files |>
+  other_files = photogrammetry_output_files |>
     dplyr::filter((!(extension %in% c("tif", "laz"))) | (type == "points-copc")) |>
-    dplyr::mutate(output_filepath_full = file.path(
-      output_path, "full", output_filename
+    dplyr::mutate(postprocessed_filepath_full = file.path(
+      postprocessed_path, "full", postprocessed_filename
     )) |>
     dplyr::mutate(input_filepath_full = file.path(
-      PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_SUBDIR,
-      output_filename
+      PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_DOWNLOADED_SUBDIR,
+      photogrammetry_output_filename
     ))
 
   file.link(
     other_files$input_filepath_full,
-    other_files$output_filepath_full
+    other_files$postprocessed_filepath_full
   )
 
 
   ## Make thumbnails
 
   # List all tifs within the output folder
-  tif_files = list.files(file.path(output_path, "full"), "*.tif", full.names = FALSE)
+  tif_files = list.files(file.path(postprocessed_path, "full"), "*.tif", full.names = FALSE)
 
   # For each full-resolution tif file
   for (tif_file in tif_files) {
     # Full path to the tif file
-    tif_file_path = file.path(output_path, "full", tif_file)
+    tif_file_path = file.path(postprocessed_path, "full", tif_file)
     # Create the output file in the thumbnails folder with the same name but png extension
-    output_file = str_replace(file.path(output_path, "thumbnails", tif_file), "tif$", "png")
+    thumbnail_filepath = str_replace(file.path(postprocessed_path, "thumbnails", tif_file), "tif$", "png")
 
     # if ((skip_existing && file.exists(output_file))) {
     #   print(paste0("Skipping creation of existing thumbnail: ", output_file))
     #   next()
     # }
 
-    print(paste0("Creating thumbnail: ", output_file))
+    print(paste0("Creating thumbnail: ", thumbnail_filepath))
 
     # Read the raster
     raster = terra::rast(tif_file_path)
@@ -334,7 +341,7 @@ postprocess_photogrammetry = function(mission_id_foc, config_id_foc) {
 
     # Specify a PNG file as the output device
     # Make sure the background is transperant
-    png(output_file, width = new_n_col, height = new_n_row, bg = "transparent")
+    png(thumbnail_filepath, width = new_n_col, height = new_n_row, bg = "transparent")
 
     # Determine whether this is single-channel or RGB data
     n_lyr = terra::nlyr(raster)
@@ -357,41 +364,21 @@ postprocess_photogrammetry = function(mission_id_foc, config_id_foc) {
   # TODO: Consider breaking out the deletion steps below into a separate function(s); some (the ones
   # that delete the photogrammetry inputs) can come even sooner than here.
 
-  # Delete the files from this mission * processing_run from the photogrammetry-outputs folder. Need
+  # Delete the files from this mission * processing_run from the photogrammetry-outputs-downloaded folder. Need
   # to run this as a system command with sudo in case the files were owned by root due to being
   # created by Docker.
   command = paste0(
     "sudo rm -rf ",
     file.path(
-      PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_SUBDIR,
-      paste0(mission_id_foc, "_", config_id_foc, "_*")
+      PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_DOWNLOADED_SUBDIR,
+      paste0(config_id_foc, "_", mission_id_foc, "_*")
     )
   )
   system(command)
-
-  # Delete Metashape project. Need to run this as a system command with sudo in case the files were
-  # owned by root due to being created by Docker.
-  command = paste0(
-    "sudo rm -rf ",
-    file.path(
-      PHOTOGRAMMETRY_DIR, METASHAPE_PROJECT_SUBDIR,
-      paste0(mission_id_foc, "_", config_id_foc, "*")
-    )
-  )
-  system(command)
-
 
   # Delete the mission polygon tempfile
   file.remove(polygon_temp_file)
 
-  # Delete the downloaded zip file of images and the unzipped folder of images.
-  zip_to_delete = file.path(PHOTOGRAMMETRY_DIR, DOWNLOADED_IMAGERY_ZIP_SUBDIR, 
-                             paste0(mission_id_foc, "_images.zip"))
-  file.remove(zip_to_delete)
-  folder_to_delete = file.path(PHOTOGRAMMETRY_DIR, INPUT_IMAGES_SUBDIR, mission_id_foc)
-  unlink(folder_to_delete, recursive = TRUE)
-
-  ## Return the processing_id so next function can: Upload the post-processed files to CyVerse
   return(TRUE)
 
 }

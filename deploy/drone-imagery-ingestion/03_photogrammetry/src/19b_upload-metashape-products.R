@@ -16,7 +16,7 @@ config_id_foc = "01"
 
 ## Workflow
 
-upload_photogrammetry_outputs_to_data_store = function(mission_id_foc, config_id_foc) {
+upload_photogrammetry_outputs_to_object_store = function(mission_id_foc, config_id_foc) {
 
   cat(
     "\n **** Uploading photogrammetry outputs to object store for mission",
@@ -87,34 +87,5 @@ upload_photogrammetry_outputs_to_data_store = function(mission_id_foc, config_id
     unlink(mission_dir, recursive = TRUE)
   }
 
-  # Also delete the metashape project file for this mission and config
-  # First need to change ownership of the project files
-  project_files = list.files(
-    path = file.path(PHOTOGRAMMETRY_DIR, METASHAPE_PROJECT_SUBDIR),
-    pattern = paste0(config_id_foc, "_", mission_id_foc, "\\.*"),
-    full.names = TRUE
-  )
-
-  # Surround project-files in single quotes
-  project_files = paste0("'", project_files, "'")
-  command = paste0("sudo chown -R ", Sys.getenv("USER"), " ", paste(project_files, collapse = " "))
-  # Doesn't work on diretories: result = system(command)
-
-  # Try the deletion as a system command
-  command = paste0("rm -rf ", paste(project_files, collapse = " "))
-  result = system(command)
-
-
-
-  print(unlink(project_files, recursive = TRUE))
-  # If the containing folder (photogrammetry-outputs) is now empty, delete that too
-  mission_dir = file.path(PHOTOGRAMMETRY_DIR, METASHAPE_OUTPUT_SUBDIR)
-  files_in_mission_dir = list.files(mission_dir)
-  if (length(files_in_mission_dir) == 0) {
-    unlink(mission_dir, recursive = TRUE)
-  }
-
   return(TRUE)
 }
-
-upload_photogrammetry_outputs_to_data_store(mission_id_foc, config_id_foc)

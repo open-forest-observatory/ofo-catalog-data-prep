@@ -91,6 +91,9 @@ download_unzip_images = function(mission_id_foc) {
     return(FALSE)
   }
 
+  # Delete the downloaded zip file now that it's unzipped
+  unlink(zip_filepath)
+
   return(TRUE)
 }
 
