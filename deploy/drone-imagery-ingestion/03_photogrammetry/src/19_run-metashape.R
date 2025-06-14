@@ -37,6 +37,9 @@ run_metashape = function(config_filename) {
     return(FALSE)
   }
 
+  config_id_foc = str_split(config_filename, "_")[[1]][1]
+  mission_id_foc = str_split(config_filename, "_")[[1]][2]
+
 
   # Delete the metashape project file (and folder) for this mission and config
   project_files = list.files(
