@@ -14,9 +14,10 @@ source("deploy/drone-imagery-ingestion/00_set-constants.R")
 source("deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/08-13_prep-raw-imagery-files_per-mission.R")
 
 # Determine the missions to process. This depends on having set the project name in the file
-# "imagery-project-to-process-raw-imagery-metadata.txt". It puts the list of missions to process in the file
-# "missions-to-process.csv". Note that the script that is sourced here does not define a function,
-# it actually runds the code complete the task described in this comment.
+# "/ofo-share/catalog-data-prep/00_missions-to-process/02_raw-imagery-file-prep/projects-to-process.txt".
+# It puts the list of missions to process in the file "missions-to-process.csv". Note that the
+# script that is sourced here does not define a function, it actually runds the code complete the
+# task described in this comment.
 source("deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/src/08_0pre_determine-missions-to-process.R")
 missions_to_process = read_csv(MISSIONS_TO_PROCESS_RAW_IMAGERY_FILES_LIST_PATH) |> pull(mission_id)
 
