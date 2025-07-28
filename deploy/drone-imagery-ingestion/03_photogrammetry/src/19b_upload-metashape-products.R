@@ -7,7 +7,7 @@
 # addition, you must have your S3 credentials set in the environment variables RCLONE_S3_ACCESS_KEY_ID and
 # RCLONE_S3_SECRET_ACCESS_KEY. You can do this by running the following command (change the values to
 # yours): ' echo 'export RCLONE_S3_ACCESS_KEY_ID=<access_key_id>' >> ~/.profile
- echo 'export RCLONE_S3_SECRET_ACCESS_KEY=<secret_access_key>' >> ~/.profile' ad then reboot.
+# echo 'export RCLONE_S3_SECRET_ACCESS_KEY=<secret_access_key>' >> ~/.profile' ad then reboot.
 
 source("deploy/drone-imagery-ingestion/00_set-constants.R")
 
