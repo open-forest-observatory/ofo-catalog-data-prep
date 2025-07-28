@@ -11,6 +11,7 @@
 
 source("deploy/drone-imagery-ingestion/00_set-constants.R")
 
+# For debugging (running lines in this script interactively)
 mission_id_foc = "000000"
 config_id_foc = "01"
 
