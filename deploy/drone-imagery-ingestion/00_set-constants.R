@@ -142,10 +142,18 @@ cat("Tempdir is:", tempdir(), "\n")
 
 CHMS_FOR_ITD_LIST_PATH = "/ofo-share/catalog-data-prep/00_missions-to-process/04_itd/chms-for-itd.csv"
 
+ITD_PARAMETERIZATION_ID = 1
+CHM_RES = 0.25
+CHM_SMOOTH_WIDTH = 7
+LMF_A = 0
+LMF_B = 0.11
+LMF_C = 0
+LMF_DIAM_MIN = 0.5
+LMF_DIAM_MAX = 100
 
-
-
-
+# The folder beneath the mission processed folder where the ITD outputs will be stored (in the
+# Object Store))
+ITD_FOLDER = paste0("itd_", str_pad(ITD_PARAMETERIZATION_ID, width = 4, pad = "0", side = "left"))
 
 
 

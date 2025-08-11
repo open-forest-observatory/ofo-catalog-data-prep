@@ -8,7 +8,7 @@ source("deploy/drone-imagery-ingestion/00_set-constants.R")
 source("src/utils.R")
 source("src/photogrammetry-prep.R")
 
-EXPECTED_FILE_SUFFIXES_FULL = c("_chm-mesh.tif", "_chm-ptcloud.tif")
+EXPECTED_FILE_SUFFIXES_FULL = c("_chm-mesh.tif") # , "_chm-ptcloud.tif"
 
 
 # Function to get file paths to CHMs (for which we will compute tree detections)

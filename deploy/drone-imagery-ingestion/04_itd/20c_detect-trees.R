@@ -9,29 +9,9 @@ library(nngeo)
 library(smoothr)
 library(furrr)
 
-## Constants
 
-TREE_DETECTION_PUBLISH_PATH = "/ofo-share/drone-imagery-processed/01/tree-detection-publish"
+## RESUME HERE WITH LOADING THE CHM TO PROCESS (FOR TESTING, LATER READ THEM FROM CSV and parallelize)
 
-PUBLISHED_DATA_RECORDS_DIR = "/ofo-share/drone-imagery-organization/8_published-data-records"
-# ^ this is to know which CHMs have been processed and where they are on CyVerse
-
-CYVERSE_BASE_PATH = "shared/ofo/public/missions"
-
-CYVERSE_BASE_URL = "https://data.cyverse.org/dav-anon/iplant/projects/ofo/public/missions/"
-
-MISSIONS_TO_PROCESS = c(1:452, 643:811, 874, 875, 932:1313) # This is everything except NRS
-
-ITD_PARAMETERIZATION_ID = 1
-
-
-## Derived constants
-
-# Pad mission IDs with zeros to 6 digits
-missions_to_process = str_pad(MISSIONS_TO_PROCESS, width = 6, pad = "0")
-
-# Pad ITD ID with zeros to 4 digits
-itd_parameterization_id = str_pad(ITD_PARAMETERIZATION_ID, width = 4, pad = "0")
 
 
 ## Functions
