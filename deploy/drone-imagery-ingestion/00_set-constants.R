@@ -137,4 +137,18 @@ terra::terraOptions(memfrac = TERRA_MEMFRAC)
 unixtools::set.tempdir(TEMPDIR)
 cat("Tempdir is:", tempdir(), "\n")
 
+
+# For ITD
+
+CHMS_FOR_ITD_LIST_PATH = "/ofo-share/catalog-data-prep/00_missions-to-process/04_itd/chms-for-itd.csv"
+
+
+
+
+
+
+
+
+
+
 # nolint end
