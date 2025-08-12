@@ -81,7 +81,7 @@ detect_ttops_and_crowns = function(chm_file_foc) {
 
   # Delineate crowns: silva
   crowns_silva = lidR::silva2016(chm_smooth, ttops, max_cr_factor = 0.24, exclusion = 0.1)()
-  crowns_silva <- as.polygons(crowns_silva)
+  crowns_silva <- as.polygons(rast(crowns_silva))
   crowns_silva <- st_as_sf(crowns_silva)
   crowns_silva <- st_cast(crowns_silva, "MULTIPOLYGON")
   crowns_silva <- st_cast(crowns_silva, "POLYGON")
@@ -91,7 +91,7 @@ detect_ttops_and_crowns = function(chm_file_foc) {
   crowns_silva <- st_simplify(crowns_silva, preserveTopology = TRUE, dTolerance = 0.1)
 
   crowns_watershed = lidR::watershed(chm_smooth, th_tree = 2, tol = 0, ext = 1)()
-  crowns_watershed <- as.polygons(crowns_watershed)
+  crowns_watershed <- as.polygons(rast(crowns_watershed))
   crowns_watershed <- st_as_sf(crowns_watershed)
   crowns_watershed <- st_cast(crowns_watershed, "MULTIPOLYGON")
   crowns_watershed <- st_cast(crowns_watershed, "POLYGON")
@@ -143,7 +143,7 @@ chm_paths = read_csv(CHMS_FOR_ITD_LIST_PATH)$chm_path
 # Keep only the ones made from the mesh
 chm_paths = chm_paths[grepl("_chm-mesh.tif$", chm_paths)]
 
-plan(multicore)
+plan(multicore(workers = availableCores() / 2))
 
 # Process each CHM
-future_walk(chm_paths, detect_ttops_and_crowns, .progress = TRUE)
+future_walk(chm_paths, detect_ttops_and_crowns, .progress = TRUE, .options = furrr_options(scheduling = Inf))

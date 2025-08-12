@@ -75,7 +75,7 @@ compile_mission_summary_data = function(mission_level_metadata, base_ofo_url, mi
   # Pre-process the display text for the relevant attributes, based on the metadata in the database
   d = mission_level_metadata |>
     dplyr::mutate(
-      overlap_combined_nominal = paste(overlap_front_nominal, overlap_side_nominal, sep = "/"),
+      # delete if still commented: overlap_combined_nominal = paste(overlap_front_nominal, overlap_side_nominal, sep = "/"),
       dataset_id_link = paste0('<a href="', base_ofo_url, mission_details_dir, dataset_id, '/"', ' target="_PARENT">', dataset_id, "</a>"),
       time_range_local_derived = paste0(earliest_time_local_derived, " to ", latest_time_local_derived),
       overlap_front_side_nominal = paste0(overlap_front_nominal, "/", overlap_side_nominal),
@@ -123,7 +123,7 @@ make_mission_catalog_datatable = function(mission_summary,
            "Area (ha)" = area_derived,
            "Date" = earliest_date_derived,
            "Altitude (m) (N)" = altitude_agl_nominal,
-           "Overlap (N)" = overlap_combined_nominal,
+           "Overlap (N)" = overlap_front_side_nominal,
            "Camera pitch" = camera_pitch_derived,
            "Terrain follow (N)" = terrain_follow,
            "Flight pattern" = flight_pattern,
@@ -172,7 +172,7 @@ make_mission_catalog_map = function(mission_summary,
       "<b>Date: </b>", earliest_date_derived, "<br>",
       "<b>Altitude (m): </b>", altitude_agl_nominal, "<br>",
       "<b>Camera pitch (deg): </b>", camera_pitch_derived, "<br>",
-      "<b>Overlap (front/side): </b>", overlap_combined_nominal, "<br>"
+      "<b>Overlap (front/side): </b>", overlap_front_side_nominal, "<br>"
     ))
 
   mission_centroids = sf::st_centroid(mission_summary)
@@ -216,6 +216,16 @@ make_mission_details_map = function(mission_summary_foc,
                                     mission_details_map_dir) {
 
   dataset_id = mission_summary_foc$dataset_id
+
+  # Recast some attributes. TODO: This may have become necessary because when compiling all
+  # mission metadata, we set all columns to character so they could be combined. Consider fixing
+  # that further upstream by using readr's infer types function
+  mission_points_foc = mission_points_foc |>
+    mutate(
+      altitude_asl_drone = as.numeric(altitude_asl_drone),
+      camera_pitch = as.numeric(camera_pitch),
+      datetime_local = as.POSIXct(datetime_local, tz = "UTC")
+    )
 
   mission_points_foc = mission_points_foc |>
     # Get which sub-mission each image is from
@@ -586,6 +596,7 @@ make_mission_details_datatable = function(mission_summary_foc,
 render_mission_details_page = function(
     template_filepath,
     mission_summary_foc,
+    s3_file_listing_foc,
     mission_details_map_path,
     itd_map_path,
     mission_details_datatable_path,
@@ -593,9 +604,8 @@ render_mission_details_page = function(
     previous_dataset_page_path,
     website_repo_content_path,
     mission_details_page_dir,
-    display_data = FALSE,
-    published_data_path = NULL,
-    data_server_base_url = "") {
+    display_data = FALSE
+  ) {
 
   # The argument `display_data` determines whether to display actual drone data (e.g., images,
   # orthomosaic), as opposed to metadata only 
@@ -605,7 +615,7 @@ render_mission_details_page = function(
 
   # Determine if this is an oblique mission, so we can enable a message to the top of the page
   # explaining that the photogrammetry products are not expected to look good on their own.
-  oblique = abs(mission_summary_foc$camera_pitch_derived) > 10
+  oblique = abs(as.numeric(mission_summary_foc$camera_pitch_derived)) > 10
 
   # Initialize drone data display parameters to pass to jinjar, starting with value FALSE or NULL,
   # but will be populated during the "display data" step below if specified
@@ -642,74 +652,90 @@ render_mission_details_page = function(
 
   if (display_data) {
 
-    # Get the processed photogrammetry folder name (for now taking the first if there are multiple)
-    sfm_folder = list.files(file.path(published_data_path, dataset_id),
-                            pattern = "^processed-",
-                            full.names = FALSE,
-                            recursive = FALSE) |> rev()
-    # In case there is more than one match, take the first (of the reversed data frame -- so
-    # actually the most recent)
-    sfm_folder = sfm_folder[1]
-    
-    # Check if ITD products exist and if so, get the URLs needed to add them to the page
-    sfm_path = file.path(published_data_path, dataset_id, sfm_folder)
-    itd_folder = list.files(sfm_path, full.names = FALSE, pattern = "^itd-", include.dirs = TRUE) |> rev()
-    itd_folder = itd_folder[1]
-    ttops_file_path = file.path(sfm_path, itd_folder, "treetops.gpkg")
+    processed_products = s3_file_listing_foc |> filter(str_detect(filepath, paste0("processed_", PHOTOGRAMMETRY_CONFIG_ID)))
+
+    filepath_parts = str_split(processed_products$filepath, fixed("/"))
+    part_3 = purrr::map_chr(filepath_parts, 3)
+    itd_folders = part_3[str_which(part_3, "^itd_")] |> unique() |> sort(decreasing = TRUE)
+    itd_folder_mostrecent = itd_folders[1]
+    itd_path_mostrecent = file.path(dataset_id, paste0("processed_", PHOTOGRAMMETRY_CONFIG_ID), itd_folder_mostrecent)
+    ttops_file_path = file.path(itd_path_mostrecent, paste0(dataset_id, "_treetops.gpkg"))
+
 
     # Check if products exist and if so, get the URLs needed to add them to the page
 
+    processed_folder = paste0("processed_", PHOTOGRAMMETRY_CONFIG_ID)
+
     # Orthomosaic
-    ortho_exists = file.exists(file.path(published_data_path, dataset_id, sfm_folder, "thumbnails", "orthomosaic.png"))
-    ortho_url_thumb = paste(data_server_base_url, dataset_id, sfm_folder, "thumbnails/orthomosaic.png", sep = "/")
-    ortho_url_full = paste(data_server_base_url, dataset_id, sfm_folder, "full/orthomosaic.tif", sep = "/")
+    ortho_path_thumb = file.path(dataset_id, processed_folder, "thumbnails", paste0(dataset_id, "_ortho-dsm-mesh.png"))
+    ortho_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_ortho-dsm-mesh.tif"))
+    ortho_exists = ortho_path_thumb %in% processed_products$filepath
+    ortho_url_thumb = paste(DATA_SERVER_MISSIONS_BASE_URL, ortho_path_thumb, sep = "/") |> strip_double_slashes()
+    ortho_url_full = paste(DATA_SERVER_MISSIONS_BASE_URL, ortho_path_full, sep = "/") |> strip_double_slashes()
 
     # CHM
-    chm_exists = file.exists(file.path(published_data_path, dataset_id, sfm_folder, "thumbnails", "chm-mesh.png"))
-    chm_url_thumb = paste(data_server_base_url, dataset_id, sfm_folder, "thumbnails/chm-mesh.png", sep = "/")
-    chm_url_full = paste(data_server_base_url, dataset_id, sfm_folder, "full/chm-mesh.tif", sep = "/")
+    chm_path_thumb = file.path(dataset_id, processed_folder, "thumbnails", paste0(dataset_id, "_chm-mesh.png"))
+    chm_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_chm-mesh.tif"))
+    chm_exists = chm_path_thumb %in% processed_products$filepath
+    chm_url_thumb = paste(DATA_SERVER_MISSIONS_BASE_URL, chm_path_thumb, sep = "/") |> strip_double_slashes()
+    chm_url_full = paste(DATA_SERVER_MISSIONS_BASE_URL, chm_path_full, sep = "/") |> strip_double_slashes()
+
 
     # DSM
-    dsm_exists = file.exists(file.path(published_data_path, dataset_id, sfm_folder, "thumbnails", "dsm-mesh.png"))
-    dsm_url_thumb = paste(data_server_base_url, dataset_id, sfm_folder, "thumbnails/dsm-mesh.png", sep = "/")
-    dsm_url_full = paste(data_server_base_url, dataset_id, sfm_folder, "full/dsm-mesh.tif", sep = "/")
+    dsm_path_thumb = file.path(dataset_id, processed_folder, "thumbnails", paste0(dataset_id, "_dsm-mesh.png"))
+    dsm_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_dsm-mesh.tif"))
+    dsm_exists = dsm_path_thumb %in% processed_products$filepath
+    dsm_url_thumb = paste(DATA_SERVER_MISSIONS_BASE_URL, dsm_path_thumb, sep = "/") |> strip_double_slashes()
+    dsm_url_full = paste(DATA_SERVER_MISSIONS_BASE_URL, dsm_path_full, sep = "/") |> strip_double_slashes()
 
     # DTM
-    dtm_exists = file.exists(file.path(published_data_path, dataset_id, sfm_folder, "thumbnails", "dtm-ptcloud.png"))
-    dtm_url_thumb = paste(data_server_base_url, dataset_id, sfm_folder, "thumbnails/dtm-ptcloud.png", sep = "/")
-    dtm_url_full = paste(data_server_base_url, dataset_id, sfm_folder, "full/dtm-ptcloud.tif", sep = "/")
+    dtm_path_thumb = file.path(dataset_id, processed_folder, "thumbnails", paste0(dataset_id, "_dtm-ptcloud.png"))
+    dtm_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_dtm-ptcloud.tif"))
+    dtm_exists = dtm_path_thumb %in% processed_products$filepath
+    dtm_url_thumb = paste(DATA_SERVER_MISSIONS_BASE_URL, dtm_path_thumb, sep = "/") |> strip_double_slashes()
+    dtm_url_full = paste(DATA_SERVER_MISSIONS_BASE_URL, dtm_path_full, sep = "/") |> strip_double_slashes()
 
     # Point cloud
-    pc_exists = file.exists(file.path(published_data_path, dataset_id, sfm_folder, "full", "points.laz"))
-    pc_url_full = paste(data_server_base_url, dataset_id, sfm_folder, "full/points.laz", sep = "/")
+    pc_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_points-copc.laz"))
+    pc_exists = pc_path_full %in% processed_products$filepath
+    pc_url_full = paste(DATA_SERVER_MISSIONS_BASE_URL, pc_path_full, sep = "/") |> strip_double_slashes()
 
     # Mesh model
-    mesh_exists = file.exists(file.path(published_data_path, dataset_id, sfm_folder, "full", "mesh-georeferenced.ply"))
-    mesh_url_full = paste(data_server_base_url, dataset_id, sfm_folder, "full/mesh-georeferenced.ply", sep = "/")
+    mesh_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_model-georeferenced.ply"))
+    mesh_exists = mesh_path_full %in% processed_products$filepath
+    mesh_url_full = paste(DATA_SERVER_MISSIONS_BASE_URL, mesh_path_full, sep = "/") |> strip_double_slashes()
 
     # Raw images
-    images_example_exists = file.exists(file.path(published_data_path, dataset_id, "images", "examples", "thumbnails", "example_4.JPG"))
-    images_example_url_thumb = paste(data_server_base_url, dataset_id, "images/examples/thumbnails/", sep = "/")
-    images_example_url_full = paste(data_server_base_url, dataset_id, "images/examples/fullsize/", sep = "/")
+    image_example_path = file.path(dataset_id, "images", "examples", "thumbnails", "example_4.JPG")
+    images_example_exists = image_example_path %in% s3_file_listing_foc$filepath
+    images_example_url_thumb = paste(DATA_SERVER_MISSIONS_BASE_URL, dataset_id, "images/examples/thumbnails/", sep = "/") |> strip_double_slashes()
+    images_example_url_full = paste(DATA_SERVER_MISSIONS_BASE_URL, dataset_id, "images/examples/fullsize/", sep = "/") |> strip_double_slashes()
 
-    images_zip_exists = file.exists(file.path(published_data_path, dataset_id, "images", "images.zip"))
-    images_zip_url = paste(data_server_base_url, dataset_id, "images/images.zip", sep = "/")
+    image_zip_path =  file.path(dataset_id, "images", paste0(dataset_id, "_images.zip"))
+    images_zip_exists = image_zip_path %in% s3_file_listing_foc$filepath
+    images_zip_url = paste(DATA_SERVER_MISSIONS_BASE_URL, image_zip_path, sep = "/") |> strip_double_slashes()
 
     # Mission footprint
-    footprint_exists = file.exists(file.path(published_data_path, dataset_id, "footprint", "footprint.gpkg"))
-    footprint_url = paste(data_server_base_url, dataset_id, "footprint/footprint.gpkg", sep = "/")
+    footprint_path = file.path(dataset_id, "metadata-mission", paste0(dataset_id, "_mission-metadata.gpkg"))
+    footprint_exists = footprint_path %in% s3_file_listing_foc$filepath
+    footprint_url = paste(DATA_SERVER_MISSIONS_BASE_URL, footprint_path, sep = "/") |> strip_double_slashes()
 
     # Cameras
-    cameras_exists = file.exists(file.path(published_data_path, dataset_id, sfm_folder, "full", "cameras.xml"))
-    cameras_url = paste(data_server_base_url, dataset_id, sfm_folder, "full/cameras.xml", sep = "/")
+    cameras_path = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_cameras.xml"))
+    cameras_exists = cameras_path %in% s3_file_listing_foc$filepath
+    cameras_url = paste(DATA_SERVER_MISSIONS_BASE_URL, cameras_path, sep = "/") |> strip_double_slashes()
 
     # Log
-    log_exists = file.exists(file.path(published_data_path, dataset_id, sfm_folder, "full", "log.txt"))
-    log_url = paste(data_server_base_url, dataset_id, sfm_folder, "full/log.txt", sep = "/")
+    log_path = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_log.txt"))
+    log_exists = log_path %in% s3_file_listing_foc$filepath
+    log_url = paste(DATA_SERVER_MISSIONS_BASE_URL, log_path, sep = "/") |> strip_double_slashes()
 
     # ITD
-    ttops_exists = file.exists(ttops_file_path)
-    ttops_url = paste(data_server_base_url, dataset_id, sfm_folder, itd_folder, "treetops.gpkg", sep = "/")
+    ttops_exists = ttops_file_path %in% processed_products$filepath
+    ttops_url = paste(DATA_SERVER_MISSIONS_BASE_URL, ttops_file_path, sep = "/") |> strip_double_slashes()
+
+    # TODO: Consider adding image point metadata. Would be in the file listing so easy to add, just
+    # have to add to the template too.
 
   }
 
@@ -765,10 +791,13 @@ render_mission_details_page = function(
 }
 
 
-## Loop through each mission and make a details page, including its media (map and datatable)
-make_mission_details_pages = function(
+## Loop through each mission and make a details page, including its media (map and datatable). TODO: There are some constants used in here that shoud be getting passed in as arguments from where this function is called
+make_mission_details_page = function(
+    mission_id_foc,
+    mission_points_foc,
+    mission_ids, # Needed for making the next and previous links
     mission_summary,
-    mission_points,
+    s3_file_listing,
     website_static_path,
     website_content_path,
     leaflet_header_files_dir,
@@ -777,44 +806,18 @@ make_mission_details_pages = function(
     mission_details_map_dir,
     itd_map_dir,
     mission_details_template_filepath,
-    mission_details_page_dir,
-    published_data_path = "",
-    data_server_base_url = "") {
-  mission_summary = mission_summary |> dplyr::arrange(mission_id)
+    mission_details_page_dir
+  ) {
 
-  mission_ids = mission_summary$mission_id
-  ndatasets = length(mission_ids)
+    mission_id_foc
 
-  mission_centroids = sf::st_centroid(mission_summary)
+    # Get the S3 file listing for this mission (so we know what data products exist)
+    s3_file_listing_foc = s3_file_listing |> filter(mission_id == mission_id_foc)
 
-  for (i in 1:ndatasets) {
-    # Get a single row from the summary statistics
-    mission_id_foc = mission_ids[[i]]
     # Extract the mission-level metadata that's associated with that dataset
     mission_summary_foc = mission_summary |> filter(mission_id == mission_id_foc)
 
-
-    ##!!!!!#### TODO: RESUME HERE once image points for each dataset are uploaded
-
-    # From CyVerse, get the image-level metadata associated with this dataset
-    folder_foc = paste0("/iplant/home/shared/ofo/public/missions/", mission_id_foc)
-    image_point_path = cyverse_list_files("/iplant/home/shared/ofo/public/missions/%/footprint", "footprint.gpkg")
-    footprint_urls = cyverse_url(footprint_paths)
-
-    ## Download and merge them all
-    plan(multisession)
-    footprint_list = furrr::future_map(footprint_urls, sf_from_url, .options = furrr::furrr_options(seed = TRUE))
-    footprints = bind_rows(footprint_list)
-    plan(sequential)
-
-
-
-
-
-    # Extract the image-level metadata that's associated with that dataset
-    mission_points_foc = mission_points |> filter(mission_id == mission_id_foc)
-
-    cat("\rGenerating details pages (", i, "of", ndatasets, ")    ")
+    # TODO: Instead of the above, could pull from S3 or the database directly on the fly.
 
     # Make details map and datatable
     mission_details_map_path = make_mission_details_map(
@@ -834,27 +837,33 @@ make_mission_details_pages = function(
       mission_details_datatable_dir = mission_details_datatable_dir
     )
     
-    # Make detected tree map, if ITD data exists
-    # Get the ITD folder name (for now taking the first if there are multiple)
-    sfm_folder = list.files(file.path(published_data_path, mission_id_foc),
-                            pattern = "^processed-",
-                            full.names = FALSE,
-                            recursive = FALSE) |> rev()
-    # In case there is more than one match, take the first (of the reversed data frame -- so
-    # actually the most recent)
-    sfm_folder = sfm_folder[1]
+    # Make detected tree map, if ITD data exists. For now using the most recent ITD folder if there
+    # are multiple.
+    
+    processed_products = s3_file_listing_foc |> filter(str_detect(filepath, paste0("processed_", PHOTOGRAMMETRY_CONFIG_ID)))
 
-    # Check if ITD products exist and if so, get the data needed to add them to the page
-    sfm_path = file.path(published_data_path, mission_id_foc, sfm_folder)
-    itd_folder = list.files(sfm_path, full.names = FALSE, pattern = "^itd-", include.dirs = TRUE) |> rev()
-    itd_folder = itd_folder[1]
-    ttops_file_path = file.path(sfm_path, itd_folder, "treetops.gpkg")
-    ttops_exists = file.exists(ttops_file_path)
+    filepath_parts = str_split(processed_products$filepath, fixed("/"))
+    part_3 = purrr::map_chr(filepath_parts, 3)
+    itd_folders = part_3[str_which(part_3, "^itd_")] |> unique() |> sort(decreasing = TRUE)
+    itd_folder_mostrecent = itd_folders[1]
+    itd_path_mostrecent = file.path(mission_id_foc, paste0("processed_", PHOTOGRAMMETRY_CONFIG_ID), itd_folder_mostrecent)
+    ttops_file_path = file.path(itd_path_mostrecent, paste0(mission_id_foc, "_treetops.gpkg"))
+    ttops_exists = ttops_file_path %in% processed_products$filepath
+
+    # TODO: We could streamline the above. For example, we could just check if any path with the
+    # file name above exists, and if so, sort them and keep the alphabetically last (which should be
+    # the most recent).
 
     if (ttops_exists) {
-      ttops_url = paste(data_server_base_url, mission_id_foc, sfm_folder, itd_folder, "treetops.gpkg", sep = "/")
+      ttops_url = paste(DATA_SERVER_MISSIONS_BASE_URL, ttops_file_path, sep = "/") |> strip_double_slashes()
 
-      itd_points = st_read(ttops_file_path)
+      # Download ttops from S3
+      remote_file = paste0(RCLONE_REMOTE, ":", REMOTE_MISSIONS_DIR, ttops_file_path)
+      temp_ttops_file = tempfile(paste0("ttops_mission_id_foc"), fileext = ".gpkg")
+      command = paste("rclone copyto", remote_file, temp_ttops_file, "--progress --transfers 32 --checkers 32 --stats 1s --retries 5 --retries-sleep=15s --s3-upload-cutoff 100Mi --s3-chunk-size 100Mi --s3-upload-concurrency 16 --multi-thread-streams 2", sep = " ")
+      system(command)
+
+      itd_points = st_read(temp_ttops_file)
 
       # Make ITD map
       itd_map_path = make_itd_map(
@@ -872,9 +881,20 @@ make_mission_details_pages = function(
 
 
 
-    # Compute previous and next dataset, looping around as needed
-    next_mission_id = ifelse(i < ndatasets, mission_ids[i + 1], mission_ids[1])
-    previous_mission_id = ifelse(i > 1, mission_ids[i - 1], mission_ids[ndatasets])
+    # Compute previous and next dataset. We have the current
+    # mission_id_foc the list of mission_ids (assume it is sorted) and we need to find the previous
+    # and next, wrapping around as needed.
+    current_index = which(mission_ids == mission_id_foc)
+    if (current_index == 1) {
+      previous_mission_id = mission_ids[length(mission_ids)]
+    } else {
+      previous_mission_id = mission_ids[current_index - 1]
+    }
+    if (current_index == length(mission_ids)) {
+      next_mission_id = mission_ids[1]
+    } else {
+      next_mission_id = mission_ids[current_index + 1]
+    }
 
     next_dataset_page_path = paste0("/", mission_details_page_dir, "/", next_mission_id)
     previous_dataset_page_path = paste0("/", mission_details_page_dir, "/", previous_mission_id)
@@ -883,6 +903,7 @@ make_mission_details_pages = function(
     render_mission_details_page(
       template_filepath = mission_details_template_filepath,
       mission_summary_foc = mission_summary_foc,
+      s3_file_listing = s3_file_listing_foc,
       mission_details_map_path = mission_details_map_path,
       itd_map_path = itd_map_path,
       mission_details_datatable_path = mission_details_datatable_path,
@@ -890,10 +911,10 @@ make_mission_details_pages = function(
       previous_dataset_page_path = previous_dataset_page_path,
       website_repo_content_path = website_content_path,
       mission_details_page_dir = mission_details_page_dir,
-      published_data_path = published_data_path,
-      data_server_base_url = data_server_base_url,
       display_data = TRUE
     )
-  }
+
+
+  gc()
 
 }
