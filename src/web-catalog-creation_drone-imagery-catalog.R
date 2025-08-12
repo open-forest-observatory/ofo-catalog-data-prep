@@ -862,7 +862,7 @@ make_mission_details_page = function(
 
       # Download ttops from S3
       remote_file = paste0(RCLONE_REMOTE, ":", REMOTE_MISSIONS_DIR, ttops_file_path)
-      temp_ttops_file = tempfile(paste0("ttops_mission_id_foc"), fileext = ".gpkg")
+      temp_ttops_file = tempfile(paste0("ttops", mission_id_foc), fileext = ".gpkg")
       command = paste("rclone copyto", remote_file, temp_ttops_file, "--progress --transfers 32 --checkers 32 --stats 1s --retries 5 --retries-sleep=15s --s3-upload-cutoff 100Mi --s3-chunk-size 100Mi --s3-upload-concurrency 16 --multi-thread-streams 2", sep = " ")
       system(command)
 
