@@ -159,5 +159,41 @@ ITD_FOLDER = paste0("itd_", str_pad(ITD_PARAMETERIZATION_ID, width = 4, pad = "0
 
 
 
+### Drone imagery web catalog
+
+BASE_OFO_URL = "https://openforestobservatory.org/"
+# BASE_OFO_URL = "http://localhost:1313/"
+WEBSITE_REPO_PATH = "/ofo-share/repos-derek/ofo-website-3"
+
+# Path to the plot details template page within this repo
+MISSION_DETAILS_TEMPLATE_FILEPATH = fs::path("deploy/drone-imagery-ingestion/10_drone-mission-web-catalog/templates/drone-mission-details.md")
+
+# Path to plot details dir relative to the 'content' dir in the website repo. No leading slash but
+# trailing slash
+MISSION_DETAILS_PAGE_DIR = "data/drone/mission-details/"
+
+# Path to static website files dirs within website repo relative to 'static'. Leading slash but no
+# trailing slash
+DATATABLE_HEADER_FILES_DIR = "/datatable-header-files_drone-mission-catalog"
+LEAFLET_HEADER_FILES_DIR = "/leaflet-header-files_drone-mission-catalog"
+MISSION_CATALOG_DATATABLE_DIR = "/drone-mission-catalog-datatable/"
+MISSION_CATALOG_DATATABLE_FILENAME = "drone-mission-catalog-datatable.html"
+MISSION_CATALOG_MAP_DIR = "/drone-mission-catalog-map/"
+MISSION_CATALOG_MAP_FILENAME = "drone-mission-catalog-map.html"
+MISSION_DETAILS_DATATABLE_DIR = "/drone-mission-details-datatables"
+MISSION_DETAILS_MAP_DIR = "/drone-mission-details-maps"
+ITD_MAP_DIR = "/itd-maps"
+
+WEBSITE_STATIC_PATH = file.path(WEBSITE_REPO_PATH, "static", "")
+WEBSITE_CONTENT_PATH = file.path(WEBSITE_REPO_PATH, "content", "")
+
+DATA_SERVER_BASE_URL = "https://js2.jetstream-cloud.org:8001/swift/v1/"
+DATA_SERVER_MISSIONS_BASE_URL = paste0(DATA_SERVER_BASE_URL, REMOTE_MISSIONS_DIR)
+
+# Metadata pulled from S3 to use in catalog generation
+MISSION_METADATA_FILEPATH = "/ofo-share/catalog-data-prep/05_drone-imagery-web-catalog/01_metadata/mission-metadata.gpkg"
+IMAGE_METADATA_FILEPATH = "/ofo-share/catalog-data-prep/05_drone-imagery-web-catalog/01_metadata/image-metadata.gpkg"
+S3_LISTING_FILEPATH = "/ofo-share/catalog-data-prep/05_drone-imagery-web-catalog/01_metadata/s3-listing.csv"
+
 
 # nolint end

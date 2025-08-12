@@ -44,3 +44,9 @@ lonlat_to_utm_epsg = function(lonlat) {
 
   return(utms_unique[1])
 }
+
+# Strip double slashes from paths (except preserve the double slash after "https:")
+strip_double_slashes = function(path) {
+  path = gsub("([^:])//+", "\\1/", path)
+  return(path)
+}
