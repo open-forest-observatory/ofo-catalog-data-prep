@@ -794,9 +794,9 @@ render_mission_details_page = function(
 ## Loop through each mission and make a details page, including its media (map and datatable). TODO: There are some constants used in here that shoud be getting passed in as arguments from where this function is called
 make_mission_details_page = function(
     mission_id_foc,
-    mission_points_foc,
-    mission_ids, # Needed for making the next and previous links
-    mission_summary,
+    all_mission_ids, # Needed for making the next and previous links
+    mission_summaries,
+    mission_points,
     s3_file_listing,
     website_static_path,
     website_content_path,
@@ -809,13 +809,16 @@ make_mission_details_page = function(
     mission_details_page_dir
   ) {
 
-    mission_id_foc
+    print(paste0("Making mission details page for ", mission_id_foc))
 
     # Get the S3 file listing for this mission (so we know what data products exist)
     s3_file_listing_foc = s3_file_listing |> filter(mission_id == mission_id_foc)
 
     # Extract the mission-level metadata that's associated with that dataset
-    mission_summary_foc = mission_summary |> filter(mission_id == mission_id_foc)
+    mission_summary_foc = mission_summaries |> filter(mission_id == mission_id_foc)
+
+    # Get the mission points for this mission
+    mission_points_foc = mission_points |> filter(mission_id == mission_id_foc)
 
     # TODO: Instead of the above, could pull from S3 or the database directly on the fly.
 
@@ -882,18 +885,18 @@ make_mission_details_page = function(
 
 
     # Compute previous and next dataset. We have the current
-    # mission_id_foc the list of mission_ids (assume it is sorted) and we need to find the previous
+    # mission_id_foc the list of all_mission_ids (assume it is sorted) and we need to find the previous
     # and next, wrapping around as needed.
-    current_index = which(mission_ids == mission_id_foc)
+    current_index = which(all_mission_ids == mission_id_foc)
     if (current_index == 1) {
-      previous_mission_id = mission_ids[length(mission_ids)]
+      previous_mission_id = all_mission_ids[length(all_mission_ids)]
     } else {
-      previous_mission_id = mission_ids[current_index - 1]
+      previous_mission_id = all_mission_ids[current_index - 1]
     }
-    if (current_index == length(mission_ids)) {
-      next_mission_id = mission_ids[1]
+    if (current_index == length(all_mission_ids)) {
+      next_mission_id = all_mission_ids[1]
     } else {
-      next_mission_id = mission_ids[current_index + 1]
+      next_mission_id = all_mission_ids[current_index + 1]
     }
 
     next_dataset_page_path = paste0("/", mission_details_page_dir, "/", next_mission_id)

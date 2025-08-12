@@ -67,35 +67,23 @@ s3_file_listing = read_csv(S3_LISTING_FILEPATH)
 
 mission_summary = mission_polygons_w_summary_data |> dplyr::arrange(mission_id)
 mission_ids = mission_summary$mission_id
-mission_centroids = sf::st_centroid(mission_summary)
 
-# Prep the mission points: make a list of dataframes, one for each mission, in the same order as the
-# mission IDs.
-mission_points_list = mission_ids |>
-  purrr::map(function(mission_id_foc) {
-    mission_points |> filter(mission_id == mission_id_foc)
-  })
+# Make mission details pages. Was unable to parallelize this -- possibly because of a conflict with
+# creating HTML widgets in parallel (saw an error about a widget staging directory that was
+# missing). It seems that it might work to set a temp dir separately for each process using the
+# mission ID which should prevent conflicts. Like so:
+  # temp_dir <- file.path(tempdir(), paste0("proc_", process_id))
+  # dir.create(temp_dir, showWarnings = FALSE, recursive = TRUE)
+  
+  # # Force R to use this temp dir
+  # Sys.setenv(TMPDIR = temp_dir)
 
 
-
-# Make mission details pages in parallel
-
-ncores = 8
-
-# Set up a future plan to use multicore
-plan(multisession, workers = ncores)
-
-print(paste("Using n cores", ncores))
-
-# We are awkwardly using walk2 because we want to use two parallel lists (the mission ID and the set
-# of image points for that mission). The alternative would have been to pass the full set of image
-# points to each node, but that leads to much greater memory usage.
-future_walk2(
+walk(
   mission_ids,
-  mission_points_list,
   make_mission_details_page,
-  mission_ids = mission_ids, # Needed for making the next and previous links
-  mission_summary = mission_summary,
+  all_mission_ids = mission_ids,
+  mission_summaries = mission_summary,
   mission_points = mission_points,
   s3_file_listing = s3_file_listing,
   website_static_path = WEBSITE_STATIC_PATH,
@@ -106,18 +94,16 @@ future_walk2(
   mission_details_map_dir = MISSION_DETAILS_MAP_DIR,
   itd_map_dir = ITD_MAP_DIR,
   mission_details_template_filepath = MISSION_DETAILS_TEMPLATE_FILEPATH,
-  mission_details_page_dir = MISSION_DETAILS_PAGE_DIR,
-  .options = furrr_options(seed = TRUE, scheduling = Inf),
-  .progress = TRUE
+  mission_details_page_dir = MISSION_DETAILS_PAGE_DIR
 )
 
 
 # # Example of how to call the function to make a single mission page
 # make_mission_details_page(
-#   mission_id_foc = "001441",
-#   mission_ids = mission_ids,
+#   x = "001441",
+#   y = mission_points_list[[1]], # This is the list of image points for that mission
+#   all_mission_ids = mission_ids,
 #   mission_summary = mission_summary,
-#   mission_points = mission_points,
 #   s3_file_listing = s3_file_listing,
 #   website_static_path = WEBSITE_STATIC_PATH,
 #   website_content_path = WEBSITE_CONTENT_PATH,
