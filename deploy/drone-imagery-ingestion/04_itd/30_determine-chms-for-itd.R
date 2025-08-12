@@ -1,6 +1,91 @@
-# Purpose: Obtain the list of processed mesh-based CHM files from the Data Store, including the
-# mission ID, processing run ID, and the full path to the file on the data store. Save to a CSV
-# file.
+# Purpose: Obtain the list of processed mesh-based CHM files from the Object Store. Save to a CSV
+# file to use for the next step.
+
+library(tidyverse)
+library(purrr)
+
+source("deploy/drone-imagery-ingestion/00_set-constants.R")
+
+EXPECTED_FILE_SUFFIXES_FULL = c("_chm-mesh.tif") # , "_chm-ptcloud.tif"
+
+
+# Function to get file paths to CHMs (for which we will compute tree detections)
+get_objectstore_missions_w_chms = function() {
+
+  # Query the object store for a file listing
+  remote_dir = paste0(RCLONE_REMOTE, ":", REMOTE_MISSIONS_DIR)
+  command = paste("rclone lsf", remote_dir, "-R --files-only", sep = " ")
+  listing = system(command, intern = TRUE)
+
+  # Filter for missions with CHms
+  file_ending_options_regex = paste(EXPECTED_FILE_SUFFIXES_FULL, collapse = "|")
+  searchstring = paste0("^[0-9]{6}/processed_", PHOTOGRAMMETRY_CONFIG_ID ,"/full/[0-9]{6}(", file_ending_options_regex, ")$")
+  chm_filepaths = listing[grepl(searchstring, listing)]
+
+  return(chm_filepaths)
+
+}
+
+
+# TODO: Optionally exclude CHMs that have already been processed for ITD.
+
+
+
+# Convert to data frame
+chms_to_process_df = data.frame(chm_path = get_objectstore_missions_w_chms())
+
+
+
+
+
+# Write
+write_csv(chms_to_process_df, CHMS_FOR_ITD_LIST_PATH)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 library(stringr)
 library(tidyverse)
@@ -33,7 +118,8 @@ write_csv(chm_files, file.path(PUBLISHED_DATA_RECORDS_DIR, "chm_mesh_files.csv")
 
 
 
-############### Working but unneceessarily complex alternative
+############### Working but unneceessarily complex alternative (this is old, from using the Data
+#Store, I think completely irrelevant now)
 
 # # This script requries that you have rclone set up and configured with a SFTP remote named 'cvftp'.
 # # It will need to be configured with your CyVerse username and password. !!! Make sure rclone is set

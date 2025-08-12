@@ -9,30 +9,8 @@ library(nngeo)
 library(smoothr)
 library(furrr)
 
-## Constants
-
-TREE_DETECTION_PUBLISH_PATH = "/ofo-share/drone-imagery-processed/01/tree-detection-publish"
-
-PUBLISHED_DATA_RECORDS_DIR = "/ofo-share/drone-imagery-organization/8_published-data-records"
-# ^ this is to know which CHMs have been processed and where they are on CyVerse
-
-CYVERSE_BASE_PATH = "shared/ofo/public/missions"
-
-CYVERSE_BASE_URL = "https://data.cyverse.org/dav-anon/iplant/projects/ofo/public/missions/"
-
-MISSIONS_TO_PROCESS = c(1:452, 643:811, 874, 875, 932:1313) # This is everything except NRS
-
-ITD_PARAMETERIZATION_ID = 1
-
-
-## Derived constants
-
-# Pad mission IDs with zeros to 6 digits
-missions_to_process = str_pad(MISSIONS_TO_PROCESS, width = 6, pad = "0")
-
-# Pad ITD ID with zeros to 4 digits
-itd_parameterization_id = str_pad(ITD_PARAMETERIZATION_ID, width = 4, pad = "0")
-
+## Set constants
+source("deploy/drone-imagery-ingestion/00_set-constants.R")
 
 ## Functions
 
@@ -65,50 +43,29 @@ predict_trees_from_chm <- function(chm, lmf_a, lmf_b, lmf_c, lmf_diam_min, lmf_d
 
 #### Workflow
 
-# Load the list of missions on CyVerse (i.e., all that have a CHM produced for them)
-chm_files <- read_csv(file.path(PUBLISHED_DATA_RECORDS_DIR, "chm_mesh_files.csv"), col_types = "cccccc")
-
-# Define the parameters for the lmf algorithm (later could be pulled in dynamically)
-chm_res = 0.25
-chm_smooth_width = 7
-lmf_a = 0
-lmf_b = 0.11
-lmf_c = 0
-lmf_diam_min = 0.5
-lmf_diam_max = 100
-
-# lmf_a = -1
-# lmf_b = 0.1093
-
-chm_files_to_process = chm_files |> filter(mission_id %in% missions_to_process)
-
 detect_ttops_and_crowns = function(chm_file_foc) {
 
-  # Create the output directory
-  out_folder = file.path(TREE_DETECTION_PUBLISH_PATH,
-                          chm_file_foc$mission_id,
-                          paste0("processed-", chm_file_foc$processing_run_id),
-                          paste0("itd-", itd_parameterization_id))
-  if (!dir.exists(out_folder)) dir.create(out_folder, recursive = TRUE)
+  chm_identifier = tools::file_path_sans_ext(basename(chm_file_foc))
+  # Get the mission ID from the filename (the first 6 characters)
+  mission_id = str_sub(basename(chm_file_foc), 1, 6)
+  # Get the photogrammetry processing run ID from the filename
+  photogrammetry_run_id = str_match(chm_file_foc, "/processed_(\\d{2})")[,2]
+  # Construct the output directory path within the object store bucket: where to upload the results
+  output_directory = paste0(REMOTE_MISSIONS_DIR, "/", mission_id, "/processed_", photogrammetry_run_id, "/", ITD_FOLDER)
 
-  # Download and load the CHM
-  url = paste0(CYVERSE_BASE_URL, chm_file_foc$filepath_rel)
-  tempfile = tempfile("chm", fileext = ".tif")
-  x = download.file(url, tempfile, method = "wget")
-  chm = terra::rast(tempfile)
+  # Download the CHM from JS2 Object Store and load
+  remote_file = paste0(RCLONE_REMOTE, ":", REMOTE_MISSIONS_DIR, chm_file_foc)
+  temp_chm_file = tempfile(chm_identifier, fileext = ".tif")
+  command = paste("rclone copyto", remote_file, temp_chm_file, "--progress --transfers 32 --checkers 32 --stats 1s --retries 5 --retries-sleep=15s --s3-upload-cutoff 100Mi --s3-chunk-size 100Mi --s3-upload-concurrency 16 --multi-thread-streams 2", sep = " ")
+  system(command)
+  chm = terra::rast(temp_chm_file)
 
 
   # Prep the CHM
-  chm_smooth = resample_and_smooth_chm(chm, chm_res, chm_smooth_width)
+  chm_smooth = resample_and_smooth_chm(chm, CHM_RES, CHM_SMOOTH_WIDTH)
 
   # Detect trees
-  ttops = predict_trees_from_chm(chm_smooth, lmf_a, lmf_b, lmf_c, lmf_diam_min, lmf_diam_max)
-
-  # # Write both to inspect
-  # tempfolder = "/ofo-share/scratch-derek/temp"
-  # if (!dir.exists(tempfolder)) dir.create(tempfolder, recursive = TRUE)
-  # st_write(ttops, file.path(tempfolder, "ttops_smooth3_disc.gpkg"), delete_dsn = TRUE)
-  # writeRaster(chm_smooth, file.path(tempfolder, "chm_smooth.tif"), overwrite = TRUE)
+  ttops = predict_trees_from_chm(chm_smooth, LMF_A, LMF_B, LMF_C, LMF_DIAM_MIN, LMF_DIAM_MAX)
 
   # Extract tree height from the non-smoothed CHM
   ttops$Z = extract(chm, ttops)[,2]
@@ -155,19 +112,38 @@ detect_ttops_and_crowns = function(chm_file_foc) {
   crowns_watershed = crowns_watershed[, -1]
   crowns_watershed = crowns_watershed[!is.na(crowns_watershed$Z),]
 
-  # Write predicted treetops and crowns
-  st_write(ttops, file.path(out_folder, "treetops.gpkg"), delete_dsn = TRUE)
-  st_write(crowns_watershed, file.path(out_folder, "crowns_watershed.gpkg"), delete_dsn = TRUE)
-  st_write(crowns_silva, file.path(out_folder, "crowns_silva.gpkg"), delete_dsn = TRUE)
+  # Write predicted treetops and crowns to a temp folder for uploading
+  random_number = sample(1:1000000, 1) |> str_pad(width = 6, pad = "0", side = "left")
+  temp_folder = file.path(TEMPDIR, paste0("itdtemp_", random_number))
+  dir.create(temp_folder, recursive = TRUE, showWarnings = FALSE)
+
+  ttops_tempfile = file.path(temp_folder, paste0(mission_id, "_treetops.gpkg"))
+  crowns_watershed_tempfile = file.path(temp_folder, paste0(mission_id, "_crowns-watershed.gpkg"))
+  crowns_silva_tempfile = file.path(temp_folder, paste0(mission_id, "_crowns-silva.gpkg"))
+
+  st_write(ttops, ttops_tempfile, delete_dsn = TRUE)
+  st_write(crowns_watershed, crowns_watershed_tempfile, delete_dsn = TRUE)
+  st_write(crowns_silva, crowns_silva_tempfile, delete_dsn = TRUE)
+
+  # Upload the results to the Object Store
+  # Construct data transfer command line call
+  remote_dir = paste0(RCLONE_REMOTE, ":", output_directory)
+  command = paste("rclone copy", temp_folder, remote_dir, "--progress --transfers 32 --checkers 32 --stats 1s --retries 5 --retries-sleep=15s --s3-upload-cutoff 100Mi --s3-chunk-size 100Mi --s3-upload-concurrency 16", sep = " ")
+  result = system(command)
+
 
   gc()
-  file.remove(tempfile)
+  file.remove(ttops_tempfile, crowns_watershed_tempfile, crowns_silva_tempfile, temp_chm_file)
+  unlink(temp_folder, recursive = TRUE)
 }
 
-# Turn chm_files_to_process into a list
-chm_files_list = split(chm_files_to_process, seq_len(nrow(chm_files_to_process)))
+
+chm_paths = read_csv(CHMS_FOR_ITD_LIST_PATH)$chm_path
+
+# Keep only the ones made from the mesh
+chm_paths = chm_paths[grepl("_chm-mesh.tif$", chm_paths)]
 
 plan(multicore)
 
 # Process each CHM
-future_walk(chm_files_list, detect_ttops_and_crowns, .progress = TRUE)
+future_walk(chm_paths, detect_ttops_and_crowns, .progress = TRUE)
