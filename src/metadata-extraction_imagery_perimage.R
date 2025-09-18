@@ -400,31 +400,36 @@ extract_imagery_perimage_metadata = function(exif, platform_name, plot_flightpat
     file_size_gb = file_size_gb
   )
 
-  # Remove any rows with missing GPS data
-  missing_gps_rows = is.na(metadata$lat) | is.na(metadata$lon)
-  n_missing_gps_rows = sum(missing_gps_rows)
-  if (n_missing_gps_rows > 0) {
-    warning("Removing ", n_missing_gps_rows, " rows with missing GPS data from dataset", exif$sub_mission_id[1])
 
-    # Keep only rows with GPS data
-    metadata = metadata[!missing_gps_rows, ]
-  }
-
-  # Arrange images by capture time (presumably they're already in capture order, but just to be
-  # sure). First arrange by full file path (assuming that is the capture order), then by capture
-  # time. This way, the capture time is used as top priority, with the file path used as a
-  # tiebreaker (e.g. if there were two images taken in the same second). We can't use the path alone
-  # because if the mission was split over two SD cards, the file write path may have started over.
-  # TODO: Deal with the case where a dataset was collected by two drones flying at once.
-  metadata = metadata[order(metadata$original_file_name), ]
-  metadata = metadata[order(metadata$datetime_local), ]
 
   # Plot the flight path as a visual check if requested
   if (plot_flightpath) {
+
+    metadata_for_flightpath = metadata
+
+    # Remove any rows with missing GPS data
+    missing_gps_rows = is.na(metadata_for_flightpath$lat) | is.na(metadata_for_flightpath$lon)
+    n_missing_gps_rows = sum(missing_gps_rows)
+    if (n_missing_gps_rows > 0) {
+      warning("Removing ", n_missing_gps_rows, " rows with missing GPS data from dataset", exif$sub_mission_id[1])
+
+      # Keep only rows with GPS data
+      metadata_for_flightpath = metadata_for_flightpath[!missing_gps_rows, ]
+    }
+
+    # Arrange images by capture time (presumably they're already in capture order, but just to be
+    # sure). First arrange by full file path (assuming that is the capture order), then by capture
+    # time. This way, the capture time is used as top priority, with the file path used as a
+    # tiebreaker (e.g. if there were two images taken in the same second). We can't use the path alone
+    # because if the mission was split over two SD cards, the file write path may have started over.
+    # TODO: Deal with the case where a dataset was collected by two drones flying at once.
+    metadata_for_flightpath = metadata_for_flightpath[order(metadata_for_flightpath$original_file_name), ]
+    metadata_for_flightpath = metadata_for_flightpath[order(metadata_for_flightpath$datetime_local), ]
+
     # TODO figure out if this is the best way to visualize
     # This has the issue of opening a bunch of windows
     x11()
-    flightpath = sf::st_as_sf(metadata, crs = 4326, coords = c("lon", "lat"))
+    flightpath = sf::st_as_sf(metadata_for_flightpath, crs = 4326, coords = c("lon", "lat"))
 
     flightpath = flightpath |>
       dplyr::summarize(do_union = FALSE) |>
@@ -432,6 +437,7 @@ extract_imagery_perimage_metadata = function(exif, platform_name, plot_flightpat
     plot(flightpath)
   }
 
+  # Return the original (not reordered, not subsetted) metadata
   return(metadata)
 }
 
