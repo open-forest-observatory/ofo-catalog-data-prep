@@ -17,6 +17,7 @@ setdiff(missions_old, missions_new)
 setdiff(missions_new, missions_old)
 
 missions_changed = c()
+missions_unchanged = c()
 
 for (mission_foc in missions_new) {
   print(mission_foc)
@@ -34,5 +35,6 @@ for (mission_foc in missions_new) {
   changed = !identical(old_foc, new_foc)
   if (changed) {
     missions_changed = c(missions_changed, mission_foc)
-  }
+  } else {
+    missions_unchanged = c(missions_unchanged, mission_foc)}
 }
