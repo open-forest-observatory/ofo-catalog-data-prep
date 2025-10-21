@@ -72,7 +72,7 @@ UPLOAD_STAGING_DIR_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion
 
 # Name of configured rclone remote for object storage
 RCLONE_REMOTE = "js2s3"
-REMOTE_MISSIONS_DIR = "/ofo-public/drone/missions_01/"
+REMOTE_MISSIONS_DIR = "/ofo-public/drone/missions_02/"
 REMOTE_PHOTOGRAMMETRY_DIR = "/ofo-internal/photogrammetry-outputs/"
 
 UPLOAD_ERROR_LOG = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/temp/cyverse-upload-log.txt"

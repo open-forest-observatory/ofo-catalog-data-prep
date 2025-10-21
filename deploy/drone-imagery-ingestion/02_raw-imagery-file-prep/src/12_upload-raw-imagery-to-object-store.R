@@ -1,13 +1,13 @@
 ## Purpose: Upload the data in the upload staging directory created in previous step to CyVerse.
 
 # IMPORTANT NOTE: You must have already configured an rclone remote on this machine for the object
-# store. This is already done automatically on ofo dev images. The config should look like this:
-# https://github.com/open-forest-observatory/ofo-ansible/blob/main/roles/ofo/files/rclone.conf In
-# addition, you must have your S3 credentials set in the environment variables RCLONE_S3_ACCESS_KEY_ID and
-# RCLONE_S3_SECRET_ACCESS_KEY. You can do this by running the following command (change the values to
-# yours): export RCLONE_S3_ACCESS_KEY_ID=your_access_key_id; export
-# RCLONE_S3_SECRET_ACCESS_KEY=your_secret_access_key
-
+# store. This is done entirely througn env vars:
+# export RCLONE_CONFIG_JS2S3_TYPE=s3
+# export RCLONE_CONFIG_JS2S3_PROVIDER=Other
+# export RCLONE_CONFIG_JS2S3_ENDPOINT=https://js2.jetstream-cloud.org:8001/
+# export RCLONE_CONFIG_JS2S3_ENV_AUTH=true
+#  export RCLONE_CONFIG_JS2S3_S3_ACCESS_KEY_ID=<access-key-id>
+#  export RCLONE_CONFIG_JS2S3_S3_SECRET_ACCESS_KEY=<secret-access-key>
 
 upload_raw_imagery_to_object_store = function(mission_id_foc) {
 
@@ -18,7 +18,7 @@ upload_raw_imagery_to_object_store = function(mission_id_foc) {
 
   remote_dir = paste0(RCLONE_REMOTE, ":", REMOTE_MISSIONS_DIR, mission_id_foc)
 
-  command = paste("rclone copy", local_dir, remote_dir, "--progress --transfers 32 --checkers 32 --stats 1s --retries 5 --retries-sleep=15s --s3-upload-cutoff 100Mi --s3-chunk-size 100Mi --s3-upload-concurrency 16", sep = " ")
+  command = paste("rclone copy", local_dir, remote_dir, "--progress --transfers 32 --checkers 32 --stats 1s --retries 5 --retries-sleep=15s --s3-upload-cutoff 100Mi --s3-chunk-size 100Mi --s3-upload-concurrency 16 --config /dev/null", sep = " ")
   # There are only 11 files so as long as there are at least 11 tranfers we are maxed on throughput
 
   # # OLD METHOD FOR CYVERSE IRODS
@@ -71,16 +71,16 @@ upload_raw_imagery_to_object_store = function(mission_id_foc) {
 #   return(uploaded_relevant_files)
 # }
 
-# Function for checking whether the zip file upload exists on osn
-check_if_zip_file_exists = function(mission_id_foc) {
-  # Check if the zip file exists on CyVerse
+# # Function for checking whether the zip file upload exists on osn
+# check_if_zip_file_exists = function(mission_id_foc) {
+#   # Check if the zip file exists on CyVerse
 
-  remote_zip_path = paste0(OSN_RCLONE_REMOTE, ":", OSN_MISSIONS_DIR, mission_id_foc, "/images/", mission_id_foc, "_images.zip")
+#   remote_zip_path = paste0(OSN_RCLONE_REMOTE, ":", OSN_MISSIONS_DIR, mission_id_foc, "/images/", mission_id_foc, "_images.zip")
 
-  call = paste0("rclone lsf ", remote_zip_path)
+#   call = paste0("rclone lsf ", remote_zip_path)
 
-  uploaded = system(call, intern = TRUE)
-  uploaded_success = length(uploaded) > 0
+#   uploaded = system(call, intern = TRUE)
+#   uploaded_success = length(uploaded) > 0
 
-  return(uploaded_success)
-}
+#   return(uploaded_success)
+# }

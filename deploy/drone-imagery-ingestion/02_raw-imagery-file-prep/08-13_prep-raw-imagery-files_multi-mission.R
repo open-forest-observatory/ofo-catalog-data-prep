@@ -3,7 +3,7 @@
 # IMPORTANT NOTE: You must have already configure an rclone remote on this machine for the object
 # store. See the upload task source script for details.
 
-# NOTE: Requires 'exiftool' be installed.
+# NOTE: Requires 'exiftool' be installed as an ubuntu package
 
 library(tidyverse)
 library(furrr)
