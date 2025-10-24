@@ -9,7 +9,7 @@ library(sf)
 
 source(file.path("src", "web-catalog-creation_ground-ref-data.R"))
 
-PLOT_BOUNDARIES_PATH = "~/Documents/repo-data-local/ofo-catalog-data-prep/field-plot-boundaries"
+PLOT_BOUNDARIES_PATH = "~/repo-data-local/ofo-catalog-data-prep/field-plot-boundaries"
 GOOGLE_SHEET_ID = "1GjDseDCR1BX_EIkJAni7rk2zvK6nHmZz1nOFBd1d6k4"
 
 # ---- Processing
@@ -27,6 +27,7 @@ bounds = bounds |>
 check_field_ref_data(tabular_data, bounds)
 
 trees = prep_trees(trees = tabular_data$trees, species_codes = tabular_data$species_codes)
+# Any warning of duplicate coedes probably due to JUOC/JUGR 64
 
 plots = prep_plots(tabular_data$plots)
 
@@ -86,7 +87,7 @@ plot_summary = plot_summary |>
   
 # Remove embargoed plots
 plot_summary = plot_summary |>
-  filter(!embargoed | name == "Lamping")
+  filter(!embargoed)
 
 # Imprecise test for whether the data is still in the process of entry and should be skipped. TODO:
 # Consider turning into a function
@@ -140,7 +141,7 @@ plot_bounds_w_summary = plot_bounds_w_summary |>
 
 
 # Write the plot-level data to a gpkg
-st_write(plot_bounds_w_summary, "~/Documents/temp/ofo_ground-reference_plots.gpkg", delete_dsn = TRUE)
+st_write(plot_bounds_w_summary, "~/temp/ofo_ground-reference_plots.gpkg", delete_dsn = TRUE)
 
 
 ### Trees
@@ -150,6 +151,10 @@ trees_no_plot_data = trees |>
   filter(!plot_id %in% plot_bounds_w_summary$plot_id)
 table(trees_no_plot_data$plot_id)
 # It is just embargoed data and ones with no polygons (in process of being entered)
+# 53-56: OSU
+# 57: FOCAL incomplete ABCO plot
+# 82, 83, 87: embargoed Lamping plots
+# 9999: dummy plot
 
 # Filter to the trees that are in the field plots that we have bounds & summary data for
 trees = trees |>
@@ -197,4 +202,4 @@ trees = trees |>
 trees_sf = sf::st_as_sf(trees, coords = c("tree_lon", "tree_lat"), crs = 4326)
 
 # Write to gpkg
-st_write(trees_sf, "~/Documents/temp/ofo_ground-reference_trees.gpkg", delete_dsn = TRUE)
+st_write(trees_sf, "~/temp/ofo_ground-reference_trees.gpkg", delete_dsn = TRUE)
