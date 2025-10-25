@@ -9,7 +9,7 @@ library(sf)
 
 source(file.path("src", "web-catalog-creation_ground-ref-data.R"))
 
-PLOT_BOUNDARIES_PATH = "~/Documents/repo-data-local/ofo-catalog-data-prep/field-plot-boundaries"
+PLOT_BOUNDARIES_PATH = "~/Documents/repo-data-local/ofo-catalog-data-prep/field-plot-boundaries" # Download from: https://ucdavis.box.com/s/fra31givaqf1j8jidezaruah7on42w77
 GOOGLE_SHEET_ID = "1GjDseDCR1BX_EIkJAni7rk2zvK6nHmZz1nOFBd1d6k4"
 
 # ---- Processing
