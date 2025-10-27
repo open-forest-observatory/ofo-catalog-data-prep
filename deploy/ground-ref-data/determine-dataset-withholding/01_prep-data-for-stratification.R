@@ -27,6 +27,10 @@ ground_trees = st_read("/ofo-share/catalog-data-prep/stratification-data/downloa
 ground_trees = ground_trees |>
   mutate(live_dead = ifelse(as.numeric(plot_id) %in% c(186:196), "L", live_dead))
 
+# Remove 3 trees that are impossibly large and must be erroneous
+ground_trees = ground_trees |>
+  filter(is.na(height) | is.na(dbh) | (!(height < 50 & dbh > 300) & !(height > 80)))
+
 # Read the pairings definitions
 pairings = read_csv("/ofo-share/catalog-data-prep/stratification-data/ground_plot_drone_mission_matches.csv")
 
@@ -45,12 +49,23 @@ pairings_unique = pairings |>
   distinct()
 
 
+# Manually exclude 000934 and 000935 from being selected for test (force them in train) because they connect nearly all STEF missions into one giant group
+# and we want to allow a part of them to be selected as test. Excluding them will disconnect the
+# chain of drone missions and allow part of STEF2018 to be selected (which we will manually force).
+pairings_unique = pairings_unique |>
+  filter(!(mission_id_hn %in% c("000934", "000935") | mission_id_lo %in% c("000934", "000935")))
+
+
 # Read the drone mission footrpints and merge to single layer with one feature per mission
 footprint_paths = list.files("/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/3_final/1_full-metadata-per-mission", full.names = TRUE)
 footprints = lapply(footprint_paths, st_read)
 footrpints = lapply(footprints, get_mission_id)
 footprints = do.call(rbind, footrpints)
 footprints = st_transform(footprints, 5070)
+
+# Manually exclude 000934 and 000935 with same logic as above
+footprints = footprints |>
+  filter(!(mission_id %in% c("000934", "000935")))
 
 # Temporary write to inspect
 st_write(footprints, "/ofo-share/catalog-data-prep/stratification-data/all_drone_footprints.gpkg", delete_dsn = TRUE)
@@ -100,7 +115,7 @@ all_footprints = rbind(pairings_unique, other_footprints)
 ## Define unique groups from the records here such that if there is any spatial overlap between two records, they are in the same group. Applies to chains of overlap.
 
 # Create a spatial intersection matrix, using buffered plots to ensure separate groups are truly isolated
-intersects_matrix = st_intersects(all_footprints |> st_buffer(50), sparse = FALSE)
+intersects_matrix = st_intersects(all_footprints |> st_buffer(10), sparse = FALSE)
 
 # Function to find connected components using depth-first search
 find_connected_components = function(adj_matrix) {
@@ -260,6 +275,10 @@ ground_plots_summ = ground_plots_summ |>
 # Only considering plots with an area over 0.03 ha (to exclude the RMR mini-plots)
 ground_plots_summ = ground_plots_summ |>
   filter(plot_area_ha >= 0.03)
+
+# Also remove the very outlier SBGEO plot and rancho marino plots which are all under one drone polygon
+ground_plots_summ = ground_plots_summ |>
+  filter(!(plot_id %in% c("0081", str_pad(242:269, width = 4, pad = "0", side = "left"))))
 
 
 # Write to temp to inspect

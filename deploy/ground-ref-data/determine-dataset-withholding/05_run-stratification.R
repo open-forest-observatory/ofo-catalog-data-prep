@@ -27,3 +27,33 @@ table(d$pairing_tier)
 
 plots_df = d |>
   filter(pairing_tier == "aligned_paired_drone_footprint")
+
+res = select_withheld_groups(plots_df)
+
+print_selection_report(res)
+
+print(res$diagnostics$factorial_plots)
+
+
+# Get the plots in the withheld groups
+
+groups_withheld = res$withheld_plots$group_id
+
+plots_withheld = plots_df |>
+  filter(group_id %in% groups_withheld)
+
+table(plots_withheld$project_name)
+table(plots_df$project_name)
+
+
+
+
+
+
+# Figuring out why we got very divergent mean and SD for mean_ba_live for this selection:
+
+withheld_plots = plots_df |>
+  filter(group_id %in% res$withheld_plots$group_id)
+
+hist(withheld_plots$mean_ba_live)
+hist(plots_df$mean_ba_live)

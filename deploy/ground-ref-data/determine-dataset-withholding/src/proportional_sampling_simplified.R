@@ -14,6 +14,7 @@
 # ==============================================================================
 
 library(tidyverse)
+library(furrr)
 
 # ==============================================================================
 # CONFIGURATION
@@ -24,20 +25,26 @@ set.seed(42)
 
 # Define factorial combinations to track (optional, for diagnostics)
 FACTORIAL_COMBINATIONS <- list(
-  list(var1 = "ecoregion", var2 = "sp_comp_group"),
+  #list(var1 = "ecoregion", var2 = "sp_comp_group"),
   list(var1 = "mean_ba_live", var2 = "sp_comp_group"),
-  list(var1 = "trees_per_ha", var2 = "ecoregion")
+  list(var1 = "trees_per_ha", var2 = "sp_comp_group"),
+  list(var1 = "ppt", var2 = "sp_comp_group"),
+  list(var1 = "mean_ba_live", var2 = "ecoregion"),
+  list(var1 = "trees_per_ha", var2 = "ecoregion"),
+  list(var1 = "ppt", var2 = "ecoregion")
+
 )
 
 # Continuous variables to stratify
 CONTINUOUS_VARS <- c("ppt", "trees_per_ha", "mean_ba_live", "area_ha")
 
 # Categorical variables to stratify
-CATEGORICAL_VARS <- c("ecoregion", "sp_comp_group")
+CATEGORICAL_VARS <- c("ecoregion", "sp_comp_group", "project_name")
 
 # Binning parameters
-TARGET_PLOTS_PER_BIN <- 5   # Target average plots per bin in full catalog
+TARGET_PLOTS_PER_BIN <- 15   # Target average plots per bin in full catalog
 MAX_BINS <- 5                # Maximum number of quantile bins to use
+N_BINS_FACTORIAL <- 3        # Number of bins for continuous vars in factorial breakdowns
 
 # Selection parameters
 TARGET_PCT <- 20             # Target percentage to withhold
@@ -45,9 +52,11 @@ MIN_PCT <- 15                # Minimum acceptable percentage
 MAX_PCT <- 25                # Maximum acceptable percentage
 
 # Stochastic selection parameters
-N_RUNS <- 30                 # Number of independent runs
-TOP_K_CANDIDATES <- 3        # Consider top K groups when selecting which to remove
-STOCHASTIC_TEMP <- 2.0       # Temperature for probability weighting
+N_RUNS <- 32                 # Number of independent runs
+TOP_K_CANDIDATES <- 15        # Consider top K groups when selecting which to remove
+STOCHASTIC_TEMP <- 10       # Temperature for probability weighting
+PARALLELIZE <- TRUE          # Use parallel processing for N_RUNS (uses all available cores)
+FACTORIAL_WEIGHT <- 0.5      # Weight for factorial distribution in objective (0=ignore, 1=only factorial)
 
 # ==============================================================================
 # HELPER FUNCTIONS: QUANTILE CALCULATION
@@ -56,13 +65,11 @@ STOCHASTIC_TEMP <- 2.0       # Temperature for probability weighting
 #' Calculate optimal number of quantiles for a dataset
 #'
 #' @param n_plots_total Total number of plots in catalog
-#' @param selection_pct Percentage to be selected (default 20%)
 #' @return Optimal number of quantiles (between 2 and MAX_BINS)
-calculate_optimal_n_quantiles <- function(n_plots_total, 
-                                          selection_pct = TARGET_PCT) {
+calculate_optimal_n_quantiles <- function(n_plots_total) {
   
-  n_plots_selected <- n_plots_total * (selection_pct / 100)
-  max_quantiles_allowed <- floor(n_plots_selected / TARGET_PLOTS_PER_BIN)
+  # Use full catalog size to determine bins (not the selected subset)
+  max_quantiles_allowed <- floor(n_plots_total / TARGET_PLOTS_PER_BIN)
   n_quantiles <- min(max_quantiles_allowed, MAX_BINS)
   n_quantiles <- max(2, n_quantiles)
   
@@ -126,9 +133,9 @@ assign_quantile_bins <- function(plots_df, bin_info) {
 # HELPER FUNCTIONS: DISTRIBUTION CALCULATION
 # ==============================================================================
 
-#' Calculate distribution of plots across bins for all variables
+#' Calculate distribution of plots and trees across bins for all variables
 #'
-#' @param plots_df Data frame of plots (with bin columns)
+#' @param plots_df Data frame of plots (with bin columns and n_trees)
 #' @return List of distributions for each variable
 calculate_distribution <- function(plots_df) {
   
@@ -140,8 +147,16 @@ calculate_distribution <- function(plots_df) {
     
     dist <- plots_df |>
       filter(!is.na(.data[[bin_col]])) |>
-      count(.data[[bin_col]], name = "n") |>
-      mutate(pct = n / sum(n) * 100) |>
+      group_by(.data[[bin_col]]) |>
+      summarise(
+        n_plots = n(),
+        n_trees = sum(n_trees, na.rm = TRUE),
+        .groups = "drop"
+      ) |>
+      mutate(
+        pct_plots = n_plots / sum(n_plots) * 100,
+        pct_trees = n_trees / sum(n_trees) * 100
+      ) |>
       rename(bin = !!bin_col)
     
     distribution[[var]] <- dist
@@ -151,8 +166,16 @@ calculate_distribution <- function(plots_df) {
   for (var in CATEGORICAL_VARS) {
     dist <- plots_df |>
       filter(!is.na(.data[[var]])) |>
-      count(.data[[var]], name = "n") |>
-      mutate(pct = n / sum(n) * 100) |>
+      group_by(.data[[var]]) |>
+      summarise(
+        n_plots = n(),
+        n_trees = sum(n_trees, na.rm = TRUE),
+        .groups = "drop"
+      ) |>
+      mutate(
+        pct_plots = n_plots / sum(n_plots) * 100,
+        pct_trees = n_trees / sum(n_trees) * 100
+      ) |>
       rename(category = !!var)
     
     distribution[[var]] <- dist
@@ -174,9 +197,9 @@ distribution_distance <- function(dist1, dist2, var) {
   comparison <- dist1 |>
     full_join(dist2, by = key_col, suffix = c("_1", "_2")) |>
     mutate(
-      pct_1 = replace_na(pct_1, 0),
-      pct_2 = replace_na(pct_2, 0),
-      abs_diff = abs(pct_1 - pct_2)
+      pct_plots_1 = replace_na(pct_plots_1, 0),
+      pct_plots_2 = replace_na(pct_plots_2, 0),
+      abs_diff = abs(pct_plots_1 - pct_plots_2)
     )
   
   total_distance <- sum(comparison$abs_diff)
@@ -198,6 +221,83 @@ overall_distribution_distance <- function(dist_selected, dist_catalog) {
   })
   
   return(mean(distances))
+}
+
+#' Calculate factorial distribution distance (2-way combinations)
+#'
+#' @param factorial_selected Factorial distribution of selected plots
+#' @param factorial_catalog Factorial distribution of catalog plots
+#' @return Average distance across all factorial combinations
+factorial_distribution_distance <- function(factorial_selected, factorial_catalog) {
+  
+  if (length(FACTORIAL_COMBINATIONS) == 0) {
+    return(0)  # No factorial combinations to evaluate
+  }
+  
+  distances <- map_dbl(names(factorial_catalog), function(combo_name) {
+    
+    # Get distributions for this combination
+    catalog_dist <- factorial_catalog[[combo_name]]$distribution
+    selected_dist <- factorial_selected[[combo_name]]$distribution
+    
+    # Combine and calculate percentage differences
+    comparison <- catalog_dist |>
+      rename(
+        catalog_n_plots = n_plots,
+        catalog_n_trees = n_trees
+      ) |>
+      full_join(
+        selected_dist |>
+          rename(
+            selected_n_plots = n_plots,
+            selected_n_trees = n_trees
+          ),
+        by = c("var1_value", "var2_value")
+      ) |>
+      mutate(
+        catalog_n_plots = replace_na(catalog_n_plots, 0),
+        selected_n_plots = replace_na(selected_n_plots, 0),
+        catalog_pct_plots = catalog_n_plots / sum(catalog_n_plots) * 100,
+        selected_pct_plots = selected_n_plots / sum(selected_n_plots) * 100,
+        abs_diff = abs(catalog_pct_plots - selected_pct_plots)
+      )
+    
+    total_distance <- sum(comparison$abs_diff)
+    return(total_distance)
+  })
+  
+  return(mean(distances))
+}
+
+#' Calculate combined distribution distance (single vars + factorial)
+#'
+#' @param dist_selected Single-variable distribution of selected plots
+#' @param dist_catalog Single-variable distribution of catalog plots
+#' @param factorial_selected Factorial distribution of selected plots (optional)
+#' @param factorial_catalog Factorial distribution of catalog plots (optional)
+#' @param factorial_weight Weight for factorial distance (default 0.5)
+#' @return Combined distance score
+combined_distribution_distance <- function(dist_selected, dist_catalog,
+                                          factorial_selected = NULL, 
+                                          factorial_catalog = NULL,
+                                          factorial_weight = 0.5) {
+  
+  # Single-variable distance
+  single_var_distance <- overall_distribution_distance(dist_selected, dist_catalog)
+  
+  # If no factorial distributions provided, return single-var distance
+  if (is.null(factorial_selected) || is.null(factorial_catalog)) {
+    return(single_var_distance)
+  }
+  
+  # Factorial distance
+  factorial_distance <- factorial_distribution_distance(factorial_selected, factorial_catalog)
+  
+  # Weighted combination
+  combined_distance <- (1 - factorial_weight) * single_var_distance + 
+                       factorial_weight * factorial_distance
+  
+  return(combined_distance)
 }
 
 # ==============================================================================
@@ -276,7 +376,7 @@ calculate_target_distance <- function(metrics) {
 #' @param run_id Run identifier for random seed
 #' @param required_groups Vector of group_ids that cannot be removed
 #' @return Data frame of states at each iteration
-greedy_removal <- function(plots_df, catalog_distribution, bin_info,
+greedy_removal <- function(plots_df, catalog_distribution, catalog_factorial, bin_info,
                           total_groups, total_plots, total_trees, run_id,
                           required_groups = c()) {
   
@@ -303,7 +403,10 @@ greedy_removal <- function(plots_df, catalog_distribution, bin_info,
                                total_groups, total_plots, total_trees)
   selected_plots <- plots_df |> filter(group_id %in% selected_groups)
   selected_dist <- calculate_distribution(selected_plots)
-  dist_distance <- overall_distribution_distance(selected_dist, catalog_distribution)
+  selected_factorial <- calculate_factorial_distribution(selected_plots, reference_df = plots_df)
+  dist_distance <- combined_distribution_distance(selected_dist, catalog_distribution,
+                                                  selected_factorial, catalog_factorial,
+                                                  factorial_weight = FACTORIAL_WEIGHT)
   
   state_history[[iteration]] <- list(
     iteration = iteration,
@@ -340,15 +443,17 @@ greedy_removal <- function(plots_df, catalog_distribution, bin_info,
       # Calculate distribution distance if we remove this group
       test_plots <- plots_df |> filter(group_id %in% test_groups)
       test_dist <- calculate_distribution(test_plots)
-      test_dist_distance <- overall_distribution_distance(test_dist, 
-                                                         catalog_distribution)
+      test_factorial <- calculate_factorial_distribution(test_plots, reference_df = plots_df)
+      test_dist_distance <- combined_distribution_distance(test_dist, catalog_distribution,
+                                                           test_factorial, catalog_factorial,
+                                                           factorial_weight = FACTORIAL_WEIGHT)
       
       # Normalize by number of plots in this group
       n_plots_in_group <- group_plot_counts |>
         filter(group_id == candidate_group) |>
         pull(n_plots)
       
-      per_plot_distortion <- test_dist_distance / n_plots_in_group
+      per_plot_distortion <- test_dist_distance / sqrt(n_plots_in_group)
       
       # Store candidate
       candidate_scores <- candidate_scores |>
@@ -394,8 +499,10 @@ greedy_removal <- function(plots_df, catalog_distribution, bin_info,
                                 total_groups, total_plots, total_trees)
     selected_plots <- plots_df |> filter(group_id %in% selected_groups)
     selected_dist <- calculate_distribution(selected_plots)
-    dist_distance <- overall_distribution_distance(selected_dist, 
-                                                  catalog_distribution)
+    selected_factorial <- calculate_factorial_distribution(selected_plots, reference_df = plots_df)
+    dist_distance <- combined_distribution_distance(selected_dist, catalog_distribution,
+                                                    selected_factorial, catalog_factorial,
+                                                    factorial_weight = FACTORIAL_WEIGHT)
     
     state_history[[iteration]] <- list(
       iteration = iteration,
@@ -438,17 +545,35 @@ create_distribution_comparison <- function(catalog_dist, selected_dist) {
   # Continuous variables
   for (var in CONTINUOUS_VARS) {
     comparison <- catalog_dist[[var]] |>
-      rename(catalog_pct = pct, catalog_n = n) |>
+      rename(
+        catalog_n_plots = n_plots,
+        catalog_n_trees = n_trees,
+        catalog_pct_plots = pct_plots,
+        catalog_pct_trees = pct_trees
+      ) |>
       full_join(
         selected_dist[[var]] |>
-          rename(selected_pct = pct, selected_n = n),
+          rename(
+            selected_n_plots = n_plots,
+            selected_n_trees = n_trees,
+            selected_pct_plots = pct_plots,
+            selected_pct_trees = pct_trees
+          ),
         by = "bin"
       ) |>
       mutate(
-        catalog_pct = replace_na(catalog_pct, 0),
-        selected_pct = replace_na(selected_pct, 0),
-        difference = selected_pct - catalog_pct,
-        abs_difference = abs(difference)
+        catalog_n_plots = replace_na(catalog_n_plots, 0),
+        catalog_n_trees = replace_na(catalog_n_trees, 0),
+        catalog_pct_plots = replace_na(catalog_pct_plots, 0),
+        catalog_pct_trees = replace_na(catalog_pct_trees, 0),
+        selected_n_plots = replace_na(selected_n_plots, 0),
+        selected_n_trees = replace_na(selected_n_trees, 0),
+        selected_pct_plots = replace_na(selected_pct_plots, 0),
+        selected_pct_trees = replace_na(selected_pct_trees, 0),
+        diff_pct_plots = selected_pct_plots - catalog_pct_plots,
+        diff_pct_trees = selected_pct_trees - catalog_pct_trees,
+        abs_diff_plots = abs(diff_pct_plots),
+        abs_diff_trees = abs(diff_pct_trees)
       ) |>
       arrange(bin)
     
@@ -458,19 +583,37 @@ create_distribution_comparison <- function(catalog_dist, selected_dist) {
   # Categorical variables
   for (var in CATEGORICAL_VARS) {
     comparison <- catalog_dist[[var]] |>
-      rename(catalog_pct = pct, catalog_n = n) |>
+      rename(
+        catalog_n_plots = n_plots,
+        catalog_n_trees = n_trees,
+        catalog_pct_plots = pct_plots,
+        catalog_pct_trees = pct_trees
+      ) |>
       full_join(
         selected_dist[[var]] |>
-          rename(selected_pct = pct, selected_n = n),
+          rename(
+            selected_n_plots = n_plots,
+            selected_n_trees = n_trees,
+            selected_pct_plots = pct_plots,
+            selected_pct_trees = pct_trees
+          ),
         by = "category"
       ) |>
       mutate(
-        catalog_pct = replace_na(catalog_pct, 0),
-        selected_pct = replace_na(selected_pct, 0),
-        difference = selected_pct - catalog_pct,
-        abs_difference = abs(difference)
+        catalog_n_plots = replace_na(catalog_n_plots, 0),
+        catalog_n_trees = replace_na(catalog_n_trees, 0),
+        catalog_pct_plots = replace_na(catalog_pct_plots, 0),
+        catalog_pct_trees = replace_na(catalog_pct_trees, 0),
+        selected_n_plots = replace_na(selected_n_plots, 0),
+        selected_n_trees = replace_na(selected_n_trees, 0),
+        selected_pct_plots = replace_na(selected_pct_plots, 0),
+        selected_pct_trees = replace_na(selected_pct_trees, 0),
+        diff_pct_plots = selected_pct_plots - catalog_pct_plots,
+        diff_pct_trees = selected_pct_trees - catalog_pct_trees,
+        abs_diff_plots = abs(diff_pct_plots),
+        abs_diff_trees = abs(diff_pct_trees)
       ) |>
-      arrange(desc(catalog_pct))
+      arrange(desc(catalog_pct_plots))
     
     comparisons[[var]] <- comparison
   }
@@ -508,6 +651,189 @@ create_summary_stats_comparison <- function(catalog_plots, selected_plots) {
   return(stats)
 }
 
+#' Calculate factorial distribution (2-way combinations)
+#'
+#' @param plots_df Data frame of plots (with n_trees and stratification variables)
+#' @param reference_df Optional reference data frame to use for calculating bin breaks (for continuous vars)
+#' @return List of factorial distributions for each combination
+calculate_factorial_distribution <- function(plots_df, reference_df = NULL) {
+  
+  # If no reference provided, use the data itself
+  if (is.null(reference_df)) {
+    reference_df <- plots_df
+  }
+  
+  factorial_dists <- list()
+  
+  for (combo in FACTORIAL_COMBINATIONS) {
+    var1 <- combo$var1
+    var2 <- combo$var2
+    
+    # Create a working copy for this combination
+    plots_working <- plots_df
+    
+    # For continuous variables, create factorial-specific bins
+    if (var1 %in% CONTINUOUS_VARS) {
+      probs <- seq(0, 1, length.out = N_BINS_FACTORIAL + 1)
+      breaks <- quantile(reference_df[[var1]], probs = probs, na.rm = TRUE)
+      breaks <- unique(breaks)
+      
+      if (length(breaks) > 1) {
+        plots_working[[paste0(var1, "_factorial_bin")]] <- cut(
+          plots_working[[var1]],
+          breaks = breaks,
+          include.lowest = TRUE,
+          dig.lab = 3
+        )
+      } else {
+        plots_working[[paste0(var1, "_factorial_bin")]] <- as.factor(paste0(var1, "_all"))
+      }
+      col1 <- paste0(var1, "_factorial_bin")
+    } else {
+      col1 <- var1
+    }
+    
+    if (var2 %in% CONTINUOUS_VARS) {
+      probs <- seq(0, 1, length.out = N_BINS_FACTORIAL + 1)
+      breaks <- quantile(reference_df[[var2]], probs = probs, na.rm = TRUE)
+      breaks <- unique(breaks)
+      
+      if (length(breaks) > 1) {
+        plots_working[[paste0(var2, "_factorial_bin")]] <- cut(
+          plots_working[[var2]],
+          breaks = breaks,
+          include.lowest = TRUE,
+          dig.lab = 3
+        )
+      } else {
+        plots_working[[paste0(var2, "_factorial_bin")]] <- as.factor(paste0(var2, "_all"))
+      }
+      col2 <- paste0(var2, "_factorial_bin")
+    } else {
+      col2 <- var2
+    }
+    
+    # Calculate 2-way distribution
+    dist <- plots_working |>
+      filter(!is.na(.data[[col1]]) & !is.na(.data[[col2]])) |>
+      group_by(.data[[col1]], .data[[col2]]) |>
+      summarise(
+        n_plots = n(),
+        n_trees = sum(n_trees, na.rm = TRUE),
+        .groups = "drop"
+      ) |>
+      rename(
+        var1_value = !!col1,
+        var2_value = !!col2
+      )
+    
+    factorial_dists[[paste(var1, var2, sep = "_x_")]] <- list(
+      var1 = var1,
+      var2 = var2,
+      distribution = dist
+    )
+  }
+  
+  return(factorial_dists)
+}
+
+#' Create factorial distribution visualizations
+#'
+#' @param catalog_factorial Factorial distribution of catalog
+#' @param selected_factorial Factorial distribution of selected plots
+#' @return List of ggplot objects (heatmaps)
+create_factorial_plots <- function(catalog_factorial, selected_factorial) {
+  
+  plots <- list()
+  
+  for (combo_name in names(catalog_factorial)) {
+    combo_info <- catalog_factorial[[combo_name]]
+    var1 <- combo_info$var1
+    var2 <- combo_info$var2
+    
+    # Combine catalog and selected distributions
+    combined <- catalog_factorial[[combo_name]]$distribution |>
+      rename(
+        catalog_n_plots = n_plots,
+        catalog_n_trees = n_trees
+      ) |>
+      full_join(
+        selected_factorial[[combo_name]]$distribution |>
+          rename(
+            selected_n_plots = n_plots,
+            selected_n_trees = n_trees
+          ),
+        by = c("var1_value", "var2_value")
+      ) |>
+      mutate(
+        catalog_n_plots = replace_na(catalog_n_plots, 0),
+        catalog_n_trees = replace_na(catalog_n_trees, 0),
+        selected_n_plots = replace_na(selected_n_plots, 0),
+        selected_n_trees = replace_na(selected_n_trees, 0),
+        # Calculate selection percentages
+        pct_plots_selected = ifelse(catalog_n_plots > 0, 
+                                     100 * selected_n_plots / catalog_n_plots, 
+                                     0),
+        pct_trees_selected = ifelse(catalog_n_trees > 0,
+                                     100 * selected_n_trees / catalog_n_trees,
+                                     0)
+      )
+    
+    # Create heatmap for plots
+    p_plots <- ggplot(combined, aes(x = var1_value, y = var2_value)) +
+      geom_tile(aes(fill = pct_plots_selected), color = "white", linewidth = 0.5) +
+      geom_text(aes(label = sprintf("C:%d\nS:%d\n%.0f%%", 
+                                     catalog_n_plots, 
+                                     selected_n_plots,
+                                     pct_plots_selected)),
+                size = 3, lineheight = 0.8) +
+      scale_fill_gradient2(low = "#d73027", mid = "#fee08b", high = "#1a9850",
+                          midpoint = 20,
+                          limits = c(0, 100),
+                          name = "% Selected") +
+      labs(
+        title = paste("Factorial Distribution:", var1, "×", var2, "(Plots)"),
+        subtitle = "Colors show % of catalog selected in each bin",
+        x = var1,
+        y = var2
+      ) +
+      theme_minimal() +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(face = "bold")
+      )
+    
+    # Create heatmap for trees
+    p_trees <- ggplot(combined, aes(x = var1_value, y = var2_value)) +
+      geom_tile(aes(fill = pct_trees_selected), color = "white", linewidth = 0.5) +
+      geom_text(aes(label = sprintf("C:%d\nS:%d\n%.0f%%", 
+                                     catalog_n_trees, 
+                                     selected_n_trees,
+                                     pct_trees_selected)),
+                size = 3, lineheight = 0.8) +
+      scale_fill_gradient2(low = "#d73027", mid = "#fee08b", high = "#1a9850",
+                          midpoint = 20,
+                          limits = c(0, 100),
+                          name = "% Selected") +
+      labs(
+        title = paste("Factorial Distribution:", var1, "×", var2, "(Trees)"),
+        subtitle = "Colors show % of catalog selected in each bin",
+        x = var1,
+        y = var2
+      ) +
+      theme_minimal() +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(face = "bold")
+      )
+    
+    plots[[paste0(combo_name, "_plots")]] <- p_plots
+    plots[[paste0(combo_name, "_trees")]] <- p_trees
+  }
+  
+  return(plots)
+}
+
 # ==============================================================================
 # MAIN EXECUTION FUNCTION
 # ==============================================================================
@@ -538,9 +864,9 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
   cat(sprintf("  Total trees: %d\n", total_trees))
   
   # Calculate optimal number of quantiles
-  n_quantiles <- calculate_optimal_n_quantiles(total_plots, TARGET_PCT)
+  n_quantiles <- calculate_optimal_n_quantiles(total_plots)
   cat(sprintf("  Using %d quantiles for continuous variables\n", n_quantiles))
-  cat(sprintf("  Target: ≥%d plots per bin in selected set\n", TARGET_PLOTS_PER_BIN))
+  cat(sprintf("  Target: ≥%d plots per bin in catalog\n", TARGET_PLOTS_PER_BIN))
   
   # Prepare quantile bins
   bin_info <- prepare_quantile_bins(plots_df, n_quantiles)
@@ -548,6 +874,9 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
   
   # Calculate catalog distribution (baseline)
   catalog_distribution <- calculate_distribution(plots_df_binned)
+  
+  # Calculate catalog factorial distribution (for objective function)
+  catalog_factorial_ref <- calculate_factorial_distribution(plots_df_binned)
   
   cat("  Catalog distribution calculated\n\n")
   
@@ -590,6 +919,10 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
       training_groups <- setdiff(unique(plots_df$group_id), required_groups)
       training_plots <- plots_df_binned |> filter(group_id %in% training_groups)
       
+      # Calculate factorial distributions
+      catalog_factorial <- calculate_factorial_distribution(plots_df_binned)
+      required_factorial <- calculate_factorial_distribution(required_plots, reference_df = plots_df_binned)
+      
       results <- list(
         withheld_group_ids = required_groups,
         training_group_ids = training_groups,
@@ -610,6 +943,11 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
           distribution_comparison = create_distribution_comparison(catalog_distribution, 
                                                                   required_dist),
           summary_stats = create_summary_stats_comparison(plots_df, required_plots),
+          factorial_distributions = list(
+            catalog = catalog_factorial,
+            withheld = required_factorial
+          ),
+          factorial_plots = create_factorial_plots(catalog_factorial, required_factorial),
           target_distance = abs(required_metrics$pct_plots - TARGET_PCT) + 
                            abs(required_metrics$pct_trees - TARGET_PCT),
           distribution_distance = dist_distance
@@ -644,6 +982,10 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
       training_groups <- setdiff(unique(plots_df$group_id), required_groups)
       training_plots <- plots_df_binned |> filter(group_id %in% training_groups)
       
+      # Calculate factorial distributions
+      catalog_factorial <- calculate_factorial_distribution(plots_df_binned)
+      required_factorial <- calculate_factorial_distribution(required_plots, reference_df = plots_df_binned)
+      
       results <- list(
         withheld_group_ids = required_groups,
         training_group_ids = training_groups,
@@ -664,6 +1006,11 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
           distribution_comparison = create_distribution_comparison(catalog_distribution, 
                                                                   required_dist),
           summary_stats = create_summary_stats_comparison(plots_df, required_plots),
+          factorial_distributions = list(
+            catalog = catalog_factorial,
+            withheld = required_factorial
+          ),
+          factorial_plots = create_factorial_plots(catalog_factorial, required_factorial),
           target_distance = abs(required_metrics$pct_plots - TARGET_PCT) + 
                            abs(required_metrics$pct_trees - TARGET_PCT),
           distribution_distance = dist_distance
@@ -694,15 +1041,23 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
   
   cat(sprintf("Step 2: Running %d independent greedy removal runs...\n", N_RUNS))
   
-  all_states <- list()
+  # Set up parallel processing
+  if (PARALLELIZE) {
+    n_cores <- availableCores()
+    cat(sprintf("  Using parallel processing with %d cores\n", n_cores))
+    plan(multisession, workers = n_cores)
+  } else {
+    cat("  Running sequentially (PARALLELIZE = FALSE)\n")
+    plan(sequential)
+  }
   
-  for (run in 1:N_RUNS) {
-    
-    cat(sprintf("  Beginning %d/%d runs...\n", run, N_RUNS))
+  # Run greedy removal in parallel
+  all_states <- future_map(1:N_RUNS, function(run) {
     
     states <- greedy_removal(
       plots_df = plots_df_binned,
       catalog_distribution = catalog_distribution,
+      catalog_factorial = catalog_factorial_ref,
       bin_info = bin_info,
       total_groups = total_groups,
       total_plots = total_plots,
@@ -712,8 +1067,11 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
     )
     
     states$run <- run
-    all_states[[run]] <- states
-  }
+    return(states)
+  }, .options = furrr_options(seed = TRUE))
+  
+  # Reset to sequential after parallel work
+  plan(sequential)
   
   cat(sprintf("  Completed all %d runs\n\n", N_RUNS))
   
@@ -818,6 +1176,18 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
     withheld_plots
   )
   
+  # Factorial distributions and plots
+  catalog_factorial <- calculate_factorial_distribution(plots_df_binned)
+  withheld_factorial <- calculate_factorial_distribution(withheld_plots, reference_df = plots_df_binned)
+  diagnostics$factorial_distributions <- list(
+    catalog = catalog_factorial,
+    withheld = withheld_factorial
+  )
+  diagnostics$factorial_plots <- create_factorial_plots(
+    catalog_factorial,
+    withheld_factorial
+  )
+  
   # Overall scores
   diagnostics$target_distance <- best_solution$target_distance
   diagnostics$distribution_distance <- best_solution$dist_distance
@@ -887,10 +1257,17 @@ print_selection_report <- function(results) {
   for (var in CONTINUOUS_VARS) {
     cat(sprintf("\n%s:\n", toupper(var)))
     print(results$diagnostics$distribution_comparison[[var]] |> 
-            select(bin, catalog_pct, selected_pct, difference), 
+            select(bin, 
+                   catalog_n_plots, catalog_pct_plots, 
+                   catalog_n_trees, catalog_pct_trees,
+                   selected_n_plots, selected_pct_plots,
+                   selected_n_trees, selected_pct_trees,
+                   diff_pct_plots, diff_pct_trees), 
           n = Inf)
-    total_distance <- sum(results$diagnostics$distribution_comparison[[var]]$abs_difference)
-    cat(sprintf("  Total absolute difference: %.2f\n", total_distance))
+    total_distance_plots <- sum(results$diagnostics$distribution_comparison[[var]]$abs_diff_plots)
+    total_distance_trees <- sum(results$diagnostics$distribution_comparison[[var]]$abs_diff_trees)
+    cat(sprintf("  Total absolute difference (plots): %.2f\n", total_distance_plots))
+    cat(sprintf("  Total absolute difference (trees): %.2f\n", total_distance_trees))
   }
   cat("\n")
   
@@ -900,10 +1277,17 @@ print_selection_report <- function(results) {
   for (var in CATEGORICAL_VARS) {
     cat(sprintf("\n%s:\n", toupper(var)))
     print(results$diagnostics$distribution_comparison[[var]] |>
-            select(category, catalog_pct, selected_pct, difference),
+            select(category,
+                   catalog_n_plots, catalog_pct_plots,
+                   catalog_n_trees, catalog_pct_trees,
+                   selected_n_plots, selected_pct_plots,
+                   selected_n_trees, selected_pct_trees,
+                   diff_pct_plots, diff_pct_trees),
           n = Inf)
-    total_distance <- sum(results$diagnostics$distribution_comparison[[var]]$abs_difference)
-    cat(sprintf("  Total absolute difference: %.2f\n", total_distance))
+    total_distance_plots <- sum(results$diagnostics$distribution_comparison[[var]]$abs_diff_plots)
+    total_distance_trees <- sum(results$diagnostics$distribution_comparison[[var]]$abs_diff_trees)
+    cat(sprintf("  Total absolute difference (plots): %.2f\n", total_distance_plots))
+    cat(sprintf("  Total absolute difference (trees): %.2f\n", total_distance_trees))
   }
   cat("\n")
   
@@ -931,6 +1315,38 @@ print_selection_report <- function(results) {
   cat(sprintf("  Runs: %d\n\n", results$config$n_runs))
 }
 
+#' Save factorial distribution plots to files
+#'
+#' @param results Output from select_withheld_groups()
+#' @param output_dir Directory to save plots (default: current directory)
+#' @param width Plot width in inches (default: 8)
+#' @param height Plot height in inches (default: 6)
+save_factorial_plots <- function(results, output_dir = ".", width = 8, height = 6) {
+  
+  if (!dir.exists(output_dir)) {
+    dir.create(output_dir, recursive = TRUE)
+  }
+  
+  cat("Saving factorial distribution plots...\n")
+  
+  for (plot_name in names(results$diagnostics$factorial_plots)) {
+    plot_obj <- results$diagnostics$factorial_plots[[plot_name]]
+    filename <- file.path(output_dir, paste0(plot_name, ".png"))
+    
+    ggsave(
+      filename = filename,
+      plot = plot_obj,
+      width = width,
+      height = height,
+      dpi = 300
+    )
+    
+    cat(sprintf("  Saved: %s\n", filename))
+  }
+  
+  cat("All plots saved!\n")
+}
+
 # ==============================================================================
 # EXAMPLE USAGE
 # ==============================================================================
@@ -952,3 +1368,10 @@ print_selection_report <- function(results) {
 # write_csv(results$withheld_plots, "withheld_plots.csv")
 # write_csv(results$training_plots, "training_plots.csv")
 # write_csv(results$diagnostics$summary, "selection_summary.csv")
+# 
+# # Save factorial distribution plots
+# save_factorial_plots(results, output_dir = "factorial_plots")
+# 
+# # Or view individual plots interactively
+# print(results$diagnostics$factorial_plots$ecoregion_x_sp_comp_group_plots)
+# print(results$diagnostics$factorial_plots$ecoregion_x_sp_comp_group_trees)
