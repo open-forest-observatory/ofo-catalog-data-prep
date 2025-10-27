@@ -10,16 +10,16 @@ library(terra)
 # Function to get only the mission_id column from a footprint layer
 get_mission_id = function(footprint_layer) {
   footprint_layer |>
-    select("mission_id")
+    select("mission_id", "project_name")
 }
 
 # Read predictor layers to stratify across
-ppt = rast("/ofo-share/catalog-data-prep/scratch/data-layers-for-strat/prism_ppt_us_30s_2020_avg_30y.tif")
-ecoregion = st_read("/ofo-share/catalog-data-prep/scratch/data-layers-for-strat/epa-ecoregions-l3.gpkg")
+ppt = rast("/ofo-share/catalog-data-prep/stratification-data/data-layers-for-strat/prism_ppt_us_30s_2020_avg_30y.tif")
+ecoregion = st_read("/ofo-share/catalog-data-prep/stratification-data/data-layers-for-strat/epa-ecoregions-l3.gpkg")
 
 # Read the ground plots and trees
-ground_plots = st_read("/ofo-share/catalog-data-prep/scratch/downloaded-from-gdrive/ofo_ground-reference_plots.gpkg")
-ground_trees = st_read("/ofo-share/catalog-data-prep/scratch/downloaded-from-gdrive/ofo_ground-reference_trees.gpkg") |>
+ground_plots = st_read("/ofo-share/catalog-data-prep/stratification-data/downloaded-from-gdrive/ofo_ground-reference_plots.gpkg")
+ground_trees = st_read("/ofo-share/catalog-data-prep/stratification-data/downloaded-from-gdrive/ofo_ground-reference_trees.gpkg") |>
   st_drop_geometry()
 
 # For WADNR plots we'll assume they're all live for purposes of species grouping (not specified in
@@ -28,7 +28,7 @@ ground_trees = ground_trees |>
   mutate(live_dead = ifelse(as.numeric(plot_id) %in% c(186:196), "L", live_dead))
 
 # Read the pairings definitions
-pairings = read_csv("/ofo-share/catalog-data-prep/scratch/ground_plot_drone_mission_matches.csv")
+pairings = read_csv("/ofo-share/catalog-data-prep/stratification-data/ground_plot_drone_mission_matches.csv")
 
 # Read the selected HN-LO pairings from Amritha's model input file (this is a subset that includes
 # only the pairings where a plot was successfully aligned to both the HN and LO drone data). We are
@@ -53,7 +53,7 @@ footprints = do.call(rbind, footrpints)
 footprints = st_transform(footprints, 5070)
 
 # Temporary write to inspect
-st_write(footprints, "/ofo-share/catalog-data-prep/scratch/all_drone_footprints.gpkg", delete_dsn = TRUE)
+st_write(footprints, "/ofo-share/catalog-data-prep/stratification-data/all_drone_footprints.gpkg", delete_dsn = TRUE)
 
 ## For each record, get the max footprint that incorporates the plots and the drone missions and buffers by 50 m
 
@@ -147,7 +147,7 @@ all_footprints$group_id = find_connected_components(intersects_matrix)
 # # ... incomplete: only need to complete if we want plots in non-paired drone polys that touch paired polys to be assiged the hn-lo pairing
 
 # Write to temp to inspect
-st_write(pairings_unique, "/ofo-share/catalog-data-prep/scratch/pairings_grouped.gpkg", delete_dsn = TRUE)
+st_write(pairings_unique, "/ofo-share/catalog-data-prep/stratification-data/pairings_grouped.gpkg", delete_dsn = TRUE)
 
 
 
@@ -263,13 +263,13 @@ ground_plots_summ = ground_plots_summ |>
 
 
 # Write to temp to inspect
-st_write(ground_plots_summ, "/ofo-share/catalog-data-prep/scratch/ground_plots_summ.gpkg", delete_dsn = TRUE)
+st_write(ground_plots_summ, "/ofo-share/catalog-data-prep/stratification-data/ground_plots_summ.gpkg", delete_dsn = TRUE)
 
 # Also save as centroids so it's easier to see in GIS when zoomed out and also to extract ppt and
 # ecoregion values
 ground_plots_summ_centroids = ground_plots_summ |>
   st_centroid()
-st_write(ground_plots_summ_centroids, "/ofo-share/catalog-data-prep/scratch/ground_plots_summ_centroids.gpkg", delete_dsn = TRUE)
+st_write(ground_plots_summ_centroids, "/ofo-share/catalog-data-prep/stratification-data/ground_plots_summ_centroids.gpkg", delete_dsn = TRUE)
 
 
 ## Pull in PRISM ppt and EPA ecoregion
@@ -332,48 +332,51 @@ drone_footprints_without_plots = all_footprints |>
   filter(!(group_id %in% drone_groups_with_plots))
 
 drone_no_plot = drone_footprints_without_plots |>
-  st_centroid()
+  st_centroid() |>
+  rename(drone_group_id = group_id) |>
+  mutate(plot_id = mission_id_hn) # Using mission_id_hn as a stand-in for plot_id here
 
-# Extract ppt, ecoregion, project and make a drone_group_id that is unique and drone_pairing_tier = "drone_no_plots"
+# Extract ppt, ecoregion, project and drone_pairing_tier = "drone_no_plots"
 
+ppt_extracted_drone = extract(ppt, drone_no_plot)
+ecoregion_extracted_drone = st_intersection(ecoregion, st_transform(drone_no_plot, st_crs(ecoregion)))$US_L3NAME
+drone_no_plot$ppt = ppt_extracted_drone[,2]
+drone_no_plot$ecoregion = ecoregion_extracted_drone
+drone_no_plot$drone_pairing_tier = "drone_no_plots"
+
+project_lookup = footprints |>
+  select(mission_id, project_name) |>
+  st_drop_geometry() |>
+  distinct()
+
+drone_no_plot = drone_no_plot |>
+  left_join(project_lookup, by = c("mission_id_hn" = "mission_id"))
+
+
+
+st_geometry(drone_no_plot) = "geom"
 
 # Temporary write to inspect
-st_write(drone_footprints_without_plots, "/ofo-share/catalog-data-prep/scratch/drone_footprints_without_plots.gpkg", delete_dsn = TRUE)
+st_write(drone_no_plot, "/ofo-share/catalog-data-prep/stratification-data/drone_footprints_without_plots.gpkg", delete_dsn = TRUE)
 
 
+# Merge together with the ground plots dataframe for stratification
+for_strat = bind_rows(ground_plots_summ |> st_transform(st_crs(drone_no_plot)), drone_no_plot)
 
 
+# Keep only the columns needed for stratification
+for_strat = for_strat |>
+  select(
+    plot_id, drone_group_id, drone_pairing_tier, project_name, survey_date, plot_area_ha, n_trees_live,
+    ecoregion, ppt, trees_per_ha, ba_sqm_per_ha, mean_ba_live, sp_comp_group
+  ) |>
+  mutate(survey_year = str_sub(survey_date, 1, 4))
 
+# Temporary write to inspect
+st_write(for_strat, "/ofo-share/catalog-data-prep/stratification-data/for_strat.gpkg", delete_dsn = TRUE)
 
+# Remove geometry for stratification processing and save
+for_strat_df = for_strat |>
+  st_drop_geometry()
 
-
-## !!!! Write the ground plots summ
-
-
-
-
-
-
-
-
-# Prep the pairings polygons
-footprints = pairings |>
-  mutate(footprint_id = 1:nrow(pairings)) |>
-  select(footprint_id, group_id)
-
-# Prep the footprint_plot_link dataframe: a column for footprint_id and plot_id in a many-to-many
-# relationship
-footprint_plot_link = data.frame()
-for (i in 1:nrow(footprints)) {
-  footprint = footprints[i,]
-  plots_in_footprint = st_intersection(ground_plots_summ, st_transform(footprint, st_crs(ground_plots_summ)))
-  if (nrow(plots_in_footprint) > 0) {
-    temp_link = data.frame(
-      footprint_id = rep(footprint$footprint_id, nrow(plots_in_footprint)),
-      plot_id = plots_in_footprint$plot_id
-    )
-    footprint_plot_link = rbind(footprint_plot_link, temp_link)
-  }
-}
-
-
+write_csv(for_strat_df, "/ofo-share/catalog-data-prep/stratification-data/for_strat.csv")
