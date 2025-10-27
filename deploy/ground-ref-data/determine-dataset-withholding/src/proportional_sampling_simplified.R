@@ -4,8 +4,8 @@
 # Purpose: Select ~20% of drone footprint groups to withhold for validation
 #          such that withheld plots match the catalog's distribution
 #
-# Method: Greedy removal - start with all groups, remove those that minimally
-#         disturb the distribution (normalized per plot)
+# Method: Greedy removal or random sampling to find groups that best match
+#         the catalog distribution while meeting target percentage constraints
 #
 # Input: Single data frame with plots and their group_id assignments
 #
@@ -51,11 +51,19 @@ TARGET_PCT <- 20             # Target percentage to withhold
 MIN_PCT <- 15                # Minimum acceptable percentage
 MAX_PCT <- 25                # Maximum acceptable percentage
 
-# Stochastic selection parameters
-N_RUNS <- 32                 # Number of independent runs
-TOP_K_CANDIDATES <- 15        # Consider top K groups when selecting which to remove
-STOCHASTIC_TEMP <- 10       # Temperature for probability weighting
-PARALLELIZE <- TRUE          # Use parallel processing for N_RUNS (uses all available cores)
+# Algorithm selection
+ALGORITHM <- "greedy"        # Options: "greedy", "random"
+
+# Greedy algorithm parameters (used if ALGORITHM = "greedy")
+N_RUNS <- 7                 # Number of independent runs
+TOP_K_CANDIDATES <- 3        # Consider top K groups when selecting which to remove
+STOCHASTIC_TEMP <- 2       # Temperature for probability weighting
+
+# Random sampling parameters (used if ALGORITHM = "random")
+N_RANDOM_SAMPLES <- 50000    # Number of random combinations to try
+
+# Shared parameters
+PARALLELIZE <- TRUE          # Use parallel processing (uses all available cores)
 FACTORIAL_WEIGHT <- 0.5      # Weight for factorial distribution in objective (0=ignore, 1=only factorial)
 
 # ==============================================================================
@@ -362,7 +370,180 @@ calculate_target_distance <- function(metrics) {
 }
 
 # ==============================================================================
-# CORE ALGORITHM: GREEDY REMOVAL
+# ALGORITHM: RANDOM SAMPLING
+# ==============================================================================
+
+#' Select groups by random sampling
+#'
+#' @param plots_df Data frame of plots with group_id
+#' @param catalog_distribution Catalog distribution
+#' @param catalog_factorial Catalog factorial distribution
+#' @param total_groups Total number of groups
+#' @param total_plots Total number of plots
+#' @param total_trees Total number of trees
+#' @param required_groups Vector of group_ids that must be included
+#' @param n_samples Number of random samples to try
+#' @return Data frame of valid solutions
+random_sampling <- function(plots_df, catalog_distribution, catalog_factorial,
+                           total_groups, total_plots, total_trees,
+                           required_groups = c(), n_samples = N_RANDOM_SAMPLES) {
+  
+  cat(sprintf("Random sampling: Generating %d random combinations...\n", n_samples))
+  
+  all_groups <- unique(plots_df$group_id)
+  removable_groups <- setdiff(all_groups, required_groups)
+  n_required <- length(required_groups)
+  
+  # Calculate target number of groups based on MIN_PCT and MAX_PCT of plots
+  # Average plots per group to inform the lower bound calculation
+  avg_plots_per_group <- total_plots / total_groups
+  target_n_groups_upper <- round(total_plots * MAX_PCT / 100)
+  target_n_groups_lower <- round((total_plots * MIN_PCT / 100) / (avg_plots_per_group * 2))
+  
+  # Adjust bounds based on what's available (required + removable)
+  max_n_groups <- min(target_n_groups_upper, n_required + length(removable_groups))
+  min_n_groups <- max(n_required, round(target_n_groups_lower))
+  
+  # Range of removable groups to add
+  min_removable <- max(0, min_n_groups - n_required)
+  max_removable <- min(max_n_groups - n_required, length(removable_groups))
+  
+  cat(sprintf("  Target groups: %d-%d (based on %.1f%%-%.1f%% of %d plots)\n",
+              target_n_groups_lower, target_n_groups_upper,
+              MIN_PCT, MAX_PCT, total_plots))
+  cat(sprintf("  Sampling %d-%d groups (%d required + %d-%d removable from %d available)\n",
+              min_n_groups, max_n_groups, n_required, 
+              min_removable, max_removable, length(removable_groups)))
+  
+  # ============================================================================
+  # Step 1: Generate all candidate group selections (not parallelized)
+  # ============================================================================
+  
+  cat("  Step 1: Generating candidate group selections...\n")
+  
+  set.seed(42)
+  candidates <- vector("list", n_samples)
+  
+  for (i in 1:n_samples) {
+    # Set sample-specific seed for reproducibility
+    set.seed(42 + i)
+    
+    # Randomly vary the number of removable groups to add
+    n_removable_to_select <- sample(min_removable:max_removable, size = 1)
+    
+    # Randomly sample groups
+    if (n_removable_to_select > 0) {
+      sampled_removable <- sample(removable_groups, size = n_removable_to_select, replace = FALSE)
+      selected_groups <- c(required_groups, sampled_removable)
+    } else {
+      selected_groups <- required_groups
+    }
+    
+    candidates[[i]] <- list(
+      sample_id = i,
+      selected_groups = selected_groups
+    )
+  }
+  
+  cat(sprintf("  Generated %d candidate selections\n", length(candidates)))
+  
+  # ============================================================================
+  # Step 2: Filter to valid candidates (not parallelized)
+  # ============================================================================
+  
+  cat("  Step 2: Filtering to valid candidates (checking plot/tree percentages)...\n")
+  
+  valid_candidates <- list()
+  
+  for (candidate in candidates) {
+    # Calculate basic metrics (fast - just counting)
+    metrics <- calculate_metrics(candidate$selected_groups, plots_df,
+                                 total_groups, total_plots, total_trees)
+    
+    # Check if in valid range
+    if (metrics$pct_plots >= MIN_PCT && metrics$pct_plots <= MAX_PCT &&
+        metrics$pct_trees >= MIN_PCT && metrics$pct_trees <= MAX_PCT) {
+      
+      valid_candidates[[length(valid_candidates) + 1]] <- list(
+        sample_id = candidate$sample_id,
+        selected_groups = candidate$selected_groups,
+        n_groups = metrics$n_groups,
+        n_plots = metrics$n_plots,
+        pct_plots = metrics$pct_plots,
+        n_trees = metrics$n_trees,
+        pct_trees = metrics$pct_trees
+      )
+    }
+  }
+
+  # Retain only the unique valid candidates
+  valid_candidates <- unique(valid_candidates)
+  
+  n_valid <- length(valid_candidates)
+  cat(sprintf("  Found %d valid candidates (%.1f%% of total)\n",
+              n_valid, 100 * n_valid / n_samples))
+  
+  if (n_valid == 0) {
+    warning("No valid candidates found! Returning empty result.")
+    return(tibble())
+  }
+  
+  # ============================================================================
+  # Step 3: Calculate distribution distances for valid candidates (parallelized)
+  # ============================================================================
+  
+  cat(sprintf("  Step 3: Computing distribution distances for %d valid candidates...\n", n_valid))
+  
+  # Set up parallel processing
+  if (PARALLELIZE) {
+    n_cores <- availableCores()
+    cat(sprintf("  Using %d cores for parallel distance calculation\n", n_cores))
+    plan(multisession, workers = n_cores)
+  } else {
+    cat("  Running sequentially (PARALLELIZE = FALSE)\n")
+    plan(sequential)
+  }
+  
+  # Calculate distribution distances in parallel
+  solutions <- future_map_dfr(valid_candidates, function(candidate) {
+    
+    # Calculate distribution distance (expensive operation)
+    selected_plots <- plots_df |> filter(group_id %in% candidate$selected_groups)
+    selected_dist <- calculate_distribution(selected_plots)
+    selected_factorial <- calculate_factorial_distribution(selected_plots, reference_df = plots_df)
+    dist_distance <- combined_distribution_distance(selected_dist, catalog_distribution,
+                                                    selected_factorial, catalog_factorial,
+                                                    factorial_weight = FACTORIAL_WEIGHT)
+    
+    # Calculate target distance
+    target_distance <- abs(candidate$pct_plots - TARGET_PCT) + 
+                      abs(candidate$pct_trees - TARGET_PCT)
+    
+    # Return solution
+    tibble(
+      sample_id = candidate$sample_id,
+      n_groups = candidate$n_groups,
+      n_plots = candidate$n_plots,
+      pct_plots = candidate$pct_plots,
+      n_trees = candidate$n_trees,
+      pct_trees = candidate$pct_trees,
+      dist_distance = dist_distance,
+      target_distance = target_distance,
+      selected_groups = list(candidate$selected_groups)
+    )
+  }, .options = furrr_options(seed = TRUE))
+  
+  # Reset to sequential
+  plan(sequential)
+  
+  cat(sprintf("  Found %d valid solutions (%.1f%% of samples)\n",
+              nrow(solutions), 100 * nrow(solutions) / n_samples))
+  
+  return(solutions)
+}
+
+# ==============================================================================
+# ALGORITHM: GREEDY REMOVAL
 # ==============================================================================
 
 #' Run one iteration of greedy removal
@@ -838,7 +1019,7 @@ create_factorial_plots <- function(catalog_factorial, selected_factorial) {
 # MAIN EXECUTION FUNCTION
 # ==============================================================================
 
-#' Main function to select withheld groups using greedy removal
+#' Main function to select withheld groups
 #'
 #' @param plots_df Data frame with columns: plot_id, group_id, attributes, n_trees
 #' @param required_groups Vector of group_ids that must be in the withheld set (for hierarchical stratification)
@@ -846,7 +1027,7 @@ create_factorial_plots <- function(catalog_factorial, selected_factorial) {
 select_withheld_groups <- function(plots_df, required_groups = c()) {
   
   cat("Starting proportional stratified group selection (SIMPLIFIED)...\n")
-  cat("Method: Greedy removal with stochastic selection\n\n")
+  cat(sprintf("Method: %s\n\n", if (ALGORITHM == "greedy") "Greedy removal with stochastic selection" else "Random sampling"))
   
   # ============================================================================
   # STEP 1: Data preparation
@@ -1029,54 +1210,85 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
       return(results)
       
     } else {
-      # Required groups below MIN_PCT - will proceed with greedy removal
-      cat(sprintf("  Required groups below target. Will proceed with greedy removal\n"))
+      # Required groups below MIN_PCT - will proceed with algorithm
+      cat(sprintf("  Required groups below target. Will proceed with %s algorithm\n", ALGORITHM))
       cat(sprintf("  (Required groups locked in, cannot be removed)\n\n"))
     }
   }
   
   # ============================================================================
-  # STEP 2: Run greedy removal with multiple runs
+  # STEP 2: Run algorithm (greedy or random)
   # ============================================================================
   
-  cat(sprintf("Step 2: Running %d independent greedy removal runs...\n", N_RUNS))
-  
-  # Set up parallel processing
-  if (PARALLELIZE) {
-    n_cores <- availableCores()
-    cat(sprintf("  Using parallel processing with %d cores\n", n_cores))
-    plan(multisession, workers = n_cores)
-  } else {
-    cat("  Running sequentially (PARALLELIZE = FALSE)\n")
-    plan(sequential)
-  }
-  
-  # Run greedy removal in parallel
-  all_states <- future_map(1:N_RUNS, function(run) {
+  if (ALGORITHM == "greedy") {
     
-    states <- greedy_removal(
+    cat(sprintf("Step 2: Running %d independent greedy removal runs...\n", N_RUNS))
+    
+    # Set up parallel processing
+    if (PARALLELIZE) {
+      n_cores <- availableCores()
+      cat(sprintf("  Using parallel processing with %d cores\n", n_cores))
+      plan(multisession, workers = n_cores)
+    } else {
+      cat("  Running sequentially (PARALLELIZE = FALSE)\n")
+      plan(sequential)
+    }
+    
+    # Run greedy removal in parallel
+    all_states <- future_map(1:N_RUNS, function(run) {
+      
+      states <- greedy_removal(
+        plots_df = plots_df_binned,
+        catalog_distribution = catalog_distribution,
+        catalog_factorial = catalog_factorial_ref,
+        bin_info = bin_info,
+        total_groups = total_groups,
+        total_plots = total_plots,
+        total_trees = total_trees,
+        run_id = run,
+        required_groups = required_groups
+      )
+      
+      states$run <- run
+      return(states)
+    }, .options = furrr_options(seed = TRUE))
+    
+    # Reset to sequential after parallel work
+    plan(sequential)
+    
+    cat(sprintf("  Completed all %d runs\n\n", N_RUNS))
+    
+    # Combine all states
+    all_states_df <- bind_rows(all_states)
+    
+    # Filter to valid states
+    valid_states <- all_states_df |>
+      filter(
+        pct_plots >= MIN_PCT & pct_plots <= MAX_PCT,
+        pct_trees >= MIN_PCT & pct_trees <= MAX_PCT
+      )
+    
+  } else if (ALGORITHM == "random") {
+    
+    cat("Step 2: Running random sampling...\n")
+    
+    # Run random sampling
+    valid_states <- random_sampling(
       plots_df = plots_df_binned,
       catalog_distribution = catalog_distribution,
       catalog_factorial = catalog_factorial_ref,
-      bin_info = bin_info,
       total_groups = total_groups,
       total_plots = total_plots,
       total_trees = total_trees,
-      run_id = run,
-      required_groups = required_groups
+      required_groups = required_groups,
+      n_samples = N_RANDOM_SAMPLES
     )
     
-    states$run <- run
-    return(states)
-  }, .options = furrr_options(seed = TRUE))
-  
-  # Reset to sequential after parallel work
-  plan(sequential)
-  
-  cat(sprintf("  Completed all %d runs\n\n", N_RUNS))
-  
-  # Combine all states
-  all_states_df <- bind_rows(all_states)
+    cat("\n")
+    
+  } else {
+    stop(sprintf("Unknown algorithm: %s. Must be 'greedy' or 'random'", ALGORITHM))
+  }
   
   # ============================================================================
   # STEP 3: Find best solution
@@ -1084,35 +1296,35 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
   
   cat("Step 3: Selecting best solution...\n")
   
-  # Filter to valid states
-  valid_states <- all_states_df |>
-    filter(
-      pct_plots >= MIN_PCT & pct_plots <= MAX_PCT,
-      pct_trees >= MIN_PCT & pct_trees <= MAX_PCT
-    )
-  
-  cat(sprintf("  Found %d valid solutions across all runs\n", nrow(valid_states)))
+  cat(sprintf("  Found %d valid solutions\n", nrow(valid_states)))
   
   if (nrow(valid_states) == 0) {
     stop("No valid solutions found! Try adjusting MIN_PCT/MAX_PCT constraints.")
   }
   
-  # Calculate target distance
-  valid_states <- valid_states |>
-    mutate(
-      target_distance = abs(pct_plots - TARGET_PCT) +
-                        abs(pct_trees - TARGET_PCT)
-    )
+  # Calculate target distance (if not already present from random sampling)
+  if (!"target_distance" %in% names(valid_states)) {
+    valid_states <- valid_states |>
+      mutate(
+        target_distance = abs(pct_plots - TARGET_PCT) +
+                          abs(pct_trees - TARGET_PCT)
+      )
+  }
   
   # Select best solution
   best_solution <- valid_states |>
-    arrange(target_distance, dist_distance) |>
+    arrange(dist_distance, target_distance) |>
     slice(1)
   
   withheld_groups <- best_solution$selected_groups[[1]]
   
-  cat(sprintf("  Best solution from run %d, iteration %d\n", 
-              best_solution$run, best_solution$iteration))
+  # Print solution info based on algorithm
+  if (ALGORITHM == "greedy") {
+    cat(sprintf("  Best solution from run %d, iteration %d\n", 
+                best_solution$run, best_solution$iteration))
+  } else {
+    cat(sprintf("  Best solution: sample %d\n", best_solution$sample_id))
+  }
   cat(sprintf("  Target distance: %.2f\n", best_solution$target_distance))
   cat(sprintf("  Distribution distance: %.2f\n\n", best_solution$dist_distance))
   
@@ -1208,17 +1420,20 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
     # Diagnostics
     diagnostics = diagnostics,
     
-    # Full state history
-    all_states = all_states_df,
+    # Full state history (greedy only)
+    all_states = if (ALGORITHM == "greedy") all_states_df else NULL,
     best_solution = best_solution,
     
     # Configuration used
     config = list(
+      algorithm = ALGORITHM,
       n_quantiles = n_quantiles,
       target_pct = TARGET_PCT,
       min_pct = MIN_PCT,
       max_pct = MAX_PCT,
-      n_runs = N_RUNS
+      n_runs = if (ALGORITHM == "greedy") N_RUNS else NULL,
+      n_samples = if (ALGORITHM == "random") N_RANDOM_SAMPLES else NULL,
+      factorial_weight = FACTORIAL_WEIGHT
     )
   )
   
