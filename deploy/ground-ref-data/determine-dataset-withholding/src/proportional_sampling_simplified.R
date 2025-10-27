@@ -52,7 +52,7 @@ MIN_PCT <- 15                # Minimum acceptable percentage
 MAX_PCT <- 25                # Maximum acceptable percentage
 
 # Algorithm selection
-ALGORITHM <- "greedy"        # Options: "greedy", "random"
+ALGORITHM <- "random"        # Options: "greedy", "random"
 
 # Greedy algorithm parameters (used if ALGORITHM = "greedy")
 N_RUNS <- 7                 # Number of independent runs
@@ -60,7 +60,7 @@ TOP_K_CANDIDATES <- 3        # Consider top K groups when selecting which to rem
 STOCHASTIC_TEMP <- 2       # Temperature for probability weighting
 
 # Random sampling parameters (used if ALGORITHM = "random")
-N_RANDOM_SAMPLES <- 50000    # Number of random combinations to try
+N_RANDOM_SAMPLES <- 50000 * 16    # Number of random combinations to try
 
 # Shared parameters
 PARALLELIZE <- TRUE          # Use parallel processing (uses all available cores)
@@ -408,6 +408,15 @@ random_sampling <- function(plots_df, catalog_distribution, catalog_factorial,
   min_removable <- max(0, min_n_groups - n_required)
   max_removable <- min(max_n_groups - n_required, length(removable_groups))
   
+  # Pre-calculate group plot and tree counts for faster metric calculation
+  group_stats <- plots_df |>
+    group_by(group_id) |>
+    summarise(
+      n_plots = n(),
+      n_trees = sum(n_trees, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
   cat(sprintf("  Target groups: %d-%d (based on %.1f%%-%.1f%% of %d plots)\n",
               target_n_groups_lower, target_n_groups_upper,
               MIN_PCT, MAX_PCT, total_plots))
@@ -448,36 +457,68 @@ random_sampling <- function(plots_df, catalog_distribution, catalog_factorial,
   cat(sprintf("  Generated %d candidate selections\n", length(candidates)))
   
   # ============================================================================
-  # Step 2: Filter to valid candidates (not parallelized)
+  # Step 2: Filter to valid candidates (parallelized by chunks)
   # ============================================================================
   
   cat("  Step 2: Filtering to valid candidates (checking plot/tree percentages)...\n")
   
-  valid_candidates <- list()
-  
-  for (candidate in candidates) {
-    # Calculate basic metrics (fast - just counting)
-    metrics <- calculate_metrics(candidate$selected_groups, plots_df,
-                                 total_groups, total_plots, total_trees)
+  # Set up parallel processing for filtering
+  if (PARALLELIZE) {
+    n_cores <- availableCores()
+    cat(sprintf("  Using %d cores for parallel filtering\n", n_cores))
+    plan(multisession, workers = n_cores)
     
-    # Check if in valid range
-    if (metrics$pct_plots >= MIN_PCT && metrics$pct_plots <= MAX_PCT &&
-        metrics$pct_trees >= MIN_PCT && metrics$pct_trees <= MAX_PCT) {
-      
-      valid_candidates[[length(valid_candidates) + 1]] <- list(
-        sample_id = candidate$sample_id,
-        selected_groups = candidate$selected_groups,
-        n_groups = metrics$n_groups,
-        n_plots = metrics$n_plots,
-        pct_plots = metrics$pct_plots,
-        n_trees = metrics$n_trees,
-        pct_trees = metrics$pct_trees
-      )
-    }
+    # Split candidates into chunks (one per core)
+    chunk_size <- ceiling(length(candidates) / n_cores)
+    candidate_chunks <- split(candidates, ceiling(seq_along(candidates) / chunk_size))
+    cat(sprintf("  Processing %d candidates in %d chunks of ~%d each\n", 
+                length(candidates), length(candidate_chunks), chunk_size))
+  } else {
+    cat("  Running sequentially (PARALLELIZE = FALSE)\n")
+    plan(sequential)
+    candidate_chunks <- list(candidates)  # Single chunk for sequential
   }
-
+  
+  # Process each chunk in parallel
+  valid_candidates_by_chunk <- future_map(candidate_chunks, function(chunk) {
+    # Process all candidates in this chunk
+    valid_in_chunk <- list()
+    
+    for (candidate in chunk) {
+      # Calculate metrics using pre-computed group stats (fast - just summing)
+      selected_stats <- group_stats |> filter(group_id %in% candidate$selected_groups)
+      n_plots <- sum(selected_stats$n_plots)
+      n_trees <- sum(selected_stats$n_trees)
+      pct_plots <- (n_plots / total_plots) * 100
+      pct_trees <- (n_trees / total_trees) * 100
+      
+      # Check if in valid range
+      if (pct_plots >= MIN_PCT && pct_plots <= MAX_PCT &&
+          pct_trees >= MIN_PCT && pct_trees <= MAX_PCT) {
+        
+        valid_in_chunk[[length(valid_in_chunk) + 1]] <- list(
+          sample_id = candidate$sample_id,
+          selected_groups = candidate$selected_groups,
+          n_groups = length(candidate$selected_groups),
+          n_plots = n_plots,
+          pct_plots = pct_plots,
+          n_trees = n_trees,
+          pct_trees = pct_trees
+        )
+      }
+    }
+    
+    return(valid_in_chunk)
+  }, .options = furrr_options(seed = TRUE))
+  
+  # Combine results from all chunks
+  valid_candidates <- unlist(valid_candidates_by_chunk, recursive = FALSE)
+  
   # Retain only the unique valid candidates
   valid_candidates <- unique(valid_candidates)
+  
+  # Reset to sequential
+  plan(sequential)
   
   n_valid <- length(valid_candidates)
   cat(sprintf("  Found %d valid candidates (%.1f%% of total)\n",
@@ -634,7 +675,7 @@ greedy_removal <- function(plots_df, catalog_distribution, catalog_factorial, bi
         filter(group_id == candidate_group) |>
         pull(n_plots)
       
-      per_plot_distortion <- test_dist_distance / sqrt(n_plots_in_group)
+      per_plot_distortion <- test_dist_distance #/ sqrt(n_plots_in_group)
       
       # Store candidate
       candidate_scores <- candidate_scores |>
