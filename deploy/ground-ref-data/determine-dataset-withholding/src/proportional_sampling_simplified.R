@@ -4,13 +4,20 @@
 # Purpose: Select ~20% of drone footprint groups to withhold for validation
 #          such that withheld plots match the catalog's distribution
 #
-# Method: Greedy removal or random sampling to find groups that best match
-#         the catalog distribution while meeting target percentage constraints
+# Method: Greedy removal, random sampling, or hybrid (random + greedy) to find 
+#         groups that best match the catalog distribution while meeting target 
+#         percentage constraints
+#
+# Hybrid Method: 
+#   - Phase 1: Random search to select ~30% of plots/trees
+#   - Phase 2: Greedy removal from 30% down to ~20%
+#   - Combines exploration (random) with refinement (greedy)
 #
 # Input: Single data frame with plots and their group_id assignments
 #
 # Author: [Your Name]
 # Date: 2025-10-24
+# Updated: 2025-10-28 (added hybrid method)
 # ==============================================================================
 
 library(tidyverse)
@@ -51,16 +58,22 @@ TARGET_PCT <- 20             # Target percentage to withhold
 MIN_PCT <- 15                # Minimum acceptable percentage
 MAX_PCT <- 25                # Maximum acceptable percentage
 
+# Hybrid algorithm parameters (Phase 1: random search to ~30%)
+PHASE1_TARGET_PCT <- 30      # Target percentage for Phase 1 random search
+PHASE1_MIN_PCT <- 28         # Minimum acceptable percentage for Phase 1
+PHASE1_MAX_PCT <- 35         # Maximum acceptable percentage for Phase 1
+
 # Algorithm selection
-ALGORITHM <- "random"        # Options: "greedy", "random"
+ALGORITHM <- "hybrid"        # Options: "greedy", "random", "hybrid"
 
 # Greedy algorithm parameters (used if ALGORITHM = "greedy")
 N_RUNS <- 7                 # Number of independent runs
 TOP_K_CANDIDATES <- 3        # Consider top K groups when selecting which to remove
 STOCHASTIC_TEMP <- 2       # Temperature for probability weighting
 
-# Random sampling parameters (used if ALGORITHM = "random")
+# Random sampling parameters (used if ALGORITHM = "random" or "hybrid")
 N_RANDOM_SAMPLES <- 50000 * 16    # Number of random combinations to try
+N_RANDOM_SAMPLES_PHASE1 <- 50000 * 8  # Number for Phase 1 of hybrid (warm start)
 
 # Shared parameters
 PARALLELIZE <- TRUE          # Use parallel processing (uses all available cores)
@@ -584,6 +597,125 @@ random_sampling <- function(plots_df, catalog_distribution, catalog_factorial,
 }
 
 # ==============================================================================
+# ALGORITHM: HYBRID (RANDOM + GREEDY)
+# ==============================================================================
+
+#' Select groups by hybrid random + greedy approach
+#'
+#' @param plots_df Data frame of plots with group_id
+#' @param catalog_distribution Catalog distribution
+#' @param catalog_factorial Catalog factorial distribution
+#' @param bin_info Bin information
+#' @param total_groups Total number of groups
+#' @param total_plots Total number of plots
+#' @param total_trees Total number of trees
+#' @param required_groups Vector of group_ids that must be included
+#' @param n_runs Number of independent hybrid runs
+#' @return Data frame of valid solutions
+hybrid_sampling <- function(plots_df, catalog_distribution, catalog_factorial, bin_info,
+                           total_groups, total_plots, total_trees,
+                           required_groups = c(), n_runs = N_RUNS) {
+  
+  cat(sprintf("Hybrid sampling: Running %d independent hybrid runs...\n", n_runs))
+  cat("  Phase 1: Random search to ~30%\n")
+  cat("  Phase 2: Greedy removal to ~20%\n\n")
+  
+  # Set up parallel processing
+  if (PARALLELIZE) {
+    n_cores <- availableCores()
+    cat(sprintf("  Using parallel processing with %d cores\n", n_cores))
+    plan(multisession, workers = n_cores)
+  } else {
+    cat("  Running sequentially (PARALLELIZE = FALSE)\n")
+    plan(sequential)
+  }
+  
+  # Run hybrid approach in parallel
+  all_states <- future_map(1:n_runs, function(run) {
+    
+    # Set run-specific seed
+    set.seed(42 + run * 1000)
+    
+    # ========================================================================
+    # PHASE 1: Random search to ~30%
+    # ========================================================================
+    
+    phase1_solutions <- random_sampling(
+      plots_df = plots_df,
+      catalog_distribution = catalog_distribution,
+      catalog_factorial = catalog_factorial,
+      total_groups = total_groups,
+      total_plots = total_plots,
+      total_trees = total_trees,
+      required_groups = required_groups,
+      n_samples = N_RANDOM_SAMPLES_PHASE1
+    )
+    
+    # Filter to Phase 1 constraints (28-35%)
+    phase1_valid <- phase1_solutions |>
+      filter(
+        pct_plots >= PHASE1_MIN_PCT & pct_plots <= PHASE1_MAX_PCT,
+        pct_trees >= PHASE1_MIN_PCT & pct_trees <= PHASE1_MAX_PCT
+      )
+    
+    if (nrow(phase1_valid) == 0) {
+      warning(sprintf("Run %d: No valid Phase 1 solutions found!", run))
+      return(NULL)
+    }
+    
+    # Select best Phase 1 solution (minimize distribution distance)
+    phase1_best <- phase1_valid |>
+      arrange(dist_distance) |>
+      slice(1)
+    
+    initial_groups <- phase1_best$selected_groups[[1]]
+    
+    # ========================================================================
+    # PHASE 2: Greedy removal to ~20%
+    # ========================================================================
+    
+    states <- greedy_removal(
+      plots_df = plots_df,
+      catalog_distribution = catalog_distribution,
+      catalog_factorial = catalog_factorial,
+      bin_info = bin_info,
+      total_groups = total_groups,
+      total_plots = total_plots,
+      total_trees = total_trees,
+      run_id = run,
+      required_groups = required_groups,
+      initial_groups = initial_groups
+    )
+    
+    states$run <- run
+    states$phase1_n_groups <- phase1_best$n_groups
+    states$phase1_pct_plots <- phase1_best$pct_plots
+    states$phase1_pct_trees <- phase1_best$pct_trees
+    states$phase1_dist_distance <- phase1_best$dist_distance
+    
+    return(states)
+    
+  }, .options = furrr_options(seed = TRUE))
+  
+  # Reset to sequential after parallel work
+  plan(sequential)
+  
+  # Remove NULL results (failed runs)
+  all_states <- all_states[!sapply(all_states, is.null)]
+  
+  if (length(all_states) == 0) {
+    stop("All hybrid runs failed! Try adjusting Phase 1 constraints.")
+  }
+  
+  cat(sprintf("  Completed %d successful runs\n\n", length(all_states)))
+  
+  # Combine all states
+  all_states_df <- bind_rows(all_states)
+  
+  return(all_states_df)
+}
+
+# ==============================================================================
 # ALGORITHM: GREEDY REMOVAL
 # ==============================================================================
 
@@ -597,20 +729,25 @@ random_sampling <- function(plots_df, catalog_distribution, catalog_factorial,
 #' @param total_trees Total number of trees
 #' @param run_id Run identifier for random seed
 #' @param required_groups Vector of group_ids that cannot be removed
+#' @param initial_groups Optional vector of group_ids to start with (default NULL = all groups)
 #' @return Data frame of states at each iteration
 greedy_removal <- function(plots_df, catalog_distribution, catalog_factorial, bin_info,
                           total_groups, total_plots, total_trees, run_id,
-                          required_groups = c()) {
+                          required_groups = c(), initial_groups = NULL) {
   
   # Set run-specific seed
   set.seed(42 + run_id)
   
-  # Initialize: ALL groups selected
+  # Initialize: Use provided initial groups or ALL groups
   all_groups <- unique(plots_df$group_id)
-  selected_groups <- all_groups
+  if (!is.null(initial_groups)) {
+    selected_groups <- initial_groups
+  } else {
+    selected_groups <- all_groups
+  }
   
   # Identify removable groups (all except required)
-  removable_groups <- setdiff(all_groups, required_groups)
+  removable_groups <- setdiff(selected_groups, required_groups)
   
   # Pre-calculate number of plots in each group
   group_plot_counts <- plots_df |>
@@ -1068,7 +1205,17 @@ create_factorial_plots <- function(catalog_factorial, selected_factorial) {
 select_withheld_groups <- function(plots_df, required_groups = c()) {
   
   cat("Starting proportional stratified group selection (SIMPLIFIED)...\n")
-  cat(sprintf("Method: %s\n\n", if (ALGORITHM == "greedy") "Greedy removal with stochastic selection" else "Random sampling"))
+  cat(sprintf("Method: %s\n", 
+              if (ALGORITHM == "greedy") {
+                "Greedy removal with stochastic selection"
+              } else if (ALGORITHM == "random") {
+                "Random sampling"
+              } else if (ALGORITHM == "hybrid") {
+                "Hybrid (Random search to 30% + Greedy removal to 20%)"
+              } else {
+                ALGORITHM
+              }))
+  cat("\n")
   
   # ============================================================================
   # STEP 1: Data preparation
@@ -1258,7 +1405,7 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
   }
   
   # ============================================================================
-  # STEP 2: Run algorithm (greedy or random)
+  # STEP 2: Run algorithm (greedy, random, or hybrid)
   # ============================================================================
   
   if (ALGORITHM == "greedy") {
@@ -1327,8 +1474,32 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
     
     cat("\n")
     
+  } else if (ALGORITHM == "hybrid") {
+    
+    cat(sprintf("Step 2: Running %d independent hybrid runs...\n", N_RUNS))
+    
+    # Run hybrid sampling
+    all_states_df <- hybrid_sampling(
+      plots_df = plots_df_binned,
+      catalog_distribution = catalog_distribution,
+      catalog_factorial = catalog_factorial_ref,
+      bin_info = bin_info,
+      total_groups = total_groups,
+      total_plots = total_plots,
+      total_trees = total_trees,
+      required_groups = required_groups,
+      n_runs = N_RUNS
+    )
+    
+    # Filter to valid states (final 20% target)
+    valid_states <- all_states_df |>
+      filter(
+        pct_plots >= MIN_PCT & pct_plots <= MAX_PCT,
+        pct_trees >= MIN_PCT & pct_trees <= MAX_PCT
+      )
+    
   } else {
-    stop(sprintf("Unknown algorithm: %s. Must be 'greedy' or 'random'", ALGORITHM))
+    stop(sprintf("Unknown algorithm: %s. Must be 'greedy', 'random', or 'hybrid'", ALGORITHM))
   }
   
   # ============================================================================
@@ -1363,8 +1534,15 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
   if (ALGORITHM == "greedy") {
     cat(sprintf("  Best solution from run %d, iteration %d\n", 
                 best_solution$run, best_solution$iteration))
-  } else {
+  } else if (ALGORITHM == "random") {
     cat(sprintf("  Best solution: sample %d\n", best_solution$sample_id))
+  } else if (ALGORITHM == "hybrid") {
+    cat(sprintf("  Best solution from run %d, iteration %d\n", 
+                best_solution$run, best_solution$iteration))
+    cat(sprintf("  Phase 1 start: %.1f%% plots, %.1f%% trees (dist=%.2f)\n",
+                best_solution$phase1_pct_plots, 
+                best_solution$phase1_pct_trees,
+                best_solution$phase1_dist_distance))
   }
   cat(sprintf("  Target distance: %.2f\n", best_solution$target_distance))
   cat(sprintf("  Distribution distance: %.2f\n\n", best_solution$dist_distance))
@@ -1461,8 +1639,8 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
     # Diagnostics
     diagnostics = diagnostics,
     
-    # Full state history (greedy only)
-    all_states = if (ALGORITHM == "greedy") all_states_df else NULL,
+    # Full state history (greedy and hybrid only)
+    all_states = if (ALGORITHM %in% c("greedy", "hybrid")) all_states_df else NULL,
     best_solution = best_solution,
     
     # Configuration used
@@ -1472,8 +1650,12 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
       target_pct = TARGET_PCT,
       min_pct = MIN_PCT,
       max_pct = MAX_PCT,
-      n_runs = if (ALGORITHM == "greedy") N_RUNS else NULL,
+      n_runs = if (ALGORITHM %in% c("greedy", "hybrid")) N_RUNS else NULL,
       n_samples = if (ALGORITHM == "random") N_RANDOM_SAMPLES else NULL,
+      phase1_target_pct = if (ALGORITHM == "hybrid") PHASE1_TARGET_PCT else NULL,
+      phase1_min_pct = if (ALGORITHM == "hybrid") PHASE1_MIN_PCT else NULL,
+      phase1_max_pct = if (ALGORITHM == "hybrid") PHASE1_MAX_PCT else NULL,
+      phase1_n_samples = if (ALGORITHM == "hybrid") N_RANDOM_SAMPLES_PHASE1 else NULL,
       factorial_weight = FACTORIAL_WEIGHT
     )
   )
