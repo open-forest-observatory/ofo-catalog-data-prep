@@ -38,8 +38,8 @@ FACTORIAL_COMBINATIONS <- list(
   list(var1 = "ppt", var2 = "sp_comp_group"),
   list(var1 = "mean_ba_live", var2 = "ecoregion"),
   list(var1 = "trees_per_ha", var2 = "ecoregion"),
-  list(var1 = "ppt", var2 = "ecoregion")
-
+  list(var1 = "ppt", var2 = "ecoregion"),
+  list(var1 = "trees_per_ha", var2 = "mean_ba_live")
 )
 
 # Continuous variables to stratify
@@ -64,16 +64,16 @@ PHASE1_MIN_PCT <- 28         # Minimum acceptable percentage for Phase 1
 PHASE1_MAX_PCT <- 35         # Maximum acceptable percentage for Phase 1
 
 # Algorithm selection
-ALGORITHM <- "hybrid"        # Options: "greedy", "random", "hybrid"
+ALGORITHM <- "greedy"        # Options: "greedy", "random", "hybrid"
 
 # Greedy algorithm parameters (used if ALGORITHM = "greedy")
-N_RUNS <- 7                 # Number of independent runs
-TOP_K_CANDIDATES <- 3        # Consider top K groups when selecting which to remove
-STOCHASTIC_TEMP <- 2       # Temperature for probability weighting
+N_RUNS <- 60                 # Number of independent runs
+TOP_K_CANDIDATES <- 5        # Consider top K groups when selecting which to remove
+STOCHASTIC_TEMP <- 3       # Temperature for probability weighting
 
 # Random sampling parameters (used if ALGORITHM = "random" or "hybrid")
-N_RANDOM_SAMPLES <- 50000 * 16    # Number of random combinations to try
-N_RANDOM_SAMPLES_PHASE1 <- 50000 * 8  # Number for Phase 1 of hybrid (warm start)
+N_RANDOM_SAMPLES <- 50000 * 4    # Number of random combinations to try for pure "random"
+N_RANDOM_SAMPLES_PHASE1 <- 10000 # * 8  # Number for Phase 1 of hybrid (warm start)
 
 # Shared parameters
 PARALLELIZE <- TRUE          # Use parallel processing (uses all available cores)
@@ -396,10 +396,15 @@ calculate_target_distance <- function(metrics) {
 #' @param total_trees Total number of trees
 #' @param required_groups Vector of group_ids that must be included
 #' @param n_samples Number of random samples to try
+#' @param min_pct Minimum acceptable percentage (default: MIN_PCT)
+#' @param max_pct Maximum acceptable percentage (default: MAX_PCT)
+#' @param target_pct Target percentage (default: TARGET_PCT)
 #' @return Data frame of valid solutions
 random_sampling <- function(plots_df, catalog_distribution, catalog_factorial,
                            total_groups, total_plots, total_trees,
-                           required_groups = c(), n_samples = N_RANDOM_SAMPLES) {
+                           required_groups = c(), n_samples = N_RANDOM_SAMPLES,
+                           min_pct = MIN_PCT, max_pct = MAX_PCT, 
+                           target_pct = TARGET_PCT) {
   
   cat(sprintf("Random sampling: Generating %d random combinations...\n", n_samples))
   
@@ -407,11 +412,11 @@ random_sampling <- function(plots_df, catalog_distribution, catalog_factorial,
   removable_groups <- setdiff(all_groups, required_groups)
   n_required <- length(required_groups)
   
-  # Calculate target number of groups based on MIN_PCT and MAX_PCT of plots
+  # Calculate target number of groups based on min_pct and max_pct of plots
   # Average plots per group to inform the lower bound calculation
   avg_plots_per_group <- total_plots / total_groups
-  target_n_groups_upper <- round(total_plots * MAX_PCT / 100)
-  target_n_groups_lower <- round((total_plots * MIN_PCT / 100) / (avg_plots_per_group * 2))
+  target_n_groups_upper <- round(total_plots * max_pct / 100)
+  target_n_groups_lower <- round((total_plots * min_pct / 100) / (avg_plots_per_group * 2))
   
   # Adjust bounds based on what's available (required + removable)
   max_n_groups <- min(target_n_groups_upper, n_required + length(removable_groups))
@@ -432,7 +437,7 @@ random_sampling <- function(plots_df, catalog_distribution, catalog_factorial,
   
   cat(sprintf("  Target groups: %d-%d (based on %.1f%%-%.1f%% of %d plots)\n",
               target_n_groups_lower, target_n_groups_upper,
-              MIN_PCT, MAX_PCT, total_plots))
+              min_pct, max_pct, total_plots))
   cat(sprintf("  Sampling %d-%d groups (%d required + %d-%d removable from %d available)\n",
               min_n_groups, max_n_groups, n_required, 
               min_removable, max_removable, length(removable_groups)))
@@ -506,8 +511,8 @@ random_sampling <- function(plots_df, catalog_distribution, catalog_factorial,
       pct_trees <- (n_trees / total_trees) * 100
       
       # Check if in valid range
-      if (pct_plots >= MIN_PCT && pct_plots <= MAX_PCT &&
-          pct_trees >= MIN_PCT && pct_trees <= MAX_PCT) {
+      if (pct_plots >= min_pct && pct_plots <= max_pct &&
+          pct_trees >= min_pct && pct_trees <= max_pct) {
         
         valid_in_chunk[[length(valid_in_chunk) + 1]] <- list(
           sample_id = candidate$sample_id,
@@ -570,8 +575,8 @@ random_sampling <- function(plots_df, catalog_distribution, catalog_factorial,
                                                     factorial_weight = FACTORIAL_WEIGHT)
     
     # Calculate target distance
-    target_distance <- abs(candidate$pct_plots - TARGET_PCT) + 
-                      abs(candidate$pct_trees - TARGET_PCT)
+    target_distance <- abs(candidate$pct_plots - target_pct) + 
+                      abs(candidate$pct_trees - target_pct)
     
     # Return solution
     tibble(
@@ -620,60 +625,79 @@ hybrid_sampling <- function(plots_df, catalog_distribution, catalog_factorial, b
   cat("  Phase 1: Random search to ~30%\n")
   cat("  Phase 2: Greedy removal to ~20%\n\n")
   
-  # Set up parallel processing
+  # ============================================================================
+  # PHASE 1: Random search (one search for all runs, parallelized internally)
+  # ============================================================================
+  
+  cat("=== PHASE 1: Random search to ~30% ===\n")
+  cat(sprintf("Generating %d random combinations...\n", N_RANDOM_SAMPLES_PHASE1))
+  
+  phase1_solutions <- random_sampling(
+    plots_df = plots_df,
+    catalog_distribution = catalog_distribution,
+    catalog_factorial = catalog_factorial,
+    total_groups = total_groups,
+    total_plots = total_plots,
+    total_trees = total_trees,
+    required_groups = required_groups,
+    n_samples = N_RANDOM_SAMPLES_PHASE1,
+    min_pct = PHASE1_MIN_PCT,
+    max_pct = PHASE1_MAX_PCT,
+    target_pct = PHASE1_TARGET_PCT
+  )
+  
+  # Note: random_sampling already filters internally using the Phase 1 constraints
+  # So phase1_solutions already contains only valid Phase 1 solutions
+  
+  if (nrow(phase1_solutions) == 0) {
+    stop("No valid Phase 1 solutions found! Try adjusting Phase 1 constraints.")
+  }
+  
+  cat(sprintf("\nPhase 1 complete: Found %d valid solutions in range [%d%%, %d%%]\n",
+              nrow(phase1_solutions), PHASE1_MIN_PCT, PHASE1_MAX_PCT))
+  
+  # Select THE BEST solution based on distribution distance
+  phase1_best <- phase1_solutions |>
+    arrange(dist_distance) |>
+    slice(1)
+  
+  cat(sprintf("Best Phase 1 solution selected:\n"))
+  cat(sprintf("  Groups: %d (%.1f%% plots, %.1f%% trees)\n",
+              phase1_best$n_groups,
+              phase1_best$pct_plots,
+              phase1_best$pct_trees))
+  cat(sprintf("  Distribution distance: %.2f\n\n",
+              phase1_best$dist_distance))
+  
+  # Extract the initial groups for Phase 2
+  initial_groups <- phase1_best$selected_groups[[1]]
+  
+  # ============================================================================
+  # PHASE 2: Greedy removal (N_RUNS times from same Phase 1 solution)
+  # ============================================================================
+  
+  cat(sprintf("=== PHASE 2: Greedy removal to ~20%% (%d parallel runs) ===\n", n_runs))
+  cat(sprintf("All runs will start from the same Phase 1 solution\n"))
+  cat(sprintf("Starting point: %d groups (%.1f%% plots, %.1f%% trees)\n\n",
+              phase1_best$n_groups,
+              phase1_best$pct_plots,
+              phase1_best$pct_trees))
+  
+  # Set up parallel processing for Phase 2
   if (PARALLELIZE) {
     n_cores <- availableCores()
-    cat(sprintf("  Using parallel processing with %d cores\n", n_cores))
+    cat(sprintf("  Using parallel processing with %d cores\n\n", n_cores))
     plan(multisession, workers = n_cores)
   } else {
-    cat("  Running sequentially (PARALLELIZE = FALSE)\n")
+    cat("  Running sequentially (PARALLELIZE = FALSE)\n\n")
     plan(sequential)
   }
   
-  # Run hybrid approach in parallel
+  # Run N_RUNS greedy removals in parallel, all starting from same Phase 1 solution
   all_states <- future_map(1:n_runs, function(run) {
     
-    # Set run-specific seed
-    set.seed(42 + run * 1000)
-    
-    # ========================================================================
-    # PHASE 1: Random search to ~30%
-    # ========================================================================
-    
-    phase1_solutions <- random_sampling(
-      plots_df = plots_df,
-      catalog_distribution = catalog_distribution,
-      catalog_factorial = catalog_factorial,
-      total_groups = total_groups,
-      total_plots = total_plots,
-      total_trees = total_trees,
-      required_groups = required_groups,
-      n_samples = N_RANDOM_SAMPLES_PHASE1
-    )
-    
-    # Filter to Phase 1 constraints (28-35%)
-    phase1_valid <- phase1_solutions |>
-      filter(
-        pct_plots >= PHASE1_MIN_PCT & pct_plots <= PHASE1_MAX_PCT,
-        pct_trees >= PHASE1_MIN_PCT & pct_trees <= PHASE1_MAX_PCT
-      )
-    
-    if (nrow(phase1_valid) == 0) {
-      warning(sprintf("Run %d: No valid Phase 1 solutions found!", run))
-      return(NULL)
-    }
-    
-    # Select best Phase 1 solution (minimize distribution distance)
-    phase1_best <- phase1_valid |>
-      arrange(dist_distance) |>
-      slice(1)
-    
-    initial_groups <- phase1_best$selected_groups[[1]]
-    
-    # ========================================================================
-    # PHASE 2: Greedy removal to ~20%
-    # ========================================================================
-    
+    # Run greedy removal starting from the best Phase 1 solution
+    # Each run will be stochastic due to the random selection in greedy_removal
     states <- greedy_removal(
       plots_df = plots_df,
       catalog_distribution = catalog_distribution,
@@ -687,6 +711,7 @@ hybrid_sampling <- function(plots_df, catalog_distribution, catalog_factorial, b
       initial_groups = initial_groups
     )
     
+    # Add Phase 1 metadata
     states$run <- run
     states$phase1_n_groups <- phase1_best$n_groups
     states$phase1_pct_plots <- phase1_best$pct_plots
@@ -700,17 +725,30 @@ hybrid_sampling <- function(plots_df, catalog_distribution, catalog_factorial, b
   # Reset to sequential after parallel work
   plan(sequential)
   
-  # Remove NULL results (failed runs)
-  all_states <- all_states[!sapply(all_states, is.null)]
-  
-  if (length(all_states) == 0) {
-    stop("All hybrid runs failed! Try adjusting Phase 1 constraints.")
-  }
-  
-  cat(sprintf("  Completed %d successful runs\n\n", length(all_states)))
+  cat(sprintf("\n=== Phase 2 complete: %d greedy runs finished ===\n", length(all_states)))
   
   # Combine all states
   all_states_df <- bind_rows(all_states)
+  
+  # Report summary statistics across all runs
+  final_states <- all_states_df |>
+    group_by(run) |>
+    slice(n()) |>
+    ungroup()
+  
+  cat(sprintf("Final results across %d runs:\n", nrow(final_states)))
+  cat(sprintf("  Plots: %.1f%% - %.1f%% (mean: %.1f%%)\n",
+              min(final_states$pct_plots),
+              max(final_states$pct_plots),
+              mean(final_states$pct_plots)))
+  cat(sprintf("  Trees: %.1f%% - %.1f%% (mean: %.1f%%)\n",
+              min(final_states$pct_trees),
+              max(final_states$pct_trees),
+              mean(final_states$pct_trees)))
+  cat(sprintf("  Distribution distance: %.2f - %.2f (mean: %.2f)\n\n",
+              min(final_states$dist_distance),
+              max(final_states$dist_distance),
+              mean(final_states$dist_distance)))
   
   return(all_states_df)
 }
@@ -812,7 +850,7 @@ greedy_removal <- function(plots_df, catalog_distribution, catalog_factorial, bi
         filter(group_id == candidate_group) |>
         pull(n_plots)
       
-      per_plot_distortion <- test_dist_distance #/ sqrt(n_plots_in_group)
+      per_plot_distortion <- test_dist_distance / (n_plots_in_group)
       
       # Store candidate
       candidate_scores <- candidate_scores |>

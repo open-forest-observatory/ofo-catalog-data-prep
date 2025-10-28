@@ -28,7 +28,7 @@ table(d$pairing_tier)
 plots_df = d |>
   filter(pairing_tier == "aligned_paired_drone_footprint")
 
-res = select_withheld_groups(plots_df)
+res = select_withheld_groups(plots_df, required_groups = c(69))
 
 print_selection_report(res)
 
