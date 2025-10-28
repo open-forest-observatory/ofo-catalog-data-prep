@@ -28,16 +28,56 @@ table(d$pairing_tier)
 plots_df = d |>
   filter(pairing_tier == "aligned_paired_drone_footprint")
 
-res = select_withheld_groups(plots_df, required_groups = c()) # The STEF 2018 standalone one is group 69
+res1 = select_withheld_groups(plots_df, required_groups = c()) # The STEF 2018 standalone one is group 69
 
-print_selection_report(res)
+print_selection_report(res1)
 
-print(res$diagnostics$factorial_plots)
+print(res1$diagnostics$factorial_plots)
+
+groups_withheld1 = res1$withheld_plots$group_id
+
+# Prep the next run: "paired_drone_footprint"
+
+plots_df = d |>
+  filter(pairing_tier == "paired_drone_footprint")
+
+res2 = select_withheld_groups(plots_df, required_groups = groups_withheld1)
+
+print_selection_report(res2)
+print(res2$diagnostics$factorial_plots)
+
+# Combine the withheld groups from both runs
+groups_withheld2 = unique(c(groups_withheld1, res2$withheld_plots$group_id))
+
+# Next run: "non_paired_drone_footprint"
+plots_df = d |>
+  filter(pairing_tier == "non_paired_drone_footprint")
+
+res3 = select_withheld_groups(plots_df, required_groups = groups_withheld2)
+
+print_selection_report(res3)
+
+print(res3$diagnostics$factorial_plots)
 
 
-# Get the plots in the withheld groups
+# Combine the withheld groups from all three runs
+groups_withheld3 = unique(c(groups_withheld2, res3$withheld_plots$group_id))
 
-groups_withheld = res$withheld_plots$group_id
+# Next run: "no_drone_footprint"
+plots_df = d |>
+  filter(pairing_tier == "no_drone_footprint")
+
+res4 = select_withheld_groups(plots_df, required_groups = groups_withheld3)
+
+print_selection_report(res4)
+print(res4$diagnostics$factorial_plots)
+
+# Combine the withheld groups from all four runs
+groups_withheld4 = unique(c(groups_withheld3, res4$withheld_plots$group_id))
+
+
+
+
 
 plots_withheld = plots_df |>
   filter(group_id %in% groups_withheld)

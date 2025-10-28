@@ -49,7 +49,7 @@ CONTINUOUS_VARS <- c("ppt", "trees_per_ha", "mean_ba_live", "area_ha")
 CATEGORICAL_VARS <- c("ecoregion", "sp_comp_group", "project_name")
 
 # Binning parameters
-TARGET_PLOTS_PER_BIN <- 15   # Target average plots per bin in full catalog
+TARGET_PLOTS_PER_BIN <- 10   # Target average plots per bin in full catalog
 MAX_BINS <- 5                # Maximum number of quantile bins to use
 N_BINS_FACTORIAL <- 3        # Number of bins for continuous vars in factorial breakdowns
 
