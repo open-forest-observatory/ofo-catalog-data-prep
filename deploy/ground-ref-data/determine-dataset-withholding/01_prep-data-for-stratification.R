@@ -52,8 +52,8 @@ pairings_unique = pairings |>
 # Manually exclude 000934 and 000935 from being selected for test (force them in train) because they connect nearly all STEF missions into one giant group
 # and we want to allow a part of them to be selected as test. Excluding them will disconnect the
 # chain of drone missions and allow part of STEF2018 to be selected (which we will manually force).
-pairings_unique = pairings_unique |>
-  filter(!(mission_id_hn %in% c("000934", "000935") | mission_id_lo %in% c("000934", "000935")))
+# pairings_unique = pairings_unique |>
+#   filter(!(mission_id_hn %in% c("000934", "000935") | mission_id_lo %in% c("000934", "000935")))
 
 
 # Read the drone mission footrpints and merge to single layer with one feature per mission
@@ -63,9 +63,9 @@ footrpints = lapply(footprints, get_mission_id)
 footprints = do.call(rbind, footrpints)
 footprints = st_transform(footprints, 5070)
 
-# Manually exclude 000934 and 000935 with same logic as above
-footprints = footprints |>
-  filter(!(mission_id %in% c("000934", "000935")))
+# # Manually exclude 000934 and 000935 with same logic as above
+# footprints = footprints |>
+#   filter(!(mission_id %in% c("000934", "000935")))
 
 # Temporary write to inspect
 st_write(footprints, "/ofo-share/catalog-data-prep/stratification-data/all_drone_footprints.gpkg", delete_dsn = TRUE)

@@ -72,7 +72,7 @@ TOP_K_CANDIDATES <- 5        # Consider top K groups when selecting which to rem
 STOCHASTIC_TEMP <- 3       # Temperature for probability weighting
 
 # Random sampling parameters (used if ALGORITHM = "random" or "hybrid")
-N_RANDOM_SAMPLES <- 50000 * 4    # Number of random combinations to try for pure "random"
+N_RANDOM_SAMPLES <- 50000 * 10    # Number of random combinations to try for pure "random"
 N_RANDOM_SAMPLES_PHASE1 <- 10000 # * 8  # Number for Phase 1 of hybrid (warm start)
 
 # Shared parameters
