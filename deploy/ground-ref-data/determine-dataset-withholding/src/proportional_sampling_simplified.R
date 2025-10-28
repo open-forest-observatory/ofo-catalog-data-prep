@@ -1231,6 +1231,206 @@ create_factorial_plots <- function(catalog_factorial, selected_factorial) {
   return(plots)
 }
 
+#' Create dual factorial distribution visualizations (reference + tier)
+#'
+#' @param reference_factorial Factorial distribution of reference catalog
+#' @param tier_factorial Factorial distribution of tier catalog
+#' @param selected_factorial Factorial distribution of selected plots
+#' @return List of ggplot objects (dual heatmaps side by side)
+create_dual_factorial_plots <- function(reference_factorial, tier_factorial, selected_factorial) {
+  
+  library(patchwork)
+  
+  plots <- list()
+  
+  for (combo_name in names(reference_factorial)) {
+    combo_info <- reference_factorial[[combo_name]]
+    var1 <- combo_info$var1
+    var2 <- combo_info$var2
+    
+    # === REFERENCE CATALOG ===
+    combined_ref <- reference_factorial[[combo_name]]$distribution |>
+      rename(
+        catalog_n_plots = n_plots,
+        catalog_n_trees = n_trees
+      ) |>
+      full_join(
+        selected_factorial[[combo_name]]$distribution |>
+          rename(
+            selected_n_plots = n_plots,
+            selected_n_trees = n_trees
+          ),
+        by = c("var1_value", "var2_value")
+      ) |>
+      mutate(
+        catalog_n_plots = replace_na(catalog_n_plots, 0),
+        catalog_n_trees = replace_na(catalog_n_trees, 0),
+        selected_n_plots = replace_na(selected_n_plots, 0),
+        selected_n_trees = replace_na(selected_n_trees, 0),
+        pct_plots_selected_raw = ifelse(catalog_n_plots > 0, 
+                                     100 * selected_n_plots / catalog_n_plots, 
+                                     0),
+        pct_trees_selected_raw = ifelse(catalog_n_trees > 0,
+                                     100 * selected_n_trees / catalog_n_trees,
+                                     0),
+        # Cap at 40 for color scale
+        pct_plots_selected = pmin(pct_plots_selected_raw, 40),
+        pct_trees_selected = pmin(pct_trees_selected_raw, 40),
+        # Labels show "40+" for capped values
+        pct_plots_label = ifelse(pct_plots_selected_raw > 40, "40+", sprintf("%.0f%%", pct_plots_selected_raw)),
+        pct_trees_label = ifelse(pct_trees_selected_raw > 40, "40+", sprintf("%.0f%%", pct_trees_selected_raw))
+      )
+    
+    # === TIER CATALOG ===
+    combined_tier <- tier_factorial[[combo_name]]$distribution |>
+      rename(
+        catalog_n_plots = n_plots,
+        catalog_n_trees = n_trees
+      ) |>
+      full_join(
+        selected_factorial[[combo_name]]$distribution |>
+          rename(
+            selected_n_plots = n_plots,
+            selected_n_trees = n_trees
+          ),
+        by = c("var1_value", "var2_value")
+      ) |>
+      mutate(
+        catalog_n_plots = replace_na(catalog_n_plots, 0),
+        catalog_n_trees = replace_na(catalog_n_trees, 0),
+        selected_n_plots = replace_na(selected_n_plots, 0),
+        selected_n_trees = replace_na(selected_n_trees, 0),
+        pct_plots_selected_raw = ifelse(catalog_n_plots > 0, 
+                                     100 * selected_n_plots / catalog_n_plots, 
+                                     0),
+        pct_trees_selected_raw = ifelse(catalog_n_trees > 0,
+                                     100 * selected_n_trees / catalog_n_trees,
+                                     0),
+        # Cap at 40 for color scale
+        pct_plots_selected = pmin(pct_plots_selected_raw, 40),
+        pct_trees_selected = pmin(pct_trees_selected_raw, 40),
+        # Labels show "40+" for capped values
+        pct_plots_label = ifelse(pct_plots_selected_raw > 40, "40+", sprintf("%.0f%%", pct_plots_selected_raw)),
+        pct_trees_label = ifelse(pct_trees_selected_raw > 40, "40+", sprintf("%.0f%%", pct_trees_selected_raw))
+      )
+    
+    # Create reference heatmap for plots
+    p_ref_plots <- ggplot(combined_ref, aes(x = var1_value, y = var2_value)) +
+      geom_tile(aes(fill = pct_plots_selected), color = "white", linewidth = 0.5) +
+      geom_text(aes(label = sprintf("C:%d\nS:%d\n%s", 
+                                     catalog_n_plots, 
+                                     selected_n_plots,
+                                     pct_plots_label)),
+                size = 2.5, lineheight = 0.8) +
+      scale_fill_gradient2(low = "#d73027", mid = "#fee08b", high = "#1a9850",
+                          midpoint = 20,
+                          limits = c(0, 40),
+                          name = "% Selected") +
+      labs(
+        title = "Reference (All Tiers)",
+        subtitle = "Optimized for this distribution",
+        x = var1,
+        y = var2
+      ) +
+      theme_minimal() +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(face = "bold", size = 10)
+      )
+    
+    # Create tier heatmap for plots
+    p_tier_plots <- ggplot(combined_tier, aes(x = var1_value, y = var2_value)) +
+      geom_tile(aes(fill = pct_plots_selected), color = "white", linewidth = 0.5) +
+      geom_text(aes(label = sprintf("C:%d\nS:%d\n%s", 
+                                     catalog_n_plots, 
+                                     selected_n_plots,
+                                     pct_plots_label)),
+                size = 2.5, lineheight = 0.8) +
+      scale_fill_gradient2(low = "#d73027", mid = "#fee08b", high = "#1a9850",
+                          midpoint = 20,
+                          limits = c(0, 40),
+                          name = "% Selected") +
+      labs(
+        title = "Current Tier Only",
+        subtitle = "Actual within-tier distribution",
+        x = var1,
+        y = var2
+      ) +
+      theme_minimal() +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(face = "bold", size = 10)
+      )
+    
+    # Combine plots side by side
+    p_plots_combined <- p_ref_plots + p_tier_plots +
+      plot_annotation(
+        title = paste("Factorial Distribution:", var1, "×", var2, "(Plots)"),
+        theme = theme(plot.title = element_text(face = "bold", size = 12))
+      )
+    
+    # Create reference heatmap for trees
+    p_ref_trees <- ggplot(combined_ref, aes(x = var1_value, y = var2_value)) +
+      geom_tile(aes(fill = pct_trees_selected), color = "white", linewidth = 0.5) +
+      geom_text(aes(label = sprintf("C:%d\nS:%d\n%s", 
+                                     catalog_n_trees, 
+                                     selected_n_trees,
+                                     pct_trees_label)),
+                size = 2.5, lineheight = 0.8) +
+      scale_fill_gradient2(low = "#d73027", mid = "#fee08b", high = "#1a9850",
+                          midpoint = 20,
+                          limits = c(0, 40),
+                          name = "% Selected") +
+      labs(
+        title = "Reference (All Tiers)",
+        subtitle = "Optimized for this distribution",
+        x = var1,
+        y = var2
+      ) +
+      theme_minimal() +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(face = "bold", size = 10)
+      )
+    
+    # Create tier heatmap for trees
+    p_tier_trees <- ggplot(combined_tier, aes(x = var1_value, y = var2_value)) +
+      geom_tile(aes(fill = pct_trees_selected), color = "white", linewidth = 0.5) +
+      geom_text(aes(label = sprintf("C:%d\nS:%d\n%s", 
+                                     catalog_n_trees, 
+                                     selected_n_trees,
+                                     pct_trees_label)),
+                size = 2.5, lineheight = 0.8) +
+      scale_fill_gradient2(low = "#d73027", mid = "#fee08b", high = "#1a9850",
+                          midpoint = 20,
+                          limits = c(0, 40),
+                          name = "% Selected") +
+      labs(
+        title = "Current Tier Only",
+        subtitle = "Actual within-tier distribution",
+        x = var1,
+        y = var2
+      ) +
+      theme_minimal() +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(face = "bold", size = 10)
+      )
+    
+    # Combine plots side by side
+    p_trees_combined <- p_ref_trees + p_tier_trees +
+      plot_annotation(
+        title = paste("Factorial Distribution:", var1, "×", var2, "(Trees)"),
+        theme = theme(plot.title = element_text(face = "bold", size = 12))
+      )
+    
+    plots[[paste0(combo_name, "_plots")]] <- p_plots_combined
+    plots[[paste0(combo_name, "_trees")]] <- p_trees_combined
+  }
+  
+  return(plots)
+}
+
 # ==============================================================================
 # MAIN EXECUTION FUNCTION
 # ==============================================================================
@@ -1239,8 +1439,14 @@ create_factorial_plots <- function(catalog_factorial, selected_factorial) {
 #'
 #' @param plots_df Data frame with columns: plot_id, group_id, attributes, n_trees
 #' @param required_groups Vector of group_ids that must be in the withheld set (for hierarchical stratification)
+#' @param reference_distribution Optional: Pre-calculated distribution to match (instead of plots_df's distribution)
+#' @param reference_factorial Optional: Pre-calculated factorial distribution to match
+#' @param reference_plots_df Optional: Full reference dataset for binning consistency (used when reference_distribution is provided)
 #' @return List containing withheld and training plots with diagnostics
-select_withheld_groups <- function(plots_df, required_groups = c()) {
+select_withheld_groups <- function(plots_df, required_groups = c(),
+                                  reference_distribution = NULL,
+                                  reference_factorial = NULL,
+                                  reference_plots_df = NULL) {
   
   cat("Starting proportional stratified group selection (SIMPLIFIED)...\n")
   cat(sprintf("Method: %s\n", 
@@ -1253,6 +1459,14 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
               } else {
                 ALGORITHM
               }))
+  
+  # Check if using reference distribution
+  use_reference_distribution <- !is.null(reference_distribution)
+  if (use_reference_distribution) {
+    cat("Using provided reference distribution (cross-tier matching)\n")
+  } else {
+    cat("Using within-tier distribution (tier-specific matching)\n")
+  }
   cat("\n")
   
   # ============================================================================
@@ -1270,22 +1484,49 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
   cat(sprintf("  Total plots: %d\n", total_plots))
   cat(sprintf("  Total trees: %d\n", total_trees))
   
+  # Determine which dataset to use for binning
+  if (use_reference_distribution) {
+    if (is.null(reference_plots_df)) {
+      stop("reference_plots_df must be provided when using reference_distribution")
+    }
+    binning_df <- reference_plots_df
+    cat("  Using reference dataset for bin calculation\n")
+  } else {
+    binning_df <- plots_df
+    cat("  Using current tier for bin calculation\n")
+  }
+  
   # Calculate optimal number of quantiles
-  n_quantiles <- calculate_optimal_n_quantiles(total_plots)
+  n_quantiles <- calculate_optimal_n_quantiles(nrow(binning_df))
   cat(sprintf("  Using %d quantiles for continuous variables\n", n_quantiles))
   cat(sprintf("  Target: ≥%d plots per bin in catalog\n", TARGET_PLOTS_PER_BIN))
   
-  # Prepare quantile bins
-  bin_info <- prepare_quantile_bins(plots_df, n_quantiles)
+  # Prepare quantile bins (using reference data if provided)
+  bin_info <- prepare_quantile_bins(binning_df, n_quantiles)
   plots_df_binned <- assign_quantile_bins(plots_df, bin_info)
   
-  # Calculate catalog distribution (baseline)
-  catalog_distribution <- calculate_distribution(plots_df_binned)
+  # Calculate catalog distribution (baseline to match)
+  if (use_reference_distribution) {
+    catalog_distribution <- reference_distribution
+    catalog_factorial_ref <- reference_factorial
+    cat("  Using provided reference distribution\n")
+  } else {
+    catalog_distribution <- calculate_distribution(plots_df_binned)
+    catalog_factorial_ref <- calculate_factorial_distribution(plots_df_binned)
+    cat("  Calculated catalog distribution from current tier\n")
+  }
   
-  # Calculate catalog factorial distribution (for objective function)
-  catalog_factorial_ref <- calculate_factorial_distribution(plots_df_binned)
+  # For diagnostics, also calculate tier-specific distribution if using reference
+  if (use_reference_distribution) {
+    tier_distribution <- calculate_distribution(plots_df_binned)
+    # Use reference dataset for bin calculation to match reference bins in dual plots
+    tier_factorial <- calculate_factorial_distribution(plots_df_binned, reference_df = reference_plots_df)
+  } else {
+    tier_distribution <- NULL
+    tier_factorial <- NULL
+  }
   
-  cat("  Catalog distribution calculated\n\n")
+  cat("  Catalog distribution prepared\n\n")
   
   # ============================================================================
   # STEP 1.5: Handle required groups (for hierarchical stratification)
@@ -1611,7 +1852,7 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
   # STEP 5: Generate diagnostics
   # ============================================================================
   
-  cat("Step 5: Generating diagnostics...\n\n")
+  cat("Step 5: Generating diagnostics...\n")
   
   diagnostics <- list()
   
@@ -1632,34 +1873,97 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
     distance_from_target = abs(pct_withheld - TARGET_PCT)
   )
   
-  # Distribution comparisons
+  # Calculate withheld distribution
   withheld_distribution <- calculate_distribution(withheld_plots)
-  diagnostics$distribution_comparison <- create_distribution_comparison(
-    catalog_distribution, 
-    withheld_distribution
-  )
   
-  # Summary statistics comparison
-  diagnostics$summary_stats <- create_summary_stats_comparison(
-    plots_df, 
-    withheld_plots
-  )
+  # Calculate factorial distribution using appropriate reference
+  if (use_reference_distribution) {
+    # Use reference dataset for bin calculation to match reference catalog bins
+    withheld_factorial <- calculate_factorial_distribution(withheld_plots, reference_df = reference_plots_df)
+  } else {
+    # Use current tier data for bin calculation
+    withheld_factorial <- calculate_factorial_distribution(withheld_plots, reference_df = plots_df_binned)
+  }
   
-  # Factorial distributions and plots
-  catalog_factorial <- calculate_factorial_distribution(plots_df_binned)
-  withheld_factorial <- calculate_factorial_distribution(withheld_plots, reference_df = plots_df_binned)
-  diagnostics$factorial_distributions <- list(
-    catalog = catalog_factorial,
-    withheld = withheld_factorial
-  )
-  diagnostics$factorial_plots <- create_factorial_plots(
-    catalog_factorial,
-    withheld_factorial
-  )
+  # Generate diagnostics based on whether using reference distribution
+  if (use_reference_distribution) {
+    cat("  Generating dual diagnostics (reference + tier-specific)...\n")
+    
+    # Reference distribution comparisons (what we optimized for)
+    diagnostics$distribution_comparison_reference <- create_distribution_comparison(
+      catalog_distribution,
+      withheld_distribution
+    )
+    
+    # Tier-specific distribution comparisons (for comparison)
+    diagnostics$distribution_comparison_tier <- create_distribution_comparison(
+      tier_distribution,
+      withheld_distribution
+    )
+    
+    # Summary statistics (use reference if provided, otherwise tier)
+    if (!is.null(reference_plots_df)) {
+      diagnostics$summary_stats_reference <- create_summary_stats_comparison(
+        reference_plots_df,
+        withheld_plots
+      )
+    }
+    diagnostics$summary_stats_tier <- create_summary_stats_comparison(
+      plots_df,
+      withheld_plots
+    )
+    
+    # Factorial distributions
+    diagnostics$factorial_distributions <- list(
+      reference_catalog = catalog_factorial_ref,
+      tier_catalog = tier_factorial,
+      withheld = withheld_factorial
+    )
+    
+    # Create dual factorial plots (side by side)
+    diagnostics$factorial_plots <- create_dual_factorial_plots(
+      catalog_factorial_ref,
+      tier_factorial,
+      withheld_factorial
+    )
+    
+    # Overall scores (based on reference distribution)
+    diagnostics$target_distance <- best_solution$target_distance
+    diagnostics$distribution_distance_reference <- best_solution$dist_distance
+    diagnostics$distribution_distance_tier <- overall_distribution_distance(withheld_distribution, tier_distribution)
+    
+  } else {
+    cat("  Generating standard diagnostics (tier-specific only)...\n")
+    
+    # Standard distribution comparisons
+    diagnostics$distribution_comparison <- create_distribution_comparison(
+      catalog_distribution,
+      withheld_distribution
+    )
+    
+    # Summary statistics comparison
+    diagnostics$summary_stats <- create_summary_stats_comparison(
+      plots_df,
+      withheld_plots
+    )
+    
+    # Factorial distributions and plots
+    catalog_factorial <- calculate_factorial_distribution(plots_df_binned)
+    diagnostics$factorial_distributions <- list(
+      catalog = catalog_factorial,
+      withheld = withheld_factorial
+    )
+    diagnostics$factorial_plots <- create_factorial_plots(
+      catalog_factorial,
+      withheld_factorial
+    )
+    
+    # Overall scores
+    diagnostics$target_distance <- best_solution$target_distance
+    diagnostics$distribution_distance <- best_solution$dist_distance
+  }
   
-  # Overall scores
-  diagnostics$target_distance <- best_solution$target_distance
-  diagnostics$distribution_distance <- best_solution$dist_distance
+  cat("  Diagnostics complete\n\n")
   
   # ============================================================================
   # Return results
@@ -1694,7 +1998,8 @@ select_withheld_groups <- function(plots_df, required_groups = c()) {
       phase1_min_pct = if (ALGORITHM == "hybrid") PHASE1_MIN_PCT else NULL,
       phase1_max_pct = if (ALGORITHM == "hybrid") PHASE1_MAX_PCT else NULL,
       phase1_n_samples = if (ALGORITHM == "hybrid") N_RANDOM_SAMPLES_PHASE1 else NULL,
-      factorial_weight = FACTORIAL_WEIGHT
+      factorial_weight = FACTORIAL_WEIGHT,
+      use_reference_distribution = use_reference_distribution
     )
   )
   
@@ -1716,6 +2021,15 @@ print_selection_report <- function(results) {
   cat("PROPORTIONAL STRATIFIED SAMPLING REPORT (SIMPLIFIED)\n")
   cat("=" |> str_pad(width = 80, side = "both", pad = "="), "\n\n")
   
+  # Check if using reference distribution
+  use_reference <- results$config$use_reference_distribution
+  
+  if (use_reference) {
+    cat("MODE: Cross-tier stratification (matching reference distribution)\n\n")
+  } else {
+    cat("MODE: Within-tier stratification\n\n")
+  }
+  
   # Summary metrics
   cat("SUMMARY METRICS\n")
   cat("-" |> str_pad(width = 80, side = "both", pad = "-"), "\n")
@@ -1724,15 +2038,30 @@ print_selection_report <- function(results) {
   
   cat(sprintf("Target distance from 20%%: %.2f\n", 
               results$diagnostics$target_distance))
-  cat(sprintf("Distribution distance: %.2f\n\n", 
-              results$diagnostics$distribution_distance))
+  
+  if (use_reference) {
+    cat(sprintf("Distribution distance (reference): %.2f\n", 
+                results$diagnostics$distribution_distance_reference))
+    cat(sprintf("Distribution distance (tier):      %.2f\n\n", 
+                results$diagnostics$distribution_distance_tier))
+  } else {
+    cat(sprintf("Distribution distance: %.2f\n\n", 
+                results$diagnostics$distribution_distance))
+  }
+  
+  # Determine which distribution comparison to show
+  dist_comp_key <- if (use_reference) "distribution_comparison_reference" else "distribution_comparison"
+  summary_stats_key <- if (use_reference) "summary_stats_reference" else "summary_stats"
   
   # Distribution comparisons for continuous variables
   cat("CONTINUOUS VARIABLE DISTRIBUTIONS\n")
+  if (use_reference) {
+    cat("(Showing REFERENCE distribution comparison - what was optimized)\n")
+  }
   cat("-" |> str_pad(width = 80, side = "both", pad = "-"), "\n")
   for (var in CONTINUOUS_VARS) {
     cat(sprintf("\n%s:\n", toupper(var)))
-    print(results$diagnostics$distribution_comparison[[var]] |> 
+    print(results$diagnostics[[dist_comp_key]][[var]] |> 
             select(bin, 
                    catalog_n_plots, catalog_pct_plots, 
                    catalog_n_trees, catalog_pct_trees,
@@ -1740,8 +2069,8 @@ print_selection_report <- function(results) {
                    selected_n_trees, selected_pct_trees,
                    diff_pct_plots, diff_pct_trees), 
           n = Inf)
-    total_distance_plots <- sum(results$diagnostics$distribution_comparison[[var]]$abs_diff_plots)
-    total_distance_trees <- sum(results$diagnostics$distribution_comparison[[var]]$abs_diff_trees)
+    total_distance_plots <- sum(results$diagnostics[[dist_comp_key]][[var]]$abs_diff_plots)
+    total_distance_trees <- sum(results$diagnostics[[dist_comp_key]][[var]]$abs_diff_trees)
     cat(sprintf("  Total absolute difference (plots): %.2f\n", total_distance_plots))
     cat(sprintf("  Total absolute difference (trees): %.2f\n", total_distance_trees))
   }
@@ -1749,10 +2078,13 @@ print_selection_report <- function(results) {
   
   # Distribution comparisons for categorical variables
   cat("CATEGORICAL VARIABLE DISTRIBUTIONS\n")
+  if (use_reference) {
+    cat("(Showing REFERENCE distribution comparison - what was optimized)\n")
+  }
   cat("-" |> str_pad(width = 80, side = "both", pad = "-"), "\n")
   for (var in CATEGORICAL_VARS) {
     cat(sprintf("\n%s:\n", toupper(var)))
-    print(results$diagnostics$distribution_comparison[[var]] |>
+    print(results$diagnostics[[dist_comp_key]][[var]] |>
             select(category,
                    catalog_n_plots, catalog_pct_plots,
                    catalog_n_trees, catalog_pct_trees,
@@ -1760,8 +2092,8 @@ print_selection_report <- function(results) {
                    selected_n_trees, selected_pct_trees,
                    diff_pct_plots, diff_pct_trees),
           n = Inf)
-    total_distance_plots <- sum(results$diagnostics$distribution_comparison[[var]]$abs_diff_plots)
-    total_distance_trees <- sum(results$diagnostics$distribution_comparison[[var]]$abs_diff_trees)
+    total_distance_plots <- sum(results$diagnostics[[dist_comp_key]][[var]]$abs_diff_plots)
+    total_distance_trees <- sum(results$diagnostics[[dist_comp_key]][[var]]$abs_diff_trees)
     cat(sprintf("  Total absolute difference (plots): %.2f\n", total_distance_plots))
     cat(sprintf("  Total absolute difference (trees): %.2f\n", total_distance_trees))
   }
@@ -1769,12 +2101,76 @@ print_selection_report <- function(results) {
   
   # Summary statistics
   cat("SUMMARY STATISTICS COMPARISON\n")
+  if (use_reference) {
+    cat("(Showing REFERENCE comparison)\n")
+  }
   cat("-" |> str_pad(width = 80, side = "both", pad = "-"), "\n")
-  print(results$diagnostics$summary_stats |>
-          select(variable, catalog_mean, selected_mean, mean_pct_diff, 
-                catalog_sd, selected_sd, sd_pct_diff),
-        n = Inf)
+  
+  if (!is.null(results$diagnostics[[summary_stats_key]])) {
+    print(results$diagnostics[[summary_stats_key]] |>
+            select(variable, catalog_mean, selected_mean, mean_pct_diff, 
+                   catalog_sd, selected_sd, sd_pct_diff),
+          n = Inf)
+  }
   cat("\n")
+  
+  # If using reference, also show tier-specific comparison
+  if (use_reference) {
+    cat("=" |> str_pad(width = 80, side = "both", pad = "="), "\n")
+    cat("TIER-SPECIFIC COMPARISON (for reference only)\n")
+    cat("=" |> str_pad(width = 80, side = "both", pad = "="), "\n\n")
+    
+    cat("CONTINUOUS VARIABLE DISTRIBUTIONS (TIER)\n")
+    cat("(Showing how well selection captures within-tier distribution)\n")
+    cat("-" |> str_pad(width = 80, side = "both", pad = "-"), "\n")
+    for (var in CONTINUOUS_VARS) {
+      cat(sprintf("\n%s:\n", toupper(var)))
+      print(results$diagnostics$distribution_comparison_tier[[var]] |> 
+            select(bin, 
+                   catalog_n_plots, catalog_pct_plots, 
+                   catalog_n_trees, catalog_pct_trees,
+                   selected_n_plots, selected_pct_plots,
+                   selected_n_trees, selected_pct_trees,
+                   diff_pct_plots, diff_pct_trees), 
+          n = Inf)
+      total_distance_plots <- sum(results$diagnostics$distribution_comparison_tier[[var]]$abs_diff_plots)
+      total_distance_trees <- sum(results$diagnostics$distribution_comparison_tier[[var]]$abs_diff_trees)
+      cat(sprintf("  Total absolute difference (plots): %.2f\n", total_distance_plots))
+      cat(sprintf("  Total absolute difference (trees): %.2f\n", total_distance_trees))
+    }
+    cat("\n")
+    
+    cat("CATEGORICAL VARIABLE DISTRIBUTIONS (TIER)\n")
+    cat("(Showing how well selection captures within-tier distribution)\n")
+    cat("-" |> str_pad(width = 80, side = "both", pad = "-"), "\n")
+    for (var in CATEGORICAL_VARS) {
+      cat(sprintf("\n%s:\n", toupper(var)))
+      print(results$diagnostics$distribution_comparison_tier[[var]] |>
+            select(category,
+                   catalog_n_plots, catalog_pct_plots,
+                   catalog_n_trees, catalog_pct_trees,
+                   selected_n_plots, selected_pct_plots,
+                   selected_n_trees, selected_pct_trees,
+                   diff_pct_plots, diff_pct_trees),
+          n = Inf)
+      total_distance_plots <- sum(results$diagnostics$distribution_comparison_tier[[var]]$abs_diff_plots)
+      total_distance_trees <- sum(results$diagnostics$distribution_comparison_tier[[var]]$abs_diff_trees)
+      cat(sprintf("  Total absolute difference (plots): %.2f\n", total_distance_plots))
+      cat(sprintf("  Total absolute difference (trees): %.2f\n", total_distance_trees))
+    }
+    cat("\n")
+    
+    # Tier-specific summary statistics
+    cat("SUMMARY STATISTICS COMPARISON (TIER)\n")
+    cat("-" |> str_pad(width = 80, side = "both", pad = "-"), "\n")
+    if (!is.null(results$diagnostics$summary_stats_tier)) {
+      print(results$diagnostics$summary_stats_tier |>
+              select(variable, catalog_mean, selected_mean, mean_pct_diff, 
+                     catalog_sd, selected_sd, sd_pct_diff),
+            n = Inf)
+    }
+    cat("\n")
+  }
   
   cat("=" |> str_pad(width = 80, side = "both", pad = "="), "\n\n")
   
@@ -1784,11 +2180,17 @@ print_selection_report <- function(results) {
   cat("\n\n")
   
   cat("Configuration used:\n")
+  cat(sprintf("  Algorithm: %s\n", results$config$algorithm))
   cat(sprintf("  Quantiles: %d\n", results$config$n_quantiles))
   cat(sprintf("  Target: %d%%, Range: [%d%%, %d%%]\n", 
               results$config$target_pct, results$config$min_pct, 
               results$config$max_pct))
-  cat(sprintf("  Runs: %d\n\n", results$config$n_runs))
+  if (!is.null(results$config$n_runs)) {
+    cat(sprintf("  Runs: %d\n", results$config$n_runs))
+  }
+  cat(sprintf("  Reference distribution: %s\n", 
+              ifelse(use_reference, "Yes (cross-tier)", "No (within-tier)")))
+  cat("\n")
 }
 
 #' Save factorial distribution plots to files
@@ -1824,12 +2226,278 @@ save_factorial_plots <- function(results, output_dir = ".", width = 8, height = 
 }
 
 # ==============================================================================
+# HELPER: PREPARE REFERENCE DISTRIBUTIONS
+# ==============================================================================
+
+#' Prepare reference distributions for cross-tier stratification
+#'
+#' This function prepares the reference distributions needed for hierarchical
+#' stratification across multiple tiers while maintaining overall distribution.
+#'
+#' @param all_plots_df Data frame containing ALL plots across all tiers
+#' @return List with reference_distribution, reference_factorial, and binned data
+#' @export
+prepare_reference_distributions <- function(all_plots_df) {
+  
+  cat("Preparing reference distributions from full dataset...\n")
+  cat(sprintf("  Total plots: %d\n", nrow(all_plots_df)))
+  
+  # Calculate optimal number of quantiles
+  n_quantiles <- calculate_optimal_n_quantiles(nrow(all_plots_df))
+  cat(sprintf("  Using %d quantiles for continuous variables\n", n_quantiles))
+  
+  # Prepare quantile bins
+  bin_info <- prepare_quantile_bins(all_plots_df, n_quantiles)
+  all_plots_binned <- assign_quantile_bins(all_plots_df, bin_info)
+  
+  # Calculate distributions
+  reference_distribution <- calculate_distribution(all_plots_binned)
+  reference_factorial <- calculate_factorial_distribution(all_plots_binned)
+  
+  cat("  Reference distributions calculated\n\n")
+  
+  return(list(
+    reference_distribution = reference_distribution,
+    reference_factorial = reference_factorial,
+    reference_plots_df = all_plots_binned,
+    bin_info = bin_info,
+    n_quantiles = n_quantiles
+  ))
+}
+
+# ==============================================================================
+# HELPER: EVALUATE COMBINED SELECTION ACROSS TIERS
+# ==============================================================================
+
+#' Evaluate combined selection across multiple tiers
+#'
+#' This function generates a comprehensive distribution comparison report for
+#' a combined set of selected groups across all tiers, evaluated against the
+#' reference distribution.
+#'
+#' @param all_plots_df Data frame containing ALL plots across all tiers
+#' @param selected_group_ids Vector of all selected group IDs (across all tiers)
+#' @param reference_distributions List from prepare_reference_distributions() (optional, will calculate if not provided)
+#' @return List with diagnostics comparing combined selection to reference
+#' @export
+evaluate_combined_selection <- function(all_plots_df, selected_group_ids, 
+                                        reference_distributions = NULL) {
+  
+  cat("=" |> str_pad(width = 80, side = "both", pad = "="), "\n")
+  cat("COMBINED SELECTION EVALUATION (ACROSS ALL TIERS)\n")
+  cat("=" |> str_pad(width = 80, side = "both", pad = "="), "\n\n")
+  
+  # Prepare reference distributions if not provided
+  if (is.null(reference_distributions)) {
+    cat("Calculating reference distributions...\n")
+    reference_distributions <- prepare_reference_distributions(all_plots_df)
+  }
+  
+  # Extract reference components
+  reference_distribution <- reference_distributions$reference_distribution
+  reference_factorial <- reference_distributions$reference_factorial
+  reference_plots_df <- reference_distributions$reference_plots_df
+  
+  # Calculate totals
+  total_groups <- n_distinct(all_plots_df$group_id)
+  total_plots <- nrow(all_plots_df)
+  total_trees <- sum(all_plots_df$n_trees, na.rm = TRUE)
+  
+  cat(sprintf("Total catalog: %d groups, %d plots, %d trees\n",
+              total_groups, total_plots, total_trees))
+  cat(sprintf("Selected: %d groups\n\n", length(selected_group_ids)))
+  
+  # Filter to selected plots
+  selected_plots <- reference_plots_df |>
+    filter(group_id %in% selected_group_ids)
+  
+  # Calculate metrics
+  n_selected_plots <- nrow(selected_plots)
+  n_selected_trees <- sum(selected_plots$n_trees, na.rm = TRUE)
+  pct_plots <- 100 * n_selected_plots / total_plots
+  pct_trees <- 100 * n_selected_trees / total_trees
+  
+  cat("SUMMARY METRICS\n")
+  cat("-" |> str_pad(width = 80, side = "both", pad = "-"), "\n")
+  summary_table <- tibble(
+    metric = c("Groups", "Plots", "Trees"),
+    n_selected = c(length(selected_group_ids), n_selected_plots, n_selected_trees),
+    n_total = c(total_groups, total_plots, total_trees),
+    pct_selected = c(100 * length(selected_group_ids) / total_groups,
+                     pct_plots, pct_trees),
+    distance_from_target = abs(pct_selected - TARGET_PCT)
+  )
+  print(summary_table, n = Inf)
+  cat("\n")
+  
+  # Calculate distributions
+  selected_distribution <- calculate_distribution(selected_plots)
+  selected_factorial <- calculate_factorial_distribution(selected_plots, 
+                                                         reference_df = reference_plots_df)
+  
+  # Distribution distance
+  dist_distance <- combined_distribution_distance(
+    selected_distribution, 
+    reference_distribution,
+    selected_factorial, 
+    reference_factorial,
+    factorial_weight = FACTORIAL_WEIGHT
+  )
+  
+  cat(sprintf("Distribution distance: %.2f\n", dist_distance))
+  cat(sprintf("Target distance from %.0f%%: %.2f\n\n", 
+              TARGET_PCT, abs(pct_plots - TARGET_PCT) + abs(pct_trees - TARGET_PCT)))
+  
+  # Create detailed comparisons
+  cat("Generating detailed distribution comparisons...\n")
+  
+  distribution_comparison <- create_distribution_comparison(
+    reference_distribution,
+    selected_distribution
+  )
+  
+  summary_stats <- create_summary_stats_comparison(
+    all_plots_df,
+    selected_plots
+  )
+  
+  factorial_plots <- create_factorial_plots(
+    reference_factorial,
+    selected_factorial
+  )
+  
+  cat("Evaluation complete!\n\n")
+  
+  # Return results
+  results <- list(
+    # Summary
+    summary = summary_table,
+    n_groups = length(selected_group_ids),
+    n_plots = n_selected_plots,
+    n_trees = n_selected_trees,
+    pct_plots = pct_plots,
+    pct_trees = pct_trees,
+    
+    # Group IDs
+    selected_group_ids = selected_group_ids,
+    
+    # Data frames
+    selected_plots = selected_plots,
+    reference_plots = reference_plots_df,
+    
+    # Diagnostics
+    diagnostics = list(
+      summary = summary_table,
+      distribution_comparison = distribution_comparison,
+      summary_stats = summary_stats,
+      factorial_distributions = list(
+        catalog = reference_factorial,
+        withheld = selected_factorial
+      ),
+      factorial_plots = factorial_plots,
+      target_distance = abs(pct_plots - TARGET_PCT) + abs(pct_trees - TARGET_PCT),
+      distribution_distance = dist_distance
+    ),
+    
+    # Configuration
+    config = list(
+      target_pct = TARGET_PCT,
+      factorial_weight = FACTORIAL_WEIGHT,
+      evaluation_type = "combined_across_tiers"
+    )
+  )
+  
+  return(results)
+}
+
+#' Print evaluation report for combined selection
+#'
+#' @param eval_results Output from evaluate_combined_selection()
+#' @export
+print_combined_evaluation_report <- function(eval_results) {
+  
+  cat("=" |> str_pad(width = 80, side = "both", pad = "="), "\n")
+  cat("COMBINED SELECTION EVALUATION REPORT\n")
+  cat("=" |> str_pad(width = 80, side = "both", pad = "="), "\n\n")
+  
+  # Summary metrics
+  cat("SUMMARY METRICS\n")
+  cat("-" |> str_pad(width = 80, side = "both", pad = "-"), "\n")
+  print(eval_results$diagnostics$summary, n = Inf)
+  cat("\n")
+  
+  cat(sprintf("Target distance from %.0f%%: %.2f\n", 
+              eval_results$config$target_pct,
+              eval_results$diagnostics$target_distance))
+  cat(sprintf("Distribution distance: %.2f\n\n", 
+              eval_results$diagnostics$distribution_distance))
+  
+  # Distribution comparisons for continuous variables
+  cat("CONTINUOUS VARIABLE DISTRIBUTIONS\n")
+  cat("-" |> str_pad(width = 80, side = "both", pad = "-"), "\n")
+  for (var in CONTINUOUS_VARS) {
+    cat(sprintf("\n%s:\n", toupper(var)))
+    print(eval_results$diagnostics$distribution_comparison[[var]] |> 
+            select(bin, 
+                   catalog_n_plots, catalog_pct_plots, 
+                   catalog_n_trees, catalog_pct_trees,
+                   selected_n_plots, selected_pct_plots,
+                   selected_n_trees, selected_pct_trees,
+                   diff_pct_plots, diff_pct_trees), 
+          n = Inf)
+    total_distance_plots <- sum(eval_results$diagnostics$distribution_comparison[[var]]$abs_diff_plots)
+    total_distance_trees <- sum(eval_results$diagnostics$distribution_comparison[[var]]$abs_diff_trees)
+    cat(sprintf("  Total absolute difference (plots): %.2f\n", total_distance_plots))
+    cat(sprintf("  Total absolute difference (trees): %.2f\n", total_distance_trees))
+  }
+  cat("\n")
+  
+  # Distribution comparisons for categorical variables
+  cat("CATEGORICAL VARIABLE DISTRIBUTIONS\n")
+  cat("-" |> str_pad(width = 80, side = "both", pad = "-"), "\n")
+  for (var in CATEGORICAL_VARS) {
+    cat(sprintf("\n%s:\n", toupper(var)))
+    print(eval_results$diagnostics$distribution_comparison[[var]] |>
+            select(category,
+                   catalog_n_plots, catalog_pct_plots,
+                   catalog_n_trees, catalog_pct_trees,
+                   selected_n_plots, selected_pct_plots,
+                   selected_n_trees, selected_pct_trees,
+                   diff_pct_plots, diff_pct_trees),
+          n = Inf)
+    total_distance_plots <- sum(eval_results$diagnostics$distribution_comparison[[var]]$abs_diff_plots)
+    total_distance_trees <- sum(eval_results$diagnostics$distribution_comparison[[var]]$abs_diff_trees)
+    cat(sprintf("  Total absolute difference (plots): %.2f\n", total_distance_plots))
+    cat(sprintf("  Total absolute difference (trees): %.2f\n", total_distance_trees))
+  }
+  cat("\n")
+  
+  # Summary statistics
+  cat("SUMMARY STATISTICS COMPARISON\n")
+  cat("-" |> str_pad(width = 80, side = "both", pad = "-"), "\n")
+  print(eval_results$diagnostics$summary_stats |>
+          select(variable, catalog_mean, selected_mean, mean_pct_diff, 
+                 catalog_sd, selected_sd, sd_pct_diff),
+        n = Inf)
+  cat("\n")
+  
+  cat("=" |> str_pad(width = 80, side = "both", pad = "="), "\n\n")
+  
+  # List selected groups
+  cat(sprintf("Selected %d group IDs:\n", length(eval_results$selected_group_ids)))
+  cat(paste(eval_results$selected_group_ids, collapse = ", "))
+  cat("\n\n")
+}
+
+# ==============================================================================
 # EXAMPLE USAGE
 # ==============================================================================
 
 # Uncomment and modify to run with your data:
 
-# # Load your data (single data frame!)
+# # ============================================================================
+# # EXAMPLE 1: Standard within-tier stratification
+# # ============================================================================
 # plots <- read_csv("path/to/plots.csv")
 # # Required columns: plot_id, group_id, temp, ppt, ecoregion, mean_ba_live,
 # #                   trees_per_ha, pct_dead, sp_comp_group, n_trees
@@ -1851,3 +2519,46 @@ save_factorial_plots <- function(results, output_dir = ".", width = 8, height = 
 # # Or view individual plots interactively
 # print(results$diagnostics$factorial_plots$ecoregion_x_sp_comp_group_plots)
 # print(results$diagnostics$factorial_plots$ecoregion_x_sp_comp_group_trees)
+#
+# # ============================================================================
+# # EXAMPLE 2: Cross-tier stratification (hierarchical with shared reference)
+# # ============================================================================
+# # Load full dataset
+# all_data <- read_csv("path/to/all_plots.csv")
+# 
+# # Prepare reference distributions from ALL data
+# ref <- prepare_reference_distributions(all_data)
+# 
+# # Tier 1: aligned_paired_drone_footprint
+# tier1_plots <- all_data |> filter(pairing_tier == "aligned_paired_drone_footprint")
+# 
+# res1 <- select_withheld_groups(
+#   plots_df = tier1_plots,
+#   required_groups = c(),
+#   reference_distribution = ref$reference_distribution,
+#   reference_factorial = ref$reference_factorial,
+#   reference_plots_df = ref$reference_plots_df
+# )
+# 
+# groups_withheld1 <- res1$withheld_plots$group_id
+# print_selection_report(res1)
+# 
+# # Tier 2: paired_drone_footprint
+# tier2_plots <- all_data |> filter(pairing_tier == "paired_drone_footprint")
+# 
+# res2 <- select_withheld_groups(
+#   plots_df = tier2_plots,
+#   required_groups = groups_withheld1,  # Include tier 1 selections
+#   reference_distribution = ref$reference_distribution,
+#   reference_factorial = ref$reference_factorial,
+#   reference_plots_df = ref$reference_plots_df
+# )
+# 
+# groups_withheld2 <- unique(c(groups_withheld1, res2$withheld_plots$group_id))
+# print_selection_report(res2)
+# 
+# # View dual plots showing both reference and tier-specific matching
+# print(res2$diagnostics$factorial_plots$mean_ba_live_x_sp_comp_group_plots)
+# 
+# # Continue for additional tiers...
+
