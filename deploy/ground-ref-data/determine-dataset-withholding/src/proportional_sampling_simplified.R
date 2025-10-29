@@ -39,14 +39,23 @@ FACTORIAL_COMBINATIONS <- list(
   list(var1 = "mean_ba_live", var2 = "ecoregion"),
   list(var1 = "trees_per_ha", var2 = "ecoregion"),
   list(var1 = "ppt", var2 = "ecoregion"),
-  list(var1 = "trees_per_ha", var2 = "mean_ba_live")
+  list(var1 = "trees_per_ha", var2 = "mean_ba_live"),
+  
+  list(var1 = "mean_ba_live", var2 = "pairing_tier"),
+  list(var1 = "trees_per_ha", var2 = "pairing_tier"),
+  list(var1 = "ppt", var2 = "pairing_tier"),
+  list(var1 = "area_ha", var2 = "pairing_tier"),
+  list(var1 = "pairing_tier", var2 = "sp_comp_group"),
+    list(var1 = "pairing_tier", var2 = "ecoregion"),
+    list(var1 = "pairing_tier", var2 = "project_name")
+
 )
 
 # Continuous variables to stratify
 CONTINUOUS_VARS <- c("ppt", "trees_per_ha", "mean_ba_live", "area_ha")
 
 # Categorical variables to stratify
-CATEGORICAL_VARS <- c("ecoregion", "sp_comp_group", "project_name")
+CATEGORICAL_VARS <- c("ecoregion", "sp_comp_group", "project_name", "pairing_tier")
 
 # Binning parameters
 TARGET_PLOTS_PER_BIN <- 10   # Target average plots per bin in full catalog

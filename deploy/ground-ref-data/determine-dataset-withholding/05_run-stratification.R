@@ -171,6 +171,29 @@ print(combined_eval$diagnostics$factorial_plots)
 
 
 
+# Run all of the 3 plot-drone pairings together as an alternative approach
+
+# Use the reference distribution from all drone-paired plots
+res_joint <- select_withheld_groups(
+  plots_df = d_w_drone
+)
+
+print_selection_report(res_joint)
+
+print(res_joint$diagnostics$factorial_plots)
+
+groups_withheld1 = unique(res1$withheld_plots$group_id)
+
+tier1_selected_plots <- ref$reference_plots_df |>
+  filter(group_id %in% res1$withheld_group_ids)
+
+# TODOs:
+# Check what % of drone plots this is
+# Reduce % plots constraint
+# Think about adding a groups % constraint
+
+
+
 
 
 
