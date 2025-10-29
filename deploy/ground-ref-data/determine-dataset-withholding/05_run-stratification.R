@@ -84,10 +84,10 @@ plots_df = d |>
 
 # Use the reference distribution from all drone-paired plots
 res1 <- select_withheld_groups(
-  plots_df = plots_df,
-  reference_distribution = ref$reference_distribution,
-  reference_factorial = ref$reference_factorial,
-  reference_plots_df = ref$reference_plots_df
+  plots_df = plots_df #,
+  # reference_distribution = ref$reference_distribution,
+  # reference_factorial = ref$reference_factorial,
+  # reference_plots_df = ref$reference_plots_df
 )
 
 print_selection_report(res1)
@@ -95,6 +95,13 @@ print_selection_report(res1)
 print(res1$diagnostics$factorial_plots)
 
 groups_withheld1 = unique(res1$withheld_plots$group_id)
+
+tier1_selected_plots <- ref$reference_plots_df |>
+  filter(group_id %in% res1$withheld_group_ids)
+
+
+
+
 
 # Prep the next run: "paired_drone_footprint"
 
@@ -104,9 +111,10 @@ plots_df = d |>
 
 res2 <- select_withheld_groups(
   plots_df = plots_df,
-  reference_distribution = ref$reference_distribution,
-  reference_factorial = ref$reference_factorial,
-  reference_plots_df = ref$reference_plots_df,
+  # reference_distribution = ref$reference_distribution,
+  # reference_factorial = ref$reference_factorial,
+  # reference_plots_df = ref$reference_plots_df,
+  # previous_selected_plots = tier1_selected_plots,
   required_groups = groups_withheld1
 )
 
@@ -116,15 +124,19 @@ print(res2$diagnostics$factorial_plots)
 # Combine the withheld groups from both runs
 groups_withheld2 = unique(c(groups_withheld1, res2$withheld_plots$group_id))
 
+tier2_selected_plots <- ref$reference_plots_df |>
+  filter(group_id %in% c(res1$withheld_group_ids, res2$withheld_group_ids))
+
 # Next run: "non_paired_drone_footprint"
 plots_df = d |>
   filter(pairing_tier == "non_paired_drone_footprint")
 
 res3 <- select_withheld_groups(
   plots_df = plots_df,
-  reference_distribution = ref$reference_distribution,
-  reference_factorial = ref$reference_factorial,
-  reference_plots_df = ref$reference_plots_df,
+  # reference_distribution = ref$reference_distribution,
+  # reference_factorial = ref$reference_factorial,
+  # reference_plots_df = ref$reference_plots_df,
+  # previous_selected_plots = tier2_selected_plots,
   required_groups = groups_withheld2
 )
 
@@ -148,7 +160,8 @@ combined_eval = evaluate_combined_selection(d_relevant, groups_withheld3, ref)
 
 print_combined_evaluation_report(combined_eval)
 
-
+# Print combined factorial plots
+print(combined_eval$diagnostics$factorial_plots)
 
 
 

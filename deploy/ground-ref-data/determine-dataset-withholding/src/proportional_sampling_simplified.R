@@ -399,14 +399,23 @@ calculate_target_distance <- function(metrics) {
 #' @param min_pct Minimum acceptable percentage (default: MIN_PCT)
 #' @param max_pct Maximum acceptable percentage (default: MAX_PCT)
 #' @param target_pct Target percentage (default: TARGET_PCT)
+#' @param previous_selected_plots Data frame of plots already selected in previous tiers (optional)
 #' @return Data frame of valid solutions
 random_sampling <- function(plots_df, catalog_distribution, catalog_factorial,
                            total_groups, total_plots, total_trees,
                            required_groups = c(), n_samples = N_RANDOM_SAMPLES,
                            min_pct = MIN_PCT, max_pct = MAX_PCT, 
-                           target_pct = TARGET_PCT) {
+                           target_pct = TARGET_PCT,
+                           previous_selected_plots = NULL) {
   
   cat(sprintf("Random sampling: Generating %d random combinations...\n", n_samples))
+  
+  # Check if we're filling gaps from previous selections
+  filling_gaps <- !is.null(previous_selected_plots)
+  if (filling_gaps) {
+    cat(sprintf("  Gap-filling mode: Including %d previously selected plots in distribution calculation\n",
+                nrow(previous_selected_plots)))
+  }
   
   all_groups <- unique(plots_df$group_id)
   removable_groups <- setdiff(all_groups, required_groups)
@@ -566,10 +575,20 @@ random_sampling <- function(plots_df, catalog_distribution, catalog_factorial,
   # Calculate distribution distances in parallel
   solutions <- future_map_dfr(valid_candidates, function(candidate) {
     
-    # Calculate distribution distance (expensive operation)
+    # Get plots from current tier selection
     selected_plots <- plots_df |> filter(group_id %in% candidate$selected_groups)
-    selected_dist <- calculate_distribution(selected_plots)
-    selected_factorial <- calculate_factorial_distribution(selected_plots, reference_df = plots_df)
+    
+    # If filling gaps, combine with previous selections for distribution calculation
+    if (filling_gaps) {
+      combined_plots <- bind_rows(previous_selected_plots, selected_plots)
+      selected_dist <- calculate_distribution(combined_plots)
+      selected_factorial <- calculate_factorial_distribution(combined_plots, reference_df = plots_df)
+    } else {
+      selected_dist <- calculate_distribution(selected_plots)
+      selected_factorial <- calculate_factorial_distribution(selected_plots, reference_df = plots_df)
+    }
+    
+    # Calculate distribution distance
     dist_distance <- combined_distribution_distance(selected_dist, catalog_distribution,
                                                     selected_factorial, catalog_factorial,
                                                     factorial_weight = FACTORIAL_WEIGHT)
@@ -616,10 +635,12 @@ random_sampling <- function(plots_df, catalog_distribution, catalog_factorial,
 #' @param total_trees Total number of trees
 #' @param required_groups Vector of group_ids that must be included
 #' @param n_runs Number of independent hybrid runs
+#' @param previous_selected_plots Data frame of plots already selected in previous tiers (optional)
 #' @return Data frame of valid solutions
 hybrid_sampling <- function(plots_df, catalog_distribution, catalog_factorial, bin_info,
                            total_groups, total_plots, total_trees,
-                           required_groups = c(), n_runs = N_RUNS) {
+                           required_groups = c(), n_runs = N_RUNS,
+                           previous_selected_plots = NULL) {
   
   cat(sprintf("Hybrid sampling: Running %d independent hybrid runs...\n", n_runs))
   cat("  Phase 1: Random search to ~30%\n")
@@ -643,7 +664,8 @@ hybrid_sampling <- function(plots_df, catalog_distribution, catalog_factorial, b
     n_samples = N_RANDOM_SAMPLES_PHASE1,
     min_pct = PHASE1_MIN_PCT,
     max_pct = PHASE1_MAX_PCT,
-    target_pct = PHASE1_TARGET_PCT
+    target_pct = PHASE1_TARGET_PCT,
+    previous_selected_plots = previous_selected_plots
   )
   
   # Note: random_sampling already filters internally using the Phase 1 constraints
@@ -708,7 +730,8 @@ hybrid_sampling <- function(plots_df, catalog_distribution, catalog_factorial, b
       total_trees = total_trees,
       run_id = run,
       required_groups = required_groups,
-      initial_groups = initial_groups
+      initial_groups = initial_groups,
+      previous_selected_plots = previous_selected_plots
     )
     
     # Add Phase 1 metadata
@@ -768,13 +791,18 @@ hybrid_sampling <- function(plots_df, catalog_distribution, catalog_factorial, b
 #' @param run_id Run identifier for random seed
 #' @param required_groups Vector of group_ids that cannot be removed
 #' @param initial_groups Optional vector of group_ids to start with (default NULL = all groups)
+#' @param previous_selected_plots Data frame of plots already selected in previous tiers (optional)
 #' @return Data frame of states at each iteration
 greedy_removal <- function(plots_df, catalog_distribution, catalog_factorial, bin_info,
                           total_groups, total_plots, total_trees, run_id,
-                          required_groups = c(), initial_groups = NULL) {
+                          required_groups = c(), initial_groups = NULL,
+                          previous_selected_plots = NULL) {
   
   # Set run-specific seed
   set.seed(42 + run_id)
+  
+  # Check if we're filling gaps from previous selections
+  filling_gaps <- !is.null(previous_selected_plots)
   
   # Initialize: Use provided initial groups or ALL groups
   all_groups <- unique(plots_df$group_id)
@@ -799,8 +827,17 @@ greedy_removal <- function(plots_df, catalog_distribution, catalog_factorial, bi
   metrics <- calculate_metrics(selected_groups, plots_df,
                                total_groups, total_plots, total_trees)
   selected_plots <- plots_df |> filter(group_id %in% selected_groups)
-  selected_dist <- calculate_distribution(selected_plots)
-  selected_factorial <- calculate_factorial_distribution(selected_plots, reference_df = plots_df)
+  
+  # If filling gaps, combine with previous selections for distribution calculation
+  if (filling_gaps) {
+    combined_plots <- bind_rows(previous_selected_plots, selected_plots)
+    selected_dist <- calculate_distribution(combined_plots)
+    selected_factorial <- calculate_factorial_distribution(combined_plots, reference_df = plots_df)
+  } else {
+    selected_dist <- calculate_distribution(selected_plots)
+    selected_factorial <- calculate_factorial_distribution(selected_plots, reference_df = plots_df)
+  }
+  
   dist_distance <- combined_distribution_distance(selected_dist, catalog_distribution,
                                                   selected_factorial, catalog_factorial,
                                                   factorial_weight = FACTORIAL_WEIGHT)
@@ -839,8 +876,17 @@ greedy_removal <- function(plots_df, catalog_distribution, catalog_factorial, bi
       
       # Calculate distribution distance if we remove this group
       test_plots <- plots_df |> filter(group_id %in% test_groups)
-      test_dist <- calculate_distribution(test_plots)
-      test_factorial <- calculate_factorial_distribution(test_plots, reference_df = plots_df)
+      
+      # If filling gaps, combine with previous selections for distribution calculation
+      if (filling_gaps) {
+        combined_test_plots <- bind_rows(previous_selected_plots, test_plots)
+        test_dist <- calculate_distribution(combined_test_plots)
+        test_factorial <- calculate_factorial_distribution(combined_test_plots, reference_df = plots_df)
+      } else {
+        test_dist <- calculate_distribution(test_plots)
+        test_factorial <- calculate_factorial_distribution(test_plots, reference_df = plots_df)
+      }
+      
       test_dist_distance <- combined_distribution_distance(test_dist, catalog_distribution,
                                                            test_factorial, catalog_factorial,
                                                            factorial_weight = FACTORIAL_WEIGHT)
@@ -895,8 +941,17 @@ greedy_removal <- function(plots_df, catalog_distribution, catalog_factorial, bi
     metrics <- calculate_metrics(selected_groups, plots_df,
                                 total_groups, total_plots, total_trees)
     selected_plots <- plots_df |> filter(group_id %in% selected_groups)
-    selected_dist <- calculate_distribution(selected_plots)
-    selected_factorial <- calculate_factorial_distribution(selected_plots, reference_df = plots_df)
+    
+    # If filling gaps, combine with previous selections for distribution calculation
+    if (filling_gaps) {
+      combined_plots <- bind_rows(previous_selected_plots, selected_plots)
+      selected_dist <- calculate_distribution(combined_plots)
+      selected_factorial <- calculate_factorial_distribution(combined_plots, reference_df = plots_df)
+    } else {
+      selected_dist <- calculate_distribution(selected_plots)
+      selected_factorial <- calculate_factorial_distribution(selected_plots, reference_df = plots_df)
+    }
+    
     dist_distance <- combined_distribution_distance(selected_dist, catalog_distribution,
                                                     selected_factorial, catalog_factorial,
                                                     factorial_weight = FACTORIAL_WEIGHT)
@@ -1442,11 +1497,13 @@ create_dual_factorial_plots <- function(reference_factorial, tier_factorial, sel
 #' @param reference_distribution Optional: Pre-calculated distribution to match (instead of plots_df's distribution)
 #' @param reference_factorial Optional: Pre-calculated factorial distribution to match
 #' @param reference_plots_df Optional: Full reference dataset for binning consistency (used when reference_distribution is provided)
+#' @param previous_selected_plots Optional: Plots already selected in previous tiers (for gap-filling mode)
 #' @return List containing withheld and training plots with diagnostics
 select_withheld_groups <- function(plots_df, required_groups = c(),
                                   reference_distribution = NULL,
                                   reference_factorial = NULL,
-                                  reference_plots_df = NULL) {
+                                  reference_plots_df = NULL,
+                                  previous_selected_plots = NULL) {
   
   cat("Starting proportional stratified group selection (SIMPLIFIED)...\n")
   cat(sprintf("Method: %s\n", 
@@ -1466,6 +1523,13 @@ select_withheld_groups <- function(plots_df, required_groups = c(),
     cat("Using provided reference distribution (cross-tier matching)\n")
   } else {
     cat("Using within-tier distribution (tier-specific matching)\n")
+  }
+  
+  # Check if using gap-filling mode
+  filling_gaps <- !is.null(previous_selected_plots)
+  if (filling_gaps) {
+    cat(sprintf("Gap-filling mode: Considering %d previously selected plots in optimization\n",
+                nrow(previous_selected_plots)))
   }
   cat("\n")
   
@@ -1713,7 +1777,8 @@ select_withheld_groups <- function(plots_df, required_groups = c(),
         total_plots = total_plots,
         total_trees = total_trees,
         run_id = run,
-        required_groups = required_groups
+        required_groups = required_groups,
+        previous_selected_plots = previous_selected_plots
       )
       
       states$run <- run
@@ -1748,7 +1813,8 @@ select_withheld_groups <- function(plots_df, required_groups = c(),
       total_plots = total_plots,
       total_trees = total_trees,
       required_groups = required_groups,
-      n_samples = N_RANDOM_SAMPLES
+      n_samples = N_RANDOM_SAMPLES,
+      previous_selected_plots = previous_selected_plots
     )
     
     cat("\n")
@@ -1767,7 +1833,8 @@ select_withheld_groups <- function(plots_df, required_groups = c(),
       total_plots = total_plots,
       total_trees = total_trees,
       required_groups = required_groups,
-      n_runs = N_RUNS
+      n_runs = N_RUNS,
+      previous_selected_plots = previous_selected_plots
     )
     
     # Filter to valid states (final 20% target)
