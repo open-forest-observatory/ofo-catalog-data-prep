@@ -3,7 +3,7 @@
 
 library(tidyverse)
 
-source("deploy/ground-ref-data/determine-dataset-withholding/src/proportional_sampling_simplified.R")
+source("deploy/ground-ref-data/determine-dataset-withholding/src/greedy-forward-bincounts.R")
 
 
 d = read_csv("/ofo-share/catalog-data-prep/stratification-data/for_strat.csv")
