@@ -3,6 +3,15 @@
 # ==============================================================================
 # Purpose: Select groups to withhold for validation matching catalog distribution
 # Method: Greedy forward selection with count-based distance metric
+#
+# Usage:
+#   results <- select_withheld_groups(plots_df)
+#   
+#   # Or with pre-selected groups:
+#   results <- select_withheld_groups(plots_df, preselected_groups = c("group1", "group2"))
+#   
+#   # Pre-selected groups will be included in the final selection and contribute
+#   # to the distribution matching objective as if they were auto-selected
 # ==============================================================================
 
 library(tidyverse)
@@ -230,15 +239,28 @@ combined_distribution_distance_counts <- function(dist_selected, dist_catalog,
 greedy_forward_selection <- function(plots_df, catalog_distribution, catalog_factorial,
                                     factorial_bin_definitions,
                                     total_groups, total_plots, total_trees,
-                                    target_n_plots) {
+                                    target_n_plots, preselected_groups = c()) {
   
-  selected_groups <- c()
-  available_groups <- unique(plots_df$group_id)
+  selected_groups <- preselected_groups
+  available_groups <- setdiff(unique(plots_df$group_id), preselected_groups)
   
   # Pre-calculate group statistics
   group_stats <- plots_df |>
     group_by(group_id) |>
     summarise(n_plots = n(), n_trees = sum(n_trees, na.rm = TRUE), .groups = "drop")
+  
+  # Report pre-selected groups if any
+  if (length(preselected_groups) > 0) {
+    preselected_plots <- plots_df |> filter(group_id %in% preselected_groups)
+    n_preselected_plots <- nrow(preselected_plots)
+    n_preselected_trees <- sum(preselected_plots$n_trees, na.rm = TRUE)
+    pct_preselected_plots <- (n_preselected_plots / total_plots) * 100
+    pct_preselected_trees <- (n_preselected_trees / total_trees) * 100
+    
+    cat(sprintf("\nPre-selected groups: %d (%.1f%% plots, %.1f%% trees)\n",
+                length(preselected_groups), pct_preselected_plots, pct_preselected_trees))
+    cat(sprintf("  Group IDs: %s\n\n", paste(preselected_groups, collapse = ", ")))
+  }
   
   iteration <- 0
   
@@ -330,7 +352,7 @@ greedy_forward_selection <- function(plots_df, catalog_distribution, catalog_fac
 # MAIN FUNCTION
 # ==============================================================================
 
-select_withheld_groups <- function(plots_df) {
+select_withheld_groups <- function(plots_df, preselected_groups = c()) {
   
   cat("Starting greedy forward selection...\n")
   
@@ -339,6 +361,14 @@ select_withheld_groups <- function(plots_df) {
   missing_cols <- setdiff(required_cols, names(plots_df))
   if (length(missing_cols) > 0) {
     stop("Missing required columns: ", paste(missing_cols, collapse = ", "))
+  }
+  
+  # Validate pre-selected groups
+  if (length(preselected_groups) > 0) {
+    invalid_groups <- setdiff(preselected_groups, unique(plots_df$group_id))
+    if (length(invalid_groups) > 0) {
+      stop("Pre-selected groups not found in data: ", paste(invalid_groups, collapse = ", "))
+    }
   }
   
   # Calculate totals
@@ -387,7 +417,7 @@ select_withheld_groups <- function(plots_df) {
   withheld_groups <- greedy_forward_selection(
     plots_df_binned, catalog_distribution, catalog_factorial,
     factorial_bin_definitions,
-    total_groups, total_plots, total_trees, target_n_plots)
+    total_groups, total_plots, total_trees, target_n_plots, preselected_groups)
   
   # Extract final sets
   withheld_plots <- plots_df_binned |> filter(group_id %in% withheld_groups)
@@ -409,9 +439,14 @@ select_withheld_groups <- function(plots_df) {
   withheld_distribution <- calculate_distribution(withheld_plots)
   withheld_factorial <- calculate_factorial_distribution(withheld_plots, factorial_bin_definitions)
   
+  # Separate auto-selected from pre-selected groups
+  auto_selected_groups <- setdiff(withheld_groups, preselected_groups)
+  
   # Return results
   list(
     withheld_group_ids = withheld_groups,
+    preselected_group_ids = preselected_groups,
+    auto_selected_group_ids = auto_selected_groups,
     training_group_ids = training_groups,
     withheld_plots = withheld_plots,
     training_plots = training_plots,
@@ -464,6 +499,14 @@ print_selection_report <- function(results) {
   
   print(summary_df, n = Inf)
   cat("\n")
+  
+  # Show breakdown of pre-selected vs auto-selected groups
+  if (length(results$preselected_group_ids) > 0) {
+    cat("Group selection breakdown:\n")
+    cat(sprintf("  Pre-selected groups: %d\n", length(results$preselected_group_ids)))
+    cat(sprintf("  Auto-selected groups: %d\n", length(results$auto_selected_group_ids)))
+    cat(sprintf("  Total withheld groups: %d\n\n", length(results$withheld_group_ids)))
+  }
   
   cat(sprintf("Target: %d plots (%.0f%% of catalog)\n",
               results$config$target_n_plots, target_pct))
@@ -597,8 +640,22 @@ print_selection_report <- function(results) {
   
   cat("=" |> str_pad(width = 80, side = "both", pad = "="), "\n\n")
   
-  cat("Withheld group IDs:\n")
-  cat(paste(results$withheld_group_ids, collapse = ", "), "\n")
+  # Show withheld group IDs with breakdown
+  if (length(results$preselected_group_ids) > 0) {
+    cat("Withheld group IDs:\n")
+    cat(sprintf("  All (%d): %s\n", 
+                length(results$withheld_group_ids),
+                paste(results$withheld_group_ids, collapse = ", ")))
+    cat(sprintf("  Pre-selected (%d): %s\n", 
+                length(results$preselected_group_ids),
+                paste(results$preselected_group_ids, collapse = ", ")))
+    cat(sprintf("  Auto-selected (%d): %s\n", 
+                length(results$auto_selected_group_ids),
+                paste(results$auto_selected_group_ids, collapse = ", ")))
+  } else {
+    cat("Withheld group IDs:\n")
+    cat(paste(results$withheld_group_ids, collapse = ", "), "\n")
+  }
 }
 
 #' Create factorial distribution heatmaps
