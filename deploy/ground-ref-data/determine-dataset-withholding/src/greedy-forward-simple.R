@@ -107,20 +107,35 @@ calculate_distribution <- function(plots_df) {
   distribution
 }
 
-calculate_factorial_distribution <- function(plots_df) {
+calculate_factorial_distribution <- function(plots_df, bin_definitions = NULL) {
   factorial_dists <- list()
+  bin_info_out <- list()
   
   for (combo in FACTORIAL_COMBINATIONS) {
     var1 <- combo$var1
     var2 <- combo$var2
     plots_working <- plots_df
+    combo_name <- paste(var1, var2, sep = "_x_")
     
     # Create factorial bins for continuous variables
     for (var in c(var1, var2)) {
       if (var %in% CONTINUOUS_VARS) {
         col_name <- paste0(var, "_factorial_bin")
-        probs <- seq(0, 1, length.out = N_BINS_FACTORIAL + 1)
-        breaks <- unique(quantile(plots_df[[var]], probs = probs, na.rm = TRUE))
+        
+        # Use provided bin definitions if available, otherwise calculate new ones
+        if (!is.null(bin_definitions) && combo_name %in% names(bin_definitions) && 
+            var %in% names(bin_definitions[[combo_name]])) {
+          breaks <- bin_definitions[[combo_name]][[var]]$breaks
+        } else {
+          probs <- seq(0, 1, length.out = N_BINS_FACTORIAL + 1)
+          breaks <- unique(quantile(plots_df[[var]], probs = probs, na.rm = TRUE))
+          # Store breaks for later use
+          if (is.null(bin_info_out[[combo_name]])) {
+            bin_info_out[[combo_name]] <- list()
+          }
+          bin_info_out[[combo_name]][[var]] <- list(breaks = breaks)
+        }
+        
         if (length(breaks) > 1) {
           plots_working[[col_name]] <- cut(plots_working[[var]], breaks = breaks, 
                                           include.lowest = TRUE, dig.lab = 3)
@@ -139,10 +154,15 @@ calculate_factorial_distribution <- function(plots_df) {
       summarise(n_plots = n(), n_trees = sum(n_trees, na.rm = TRUE), .groups = "drop") |>
       rename(var1_value = !!col1, var2_value = !!col2)
     
-    factorial_dists[[paste(var1, var2, sep = "_x_")]] <- list(distribution = dist)
+    factorial_dists[[combo_name]] <- list(distribution = dist)
   }
   
-  factorial_dists
+  # Return both distributions and bin definitions (if we calculated them)
+  if (!is.null(bin_definitions)) {
+    return(factorial_dists)  # Only return distributions if using existing bins
+  } else {
+    return(list(distributions = factorial_dists, bin_definitions = bin_info_out))
+  }
 }
 
 # ==============================================================================
@@ -208,6 +228,7 @@ combined_distribution_distance_counts <- function(dist_selected, dist_catalog,
 # ==============================================================================
 
 greedy_forward_selection <- function(plots_df, catalog_distribution, catalog_factorial,
+                                    factorial_bin_definitions,
                                     total_groups, total_plots, total_trees,
                                     target_n_plots) {
   
@@ -276,7 +297,7 @@ greedy_forward_selection <- function(plots_df, catalog_distribution, catalog_fac
       test_groups <- c(selected_groups, candidate_group)
       test_plots <- plots_df |> filter(group_id %in% test_groups)
       test_dist <- calculate_distribution(test_plots)
-      test_factorial <- calculate_factorial_distribution(test_plots)
+      test_factorial <- calculate_factorial_distribution(test_plots, factorial_bin_definitions)
       
       test_distance <- combined_distribution_distance_counts(
         test_dist, catalog_distribution, test_factorial, catalog_factorial, target_n_plots)
@@ -351,7 +372,9 @@ select_withheld_groups <- function(plots_df) {
   
   # Calculate catalog distribution
   catalog_distribution <- calculate_distribution(plots_df_binned)
-  catalog_factorial <- calculate_factorial_distribution(plots_df_binned)
+  catalog_factorial_result <- calculate_factorial_distribution(plots_df_binned)
+  catalog_factorial <- catalog_factorial_result$distributions
+  factorial_bin_definitions <- catalog_factorial_result$bin_definitions
   
   # Calculate target
   target_n_plots <- round(total_plots * ((MIN_PCT + MAX_PCT) / 2) / 100)
@@ -363,6 +386,7 @@ select_withheld_groups <- function(plots_df) {
   cat("Running greedy selection...\n")
   withheld_groups <- greedy_forward_selection(
     plots_df_binned, catalog_distribution, catalog_factorial,
+    factorial_bin_definitions,
     total_groups, total_plots, total_trees, target_n_plots)
   
   # Extract final sets
@@ -383,7 +407,7 @@ select_withheld_groups <- function(plots_df) {
   
   # Calculate distributions for reporting
   withheld_distribution <- calculate_distribution(withheld_plots)
-  withheld_factorial <- calculate_factorial_distribution(withheld_plots)
+  withheld_factorial <- calculate_factorial_distribution(withheld_plots, factorial_bin_definitions)
   
   # Return results
   list(
@@ -505,10 +529,49 @@ print_selection_report <- function(results) {
   }
   
   cat("\n")
+  
+  # Factorial distribution comparisons
+  cat("FACTORIAL DISTRIBUTION COMPARISONS\n")
+  cat("-" |> str_pad(width = 80, side = "both", pad = "-"), "\n")
+  
+  catalog_factorial <- results$catalog_factorial
+  withheld_factorial <- results$withheld_factorial
+  total_abs_diff_factorial <- 0
+  
+  for (combo_name in names(catalog_factorial)) {
+    var1 <- strsplit(combo_name, "_x_")[[1]][1]
+    var2 <- strsplit(combo_name, "_x_")[[1]][2]
+    
+    cat(sprintf("\n%s × %s:\n", toupper(var1), toupper(var2)))
+    
+    comparison <- catalog_factorial[[combo_name]]$distribution |>
+      rename(catalog_n_plots = n_plots, catalog_n_trees = n_trees) |>
+      mutate(target_n_plots = (catalog_n_plots / sum(catalog_n_plots)) * results$config$target_n_plots) |>
+      full_join(withheld_factorial[[combo_name]]$distribution |>
+                  rename(selected_n_plots = n_plots, selected_n_trees = n_trees),
+                by = c("var1_value", "var2_value")) |>
+      mutate(target_n_plots = replace_na(target_n_plots, 0),
+             catalog_n_plots = replace_na(catalog_n_plots, 0),
+             catalog_n_trees = replace_na(catalog_n_trees, 0),
+             selected_n_plots = replace_na(selected_n_plots, 0),
+             selected_n_trees = replace_na(selected_n_trees, 0),
+             abs_diff_plots = abs(target_n_plots - selected_n_plots)) |>
+      select(var1_value, var2_value, catalog_n_plots, target_n_plots, selected_n_plots,
+             catalog_n_trees, selected_n_trees, abs_diff_plots) |>
+      arrange(var1_value, var2_value)
+    
+    print(comparison, n = Inf)
+    var_total <- sum(comparison$abs_diff_plots)
+    total_abs_diff_factorial <- total_abs_diff_factorial + var_total
+    cat(sprintf("  Total absolute difference (plots): %.2f\n", var_total))
+  }
+  
+  cat("\n")
   cat(sprintf("TOTAL ABSOLUTE DIFFERENCE ACROSS ALL VARIABLES (plots): %.2f\n", 
-              total_abs_diff_continuous + total_abs_diff_categorical))
+              total_abs_diff_continuous + total_abs_diff_categorical + total_abs_diff_factorial))
   cat(sprintf("  - Continuous variables: %.2f\n", total_abs_diff_continuous))
   cat(sprintf("  - Categorical variables: %.2f\n", total_abs_diff_categorical))
+  cat(sprintf("  - Factorial combinations: %.2f\n", total_abs_diff_factorial))
   cat("\n")
   
   # Summary statistics comparison
