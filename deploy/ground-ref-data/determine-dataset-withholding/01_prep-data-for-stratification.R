@@ -27,6 +27,10 @@ ground_trees = st_read("/ofo-share/catalog-data-prep/stratification-data/downloa
 ground_trees = ground_trees |>
   mutate(live_dead = ifelse(as.numeric(plot_id) %in% c(186:196), "L", live_dead))
 
+# If live_dead was NA, assume it's live
+ground_trees = ground_trees |>
+  mutate(live_dead = ifelse(is.na(live_dead), "L", live_dead))
+
 # Remove 3 trees that are impossibly large and must be erroneous
 ground_trees = ground_trees |>
   filter(is.na(height) | is.na(dbh) | (!(height < 50 & dbh > 300) & !(height > 80)))
@@ -206,6 +210,14 @@ ground_trees_summ = ground_trees_filtered |>
   ) |>
   ungroup()
 
+# If there were no live trees, then n_trees_live would be NA but we want it to be 0
+ground_trees_summ = ground_trees_summ |>
+  mutate(
+    n_trees_live = ifelse(is.na(n_trees_live), 0, n_trees_live),
+    ba_live_sqm = ifelse(is.na(ba_live_sqm), 0, ba_live_sqm)
+  )
+
+
 ## Compute species comp groups
 
 # Compute the top species and filter to those
@@ -264,9 +276,11 @@ ground_trees_summ = ground_trees_summ |>
 # ground_trees_summ = ground_trees_summ |>
 #   mutate(sp_comp_group = ifelse(is.na(sp_comp_group), 99, sp_comp_group))
 
-# Join summarized tree data to plot data
+# Join summarized tree data to plot data: use inner join to exlude plots that had no trees meeting
+# our criteira. They will thus not be considered for the reference distribution to match or be
+# candidates for withholding.
 ground_plots_summ = ground_plots |>
-  left_join(ground_trees_summ, by = "plot_id")
+  inner_join(ground_trees_summ, by = "plot_id")
 
 # Compute tree density
 ground_plots_summ = ground_plots_summ |>
