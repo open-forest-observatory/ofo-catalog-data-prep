@@ -179,7 +179,7 @@ res_joint <- select_withheld_groups(
 )
 
 
-# load("/ofo-share/scratch-derek/strat_workspace.RData")
+load("/ofo-share/scratch-derek/strat_workspace.RData")
 
 print_selection_report(res_joint)
 

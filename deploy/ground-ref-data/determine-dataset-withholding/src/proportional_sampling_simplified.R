@@ -80,7 +80,12 @@ ALGORITHM <- "greedy"        # Options: "greedy", "random", "hybrid"
 # Greedy algorithm parameters (used if ALGORITHM = "greedy")
 N_RUNS <- 60                 # Number of independent runs
 TOP_K_CANDIDATES <- 5        # Consider top K groups when selecting which to remove
-STOCHASTIC_TEMP <- 3       # Temperature for probability weighting
+STOCHASTIC_TEMP <- 3         # Temperature for probability weighting
+GROUP_SIZE_PENALTY_EXP <- 0.4  # Exponent for group size penalty in per-plot distortion calculation
+                             # Lower values (0.3-0.5) = stronger penalty, favor larger groups
+                             # Higher values (0.7-1.0) = less penalty, more distribution matching
+                             # Previous (1.0) was over-penalizing, causing too many small groups to be selected
+                             # Use 0.5 (sqrt) as balanced starting point
 
 # Random sampling parameters (used if ALGORITHM = "random" or "hybrid")
 N_RANDOM_SAMPLES <- 50000 * 100    # Number of random combinations to try for pure "random"
@@ -834,9 +839,18 @@ greedy_removal <- function(plots_df, catalog_distribution, catalog_factorial, bi
   # Identify removable groups (all except required)
   removable_groups <- setdiff(selected_groups, required_groups)
   
-  # Pre-calculate number of plots in each group
-  group_plot_counts <- plots_df |>
-    count(group_id, name = "n_plots")
+  # Pre-calculate group statistics (plots and trees per group) - OPTIMIZATION
+  group_stats <- plots_df |>
+    group_by(group_id) |>
+    summarise(
+      n_plots = n(),
+      n_trees = sum(n_trees, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  # Create a named vector for fast lookup - OPTIMIZATION
+  group_n_plots <- setNames(group_stats$n_plots, group_stats$group_id)
+  group_n_trees <- setNames(group_stats$n_trees, group_stats$group_id)
   
   # Storage for state history
   state_history <- list()
@@ -873,31 +887,43 @@ greedy_removal <- function(plots_df, catalog_distribution, catalog_factorial, bi
          metrics$pct_plots > MAX_PCT || 
          metrics$pct_trees > MAX_PCT) {
     
-    # Evaluate each currently-selected REMOVABLE group (not required groups!)
+    # Pre-allocate candidate_scores for efficiency - OPTIMIZATION
+    n_removable <- length(removable_groups)
     candidate_scores <- tibble(
-      group_id = numeric(),
-      dist_distance = numeric(),
-      per_plot_distortion = numeric(),
-      n_plots = numeric(),
-      test_pct_plots = numeric(),
-      test_pct_trees = numeric()
+      group_id = rep(NA_real_, n_removable),
+      dist_distance = rep(NA_real_, n_removable),
+      per_plot_distortion = rep(NA_real_, n_removable),
+      n_plots = rep(NA_integer_, n_removable),
+      test_pct_plots = rep(NA_real_, n_removable),
+      test_pct_trees = rep(NA_real_, n_removable)
     )
+    
+    valid_idx <- 0  # Track number of valid candidates
     
     for (candidate_group in removable_groups) {
       
-      # Test removing this group
-      test_groups <- setdiff(selected_groups, candidate_group)
-      test_metrics <- calculate_metrics(test_groups, plots_df,
-                                       total_groups, total_plots, total_trees)
+      # Fast lookup of group stats - OPTIMIZATION
+      candidate_n_plots <- group_n_plots[as.character(candidate_group)]
+      candidate_n_trees <- group_n_trees[as.character(candidate_group)]
       
-      # Check if removal would violate minimum constraints
-      if (test_metrics$pct_groups < MIN_GROUPS_PCT ||
-          test_metrics$pct_plots < MIN_PCT || 
-          test_metrics$pct_trees < MIN_PCT) {
+      # Quick check: Can we remove this group without violating constraints? - OPTIMIZATION
+      # Calculate what metrics would be if we remove this group (incremental update)
+      test_n_groups <- length(selected_groups) - 1
+      test_n_plots <- metrics$n_plots - candidate_n_plots
+      test_n_trees <- metrics$n_trees - candidate_n_trees
+      test_pct_groups <- (test_n_groups / total_groups) * 100
+      test_pct_plots <- (test_n_plots / total_plots) * 100
+      test_pct_trees <- (test_n_trees / total_trees) * 100
+      
+      # Check if removal would violate minimum constraints - EARLY EXIT
+      if (test_pct_groups < MIN_GROUPS_PCT ||
+          test_pct_plots < MIN_PCT || 
+          test_pct_trees < MIN_PCT) {
         next  # Skip - can't remove without violating constraints
       }
       
-      # Calculate distribution distance if we remove this group
+      # Only calculate expensive distribution if constraints are satisfied - OPTIMIZATION
+      test_groups <- setdiff(selected_groups, candidate_group)
       test_plots <- plots_df |> filter(group_id %in% test_groups)
       
       # If filling gaps, combine with previous selections for distribution calculation
@@ -914,29 +940,24 @@ greedy_removal <- function(plots_df, catalog_distribution, catalog_factorial, bi
                                                            test_factorial, catalog_factorial,
                                                            factorial_weight = FACTORIAL_WEIGHT)
       
-      # Normalize by number of plots in this group
-      n_plots_in_group <- group_plot_counts |>
-        filter(group_id == candidate_group) |>
-        pull(n_plots)
+      # Normalize by group size with tunable penalty exponent
+      per_plot_distortion <- test_dist_distance / (candidate_n_plots ^ GROUP_SIZE_PENALTY_EXP)
       
-      per_plot_distortion <- test_dist_distance / (n_plots_in_group)
-      
-      # Store candidate
-      candidate_scores <- candidate_scores |>
-        add_row(
-          group_id = candidate_group,
-          dist_distance = test_dist_distance,
-          per_plot_distortion = per_plot_distortion,
-          n_plots = n_plots_in_group,
-          test_pct_plots = test_metrics$pct_plots,
-          test_pct_trees = test_metrics$pct_trees
-        )
+      # Store candidate in pre-allocated tibble - OPTIMIZATION
+      valid_idx <- valid_idx + 1
+      candidate_scores$group_id[valid_idx] <- candidate_group
+      candidate_scores$dist_distance[valid_idx] <- test_dist_distance
+      candidate_scores$per_plot_distortion[valid_idx] <- per_plot_distortion
+      candidate_scores$n_plots[valid_idx] <- candidate_n_plots
+      candidate_scores$test_pct_plots[valid_idx] <- test_pct_plots
+      candidate_scores$test_pct_trees[valid_idx] <- test_pct_trees
     }
     
-    # Check if we have any valid candidates
-    if (nrow(candidate_scores) == 0) {
+    # Remove unused rows from pre-allocated tibble - OPTIMIZATION
+    if (valid_idx == 0) {
       break  # No valid removals possible
     }
+    candidate_scores <- candidate_scores |> slice(1:valid_idx)
     
     # Sort by per-plot distortion (ascending)
     candidate_scores <- candidate_scores |>
