@@ -161,12 +161,13 @@ all_footprints$group_id = find_connected_components(intersects_matrix)
 # # Join back to all_footprints
 # # ... incomplete: only need to complete if we want plots in non-paired drone polys that touch paired polys to be assiged the hn-lo pairing
 
-# Write to temp to inspect
-st_write(pairings_unique, "/ofo-share/catalog-data-prep/stratification-data/pairings_grouped.gpkg", delete_dsn = TRUE)
+# # Write to temp to inspect
+# st_write(pairings_unique, "/ofo-share/catalog-data-prep/stratification-data/pairings_grouped.gpkg", delete_dsn = TRUE)
 
+# Write the footprints with group IDs so we can know which footprints have been selected based on
+# the selected groups (after stratification is complete)
 
-
-
+st_write(all_footprints, "/ofo-share/catalog-data-prep/stratification-data/all_drone_footprints_with_group_ids.gpkg", delete_dsn = TRUE)
 
 
 

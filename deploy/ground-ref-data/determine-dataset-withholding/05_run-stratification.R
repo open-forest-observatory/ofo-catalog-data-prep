@@ -63,105 +63,105 @@ table(d$project_name)
 d_w_drone = d |>
   filter(pairing_tier %in% c("aligned_paired_drone_footprint", "non_paired_drone_footprint", 
                               "paired_drone_footprint"))
-ref <- prepare_reference_distributions(d_w_drone)
+# ref <- prepare_reference_distributions(d_w_drone)
 
 
 
 
-# Run order: aligned_paired_drone_footprint, paired_drone_footprint, non_paired_drone_footprint,
-# no_drone_footprint, drone_no_plots (the latter is drone footprints with no plots in them, the
-# others are one record for each plot)
+# # Run order: aligned_paired_drone_footprint, paired_drone_footprint, non_paired_drone_footprint,
+# # no_drone_footprint, drone_no_plots (the latter is drone footprints with no plots in them, the
+# # others are one record for each plot)
 
-# Set cols to names expected by stratification function
+# # Set cols to names expected by stratification function
 
-# Start with aligned_paired_drone_footprint
+# # Start with aligned_paired_drone_footprint
 
-plots_df = d |>
-  filter(pairing_tier == "aligned_paired_drone_footprint")
+# plots_df = d |>
+#   filter(pairing_tier == "aligned_paired_drone_footprint")
 
-# Original using only within-tier reference
-# res1 = select_withheld_groups(plots_df, required_groups = c()) # The STEF 2018 standalone one is group 69
+# # Original using only within-tier reference
+# # res1 = select_withheld_groups(plots_df, required_groups = c()) # The STEF 2018 standalone one is group 69
 
-# Use the reference distribution from all drone-paired plots
-res1 <- select_withheld_groups(
-  plots_df = plots_df #,
-  # reference_distribution = ref$reference_distribution,
-  # reference_factorial = ref$reference_factorial,
-  # reference_plots_df = ref$reference_plots_df
-)
+# # Use the reference distribution from all drone-paired plots
+# res1 <- select_withheld_groups(
+#   plots_df = plots_df #,
+#   # reference_distribution = ref$reference_distribution,
+#   # reference_factorial = ref$reference_factorial,
+#   # reference_plots_df = ref$reference_plots_df
+# )
 
-print_selection_report(res1)
+# print_selection_report(res1)
 
-print(res1$diagnostics$factorial_plots)
+# print(res1$diagnostics$factorial_plots)
 
-groups_withheld1 = unique(res1$withheld_plots$group_id)
+# groups_withheld1 = unique(res1$withheld_plots$group_id)
 
-tier1_selected_plots <- ref$reference_plots_df |>
-  filter(group_id %in% res1$withheld_group_ids)
-
-
+# tier1_selected_plots <- ref$reference_plots_df |>
+#   filter(group_id %in% res1$withheld_group_ids)
 
 
 
-# Prep the next run: "paired_drone_footprint"
-
-plots_df = d |>
-  filter(pairing_tier == "paired_drone_footprint")
 
 
-res2 <- select_withheld_groups(
-  plots_df = plots_df,
-  # reference_distribution = ref$reference_distribution,
-  # reference_factorial = ref$reference_factorial,
-  # reference_plots_df = ref$reference_plots_df,
-  # previous_selected_plots = tier1_selected_plots,
-  required_groups = groups_withheld1
-)
+# # Prep the next run: "paired_drone_footprint"
 
-print_selection_report(res2)
-print(res2$diagnostics$factorial_plots)
-
-# Combine the withheld groups from both runs
-groups_withheld2 = unique(c(groups_withheld1, res2$withheld_plots$group_id))
-
-tier2_selected_plots <- ref$reference_plots_df |>
-  filter(group_id %in% c(res1$withheld_group_ids, res2$withheld_group_ids))
-
-# Next run: "non_paired_drone_footprint"
-plots_df = d |>
-  filter(pairing_tier == "non_paired_drone_footprint")
-
-res3 <- select_withheld_groups(
-  plots_df = plots_df,
-  # reference_distribution = ref$reference_distribution,
-  # reference_factorial = ref$reference_factorial,
-  # reference_plots_df = ref$reference_plots_df,
-  # previous_selected_plots = tier2_selected_plots,
-  required_groups = groups_withheld2
-)
+# plots_df = d |>
+#   filter(pairing_tier == "paired_drone_footprint")
 
 
-print_selection_report(res3)
+# res2 <- select_withheld_groups(
+#   plots_df = plots_df,
+#   # reference_distribution = ref$reference_distribution,
+#   # reference_factorial = ref$reference_factorial,
+#   # reference_plots_df = ref$reference_plots_df,
+#   # previous_selected_plots = tier1_selected_plots,
+#   required_groups = groups_withheld1
+# )
 
-print(res3$diagnostics$factorial_plots)
+# print_selection_report(res2)
+# print(res2$diagnostics$factorial_plots)
+
+# # Combine the withheld groups from both runs
+# groups_withheld2 = unique(c(groups_withheld1, res2$withheld_plots$group_id))
+
+# tier2_selected_plots <- ref$reference_plots_df |>
+#   filter(group_id %in% c(res1$withheld_group_ids, res2$withheld_group_ids))
+
+# # Next run: "non_paired_drone_footprint"
+# plots_df = d |>
+#   filter(pairing_tier == "non_paired_drone_footprint")
+
+# res3 <- select_withheld_groups(
+#   plots_df = plots_df,
+#   # reference_distribution = ref$reference_distribution,
+#   # reference_factorial = ref$reference_factorial,
+#   # reference_plots_df = ref$reference_plots_df,
+#   # previous_selected_plots = tier2_selected_plots,
+#   required_groups = groups_withheld2
+# )
 
 
-# Combine the withheld groups from all three runs
-groups_withheld3 = unique(c(groups_withheld2, res3$withheld_plots$group_id))
+# print_selection_report(res3)
+
+# print(res3$diagnostics$factorial_plots)
 
 
-# Check how well these selected goroups across 3 tiers match the ref distrib
+# # Combine the withheld groups from all three runs
+# groups_withheld3 = unique(c(groups_withheld2, res3$withheld_plots$group_id))
 
-d_relevant = d |>
-  filter(pairing_tier %in% c("aligned_paired_drone_footprint", "paired_drone_footprint",
-                              "non_paired_drone_footprint"))
 
-combined_eval = evaluate_combined_selection(d_relevant, groups_withheld3, ref)
+# # Check how well these selected goroups across 3 tiers match the ref distrib
 
-print_combined_evaluation_report(combined_eval)
+# d_relevant = d |>
+#   filter(pairing_tier %in% c("aligned_paired_drone_footprint", "paired_drone_footprint",
+#                               "non_paired_drone_footprint"))
 
-# Print combined factorial plots
-print(combined_eval$diagnostics$factorial_plots)
+# combined_eval = evaluate_combined_selection(d_relevant, groups_withheld3, ref)
+
+# print_combined_evaluation_report(combined_eval)
+
+# # Print combined factorial plots
+# print(combined_eval$diagnostics$factorial_plots)
 
 
 
@@ -178,61 +178,44 @@ res_joint <- select_withheld_groups(
   plots_df = d_w_drone
 )
 
+
+# load("/ofo-share/scratch-derek/strat_workspace.RData")
+
 print_selection_report(res_joint)
 
 print(res_joint$diagnostics$factorial_plots)
 
-groups_withheld1 = unique(res1$withheld_plots$group_id)
+groups_withheld1 = unique(res_joint$withheld_plots$group_id)
 
-tier1_selected_plots <- ref$reference_plots_df |>
-  filter(group_id %in% res1$withheld_group_ids)
+save.image(file = "/ofo-share/scratch-derek/strat_workspace.RData")
 
 # TODOs:
-# Check what % of drone plots this is
+# Check what % of drone footprints this is
 # Reduce % plots constraint
 # Think about adding a groups % constraint
 
+# Run for no_drone_footprint (plots without drone data)
+# Run for drone_no_plots (drone footprints without plots)
 
 
 
 
 
+# ## Check what percent of drone footprints this is
 
+# # Load the drone footprints with group IDs and determine which overlap any plots (so we use only
+# # those as the denominator, as those are the only ones we've given a chance to be selected)
+# all_footprints = st_read("/ofo-share/catalog-data-prep/stratification-data/all_drone_footprints_with_group_ids.gpkg")
 
-# Next run: "no_drone_footprint"
-plots_df = d |>
-  filter(pairing_tier == "no_drone_footprint")
+# footprints_with_plots = all_footprints |>
+#   filter(group_id %in% d_w_drone$group_id)
 
-res4 = select_withheld_groups(plots_df, required_groups = groups_withheld3)
+# footprints_selected = footprints_with_plots |>
+#   filter(group_id %in% res_joint$withheld_plots$group_id)
 
-print_selection_report(res4)
-print(res4$diagnostics$factorial_plots)
+# percent_footprints_with_plots_selected = nrow(footprints_selected) / nrow(footprints_with_plots) * 100
+# percent_footprints_with_plots_selected
 
-# Combine the withheld groups from all four runs
-groups_withheld4 = unique(c(groups_withheld3, res4$withheld_plots$group_id))
-
-
-
-
-
-plots_withheld = plots_df |>
-  filter(group_id %in% groups_withheld)
-
-table(plots_withheld$project_name)
-table(plots_df$project_name)
-
-
-
-
-
-
-# Figuring out why we got very divergent mean and SD for mean_ba_live for this selection:
-
-withheld_plots = plots_df |>
-  filter(group_id %in% res$withheld_plots$group_id)
-
-hist(withheld_plots$mean_ba_live)
-hist(plots_df$mean_ba_live)
-
-
-# When we get to stratifying drone_no_plots and plots_no_drone, use only that tier as a reference
+# # Determine what percent of groups this is
+# percent_groups_selected = length(res_joint$withheld_plots$group_id) / length(unique(d_w_drone$group_id)) * 100
+# percent_groups_selected

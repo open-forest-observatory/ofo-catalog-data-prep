@@ -63,9 +63,11 @@ MAX_BINS <- 5                # Maximum number of quantile bins to use
 N_BINS_FACTORIAL <- 3        # Number of bins for continuous vars in factorial breakdowns
 
 # Selection parameters
-TARGET_PCT <- 20             # Target percentage to withhold
-MIN_PCT <- 15                # Minimum acceptable percentage
-MAX_PCT <- 25                # Maximum acceptable percentage
+TARGET_PCT <- 17             # Target percentage to withhold
+MIN_PCT <- 12                # Minimum acceptable percentage (plots/trees)
+MAX_PCT <- 22                # Maximum acceptable percentage (plots/trees)
+MIN_GROUPS_PCT <- 15         # Minimum acceptable percentage of groups
+MAX_GROUPS_PCT <- 25         # Maximum acceptable percentage of groups
 
 # Hybrid algorithm parameters (Phase 1: random search to ~30%)
 PHASE1_TARGET_PCT <- 30      # Target percentage for Phase 1 random search
@@ -81,7 +83,7 @@ TOP_K_CANDIDATES <- 5        # Consider top K groups when selecting which to rem
 STOCHASTIC_TEMP <- 3       # Temperature for probability weighting
 
 # Random sampling parameters (used if ALGORITHM = "random" or "hybrid")
-N_RANDOM_SAMPLES <- 50000 * 10    # Number of random combinations to try for pure "random"
+N_RANDOM_SAMPLES <- 50000 * 100    # Number of random combinations to try for pure "random"
 N_RANDOM_SAMPLES_PHASE1 <- 10000 # * 8  # Number for Phase 1 of hybrid (warm start)
 
 # Shared parameters
@@ -347,7 +349,7 @@ calculate_metrics <- function(selected_groups, plots_df,
   
   if (length(selected_groups) == 0) {
     return(list(
-      n_groups = 0,
+      n_groups = 0, pct_groups = 0,
       n_plots = 0, pct_plots = 0,
       n_trees = 0, pct_trees = 0
     ))
@@ -360,6 +362,7 @@ calculate_metrics <- function(selected_groups, plots_df,
   # Calculate metrics
   list(
     n_groups = length(selected_groups),
+    pct_groups = (length(selected_groups) / total_groups) * 100,
     n_plots = nrow(selected_plots),
     pct_plots = (nrow(selected_plots) / total_plots) * 100,
     n_trees = sum(selected_plots$n_trees, na.rm = TRUE),
@@ -373,10 +376,11 @@ calculate_metrics <- function(selected_groups, plots_df,
 #' @return TRUE if all constraints satisfied
 check_constraints <- function(metrics) {
   
+  groups_ok <- metrics$pct_groups >= MIN_GROUPS_PCT & metrics$pct_groups <= MAX_GROUPS_PCT
   plot_ok <- metrics$pct_plots >= MIN_PCT & metrics$pct_plots <= MAX_PCT
   tree_ok <- metrics$pct_trees >= MIN_PCT & metrics$pct_trees <= MAX_PCT
   
-  return(plot_ok & tree_ok)
+  return(groups_ok & plot_ok & tree_ok)
 }
 
 #' Calculate distance from target (20%)
@@ -523,25 +527,31 @@ random_sampling <- function(plots_df, catalog_distribution, catalog_factorial,
     for (candidate in chunk) {
       # Calculate metrics using pre-computed group stats (fast - just summing)
       selected_stats <- group_stats |> filter(group_id %in% candidate$selected_groups)
+      n_groups <- length(candidate$selected_groups)
       n_plots <- sum(selected_stats$n_plots)
       n_trees <- sum(selected_stats$n_trees)
+      pct_groups <- (n_groups / total_groups) * 100
       pct_plots <- (n_plots / total_plots) * 100
       pct_trees <- (n_trees / total_trees) * 100
       
-      # Check if in valid range
-      if (pct_plots >= min_pct && pct_plots <= max_pct &&
-          pct_trees >= min_pct && pct_trees <= max_pct) {
-        
+      # Check if in valid range (including group percentage)
+      if (pct_groups >= MIN_GROUPS_PCT && pct_groups <= MAX_GROUPS_PCT &&
+        pct_plots >= min_pct && pct_plots <= max_pct &&
+        pct_trees >= min_pct && pct_trees <= max_pct) {
         valid_in_chunk[[length(valid_in_chunk) + 1]] <- list(
           sample_id = candidate$sample_id,
           selected_groups = candidate$selected_groups,
-          n_groups = length(candidate$selected_groups),
+          n_groups = n_groups,
+          pct_groups = pct_groups,
           n_plots = n_plots,
           pct_plots = pct_plots,
           n_trees = n_trees,
           pct_trees = pct_trees
         )
       }
+      
+      gc()
+
     }
     
     return(valid_in_chunk)
@@ -859,7 +869,9 @@ greedy_removal <- function(plots_df, catalog_distribution, catalog_factorial, bi
   )
   
   # Greedy removal loop
-  while (metrics$pct_plots > MAX_PCT || metrics$pct_trees > MAX_PCT) {
+  while (metrics$pct_groups > MAX_GROUPS_PCT || 
+         metrics$pct_plots > MAX_PCT || 
+         metrics$pct_trees > MAX_PCT) {
     
     # Evaluate each currently-selected REMOVABLE group (not required groups!)
     candidate_scores <- tibble(
@@ -879,7 +891,9 @@ greedy_removal <- function(plots_df, catalog_distribution, catalog_factorial, bi
                                        total_groups, total_plots, total_trees)
       
       # Check if removal would violate minimum constraints
-      if (test_metrics$pct_plots < MIN_PCT || test_metrics$pct_trees < MIN_PCT) {
+      if (test_metrics$pct_groups < MIN_GROUPS_PCT ||
+          test_metrics$pct_plots < MIN_PCT || 
+          test_metrics$pct_trees < MIN_PCT) {
         next  # Skip - can't remove without violating constraints
       }
       
