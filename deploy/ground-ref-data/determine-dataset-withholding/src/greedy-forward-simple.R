@@ -25,10 +25,10 @@ MAX_BINS <- 5
 N_BINS_FACTORIAL <- 3
 
 # Selection parameters
-MIN_PCT <- 12
+MIN_PCT <- 15
 MAX_PCT <- 22
 MIN_GROUPS_PCT <- 15
-MAX_GROUPS_PCT <- 25
+MAX_GROUPS_PCT <- 22
 FACTORIAL_WEIGHT <- 0.5
 
 # Factorial combinations to track
@@ -454,6 +454,8 @@ print_selection_report <- function(results) {
   cat("CONTINUOUS VARIABLE DISTRIBUTIONS\n")
   cat("-" |> str_pad(width = 80, side = "both", pad = "-"), "\n")
   
+  total_abs_diff_continuous <- 0
+  
   for (var in CONTINUOUS_VARS) {
     cat(sprintf("\n%s:\n", toupper(var)))
     
@@ -469,13 +471,17 @@ print_selection_report <- function(results) {
              catalog_n_trees, selected_n_trees, abs_diff_plots)
     
     print(comparison, n = Inf)
-    cat(sprintf("  Total absolute difference (plots): %.2f\n", sum(comparison$abs_diff_plots)))
+    var_total <- sum(comparison$abs_diff_plots)
+    total_abs_diff_continuous <- total_abs_diff_continuous + var_total
+    cat(sprintf("  Total absolute difference (plots): %.2f\n", var_total))
   }
   cat("\n")
   
   # Distribution comparisons for categorical variables
   cat("CATEGORICAL VARIABLE DISTRIBUTIONS\n")
   cat("-" |> str_pad(width = 80, side = "both", pad = "-"), "\n")
+  
+  total_abs_diff_categorical <- 0
   
   for (var in CATEGORICAL_VARS) {
     cat(sprintf("\n%s:\n", toupper(var)))
@@ -493,8 +499,16 @@ print_selection_report <- function(results) {
       arrange(desc(catalog_n_plots))
     
     print(comparison, n = Inf)
-    cat(sprintf("  Total absolute difference (plots): %.2f\n", sum(comparison$abs_diff_plots)))
+    var_total <- sum(comparison$abs_diff_plots)
+    total_abs_diff_categorical <- total_abs_diff_categorical + var_total
+    cat(sprintf("  Total absolute difference (plots): %.2f\n", var_total))
   }
+  
+  cat("\n")
+  cat(sprintf("TOTAL ABSOLUTE DIFFERENCE ACROSS ALL VARIABLES (plots): %.2f\n", 
+              total_abs_diff_continuous + total_abs_diff_categorical))
+  cat(sprintf("  - Continuous variables: %.2f\n", total_abs_diff_continuous))
+  cat(sprintf("  - Categorical variables: %.2f\n", total_abs_diff_categorical))
   cat("\n")
   
   # Summary statistics comparison
