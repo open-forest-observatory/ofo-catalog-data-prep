@@ -52,7 +52,7 @@ d_w_drone = d |>
 # Run all of the 3 plot-drone pairings together as an alternative approach
 
 # Use the reference distribution from all drone-paired plots
-res_joint <- select_withheld_groups(plots_df = d_w_drone)
+res_joint <- select_withheld_groups(plots_df = d_w_drone, preselected_groups = c())
 
 print_selection_report(res_joint)
 create_factorial_plots(res_joint)

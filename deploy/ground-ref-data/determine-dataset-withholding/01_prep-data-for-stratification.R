@@ -53,12 +53,14 @@ pairings_unique = pairings |>
   distinct()
 
 
-# Manually exclude 000934 and 000935 from being selected for test (force them in train) because they connect nearly all STEF missions into one giant group
-# and we want to allow a part of them to be selected as test. Excluding them will disconnect the
-# chain of drone missions and allow part of STEF2018 to be selected (which we will manually force).
-pairings_unique = pairings_unique |>
-  filter(!(mission_id_hn %in% c("000934", "000935") | mission_id_lo %in% c("000934", "000935")))
-
+# # Manually exclude 000934 and 000935 from being selected for test (force them in train) because they
+# # connect nearly all STEF missions into one giant group and we want to allow a part of them to be
+# # selected as test. Excluding them will disconnect the chain of drone missions and allow part of
+# # STEF2018 to be selected (which we will manually force). Note that they are not actually in this
+# # dataset for an unknown reason, but they will be brought in below where we will also exclude them.
+# pairings_unique = pairings_unique |>
+#   filter(!(mission_id_hn %in% c("000934", "000935") | mission_id_lo %in% c("000934", "000935")))
+# Nevermind, we can't do this, because there are still too many plots, with too many trees, under the STEF drone polygons
 
 # Read the drone mission footrpints and merge to single layer with one feature per mission
 footprint_paths = list.files("/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/3_final/1_full-metadata-per-mission", full.names = TRUE)
@@ -70,6 +72,8 @@ footprints = st_transform(footprints, 5070)
 # # Manually exclude 000934 and 000935 with same logic as above
 # footprints = footprints |>
 #   filter(!(mission_id %in% c("000934", "000935")))
+# Nevermind, we can't do this, because there are still too many plots, with too many trees, under
+# the STEF drone polygons
 
 # Temporary write to inspect
 st_write(footprints, "/ofo-share/catalog-data-prep/stratification-data/all_drone_footprints.gpkg", delete_dsn = TRUE)
