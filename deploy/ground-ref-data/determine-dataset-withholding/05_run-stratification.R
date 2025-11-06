@@ -207,7 +207,11 @@ d_drone_no_plot = d |>
   filter(pairing_tier %in% c("drone_no_plots")) |>
   # have to give each "plot" (drone footprint) an equal number of (dummy) trees for the algorithm to
   # work since it tries to match a % trees selection criterion
-  mutate(n_trees = 10)
+  mutate(n_trees = 10) |>
+  # Exclude mission 000078 (RMR) from test set because it is so unique and has no similar mission to
+  # be included in train, and it encompasses many small plots and we don't want all of them to be
+  # put into the withheld set
+  filter(plot_id != "000078")
 
 # Can only pass it the withheld groups that are present in the data we're asking it to stratify
 groups_withheld_pre = groups_withheld_cum[groups_withheld_cum %in% d_drone_no_plot$group_id]
@@ -234,7 +238,7 @@ all_footprints = st_read("/ofo-share/catalog-data-prep/stratification-data/all_d
 footprints_selected = all_footprints |>
   filter(group_id %in% groups_withheld_final)
 
-selected_missions = unique(c(footprints_selected$mission_id_hn, footprints_selected$mission_id_lo))
+selected_missions = unique(c(footprints_selected$mission_id_hn, footprints_selected$mission_id_lo)) |> sort()
 all_missions = unique(c(all_footprints$mission_id_hn, all_footprints$mission_id_lo))
 percent_missions_selected = length(selected_missions)/length(all_missions) * 100
 percent_missions_selected
@@ -287,6 +291,6 @@ withheld_mission_ids = unique(c(footprints_selected$mission_id_hn, footprints_se
 
 # Save to CSVs (two single-column files)
 write_csv(tibble(plot_id = withheld_plot_ids),
-          "/ofo-share/catalog-data-prep/stratification-data/strat-output/withheld_ground_plot_ids.csv")
+          "/ofo-share/catalog-data-prep/stratification-data/strat-output/withheld_ground_plot_ids_v1.csv")
 write_csv(tibble(mission_id = withheld_mission_ids),
-          "/ofo-share/catalog-data-prep/stratification-data/strat-output/withheld_drone_mission_ids.csv")
+          "/ofo-share/catalog-data-prep/stratification-data/strat-output/withheld_drone_mission_ids_v1.csv")
