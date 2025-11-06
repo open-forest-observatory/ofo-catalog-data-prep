@@ -195,5 +195,7 @@ MISSION_METADATA_FILEPATH = "/ofo-share/catalog-data-prep/05_drone-imagery-web-c
 IMAGE_METADATA_FILEPATH = "/ofo-share/catalog-data-prep/05_drone-imagery-web-catalog/01_metadata/image-metadata.gpkg"
 S3_LISTING_FILEPATH = "/ofo-share/catalog-data-prep/05_drone-imagery-web-catalog/01_metadata/s3-listing.csv"
 
+# Lists of mission and plot IDs to withhold from broad-scale ML training (save for testing)
+MISSIONS_TO_WITHHOLD_FILEPATH = "/ofo-share/catalog-data-prep/stratification-data/strat-output/withheld_drone_mission_ids_v1.csv"
 
 # nolint end
