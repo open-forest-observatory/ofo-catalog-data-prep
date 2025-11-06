@@ -1,8 +1,11 @@
 # Purpose: Read the ground reference data from Google Sheets and plot boundaries from local files,
-# and write the data to gpkg files for publishing. Initially written and being used to create field
-# refence data files to share with OFO collaborators.
+# and write the data to gpkg files for publishing. This also attributes the plot metadata with a
+# column indicating whether the plot should be withheld from training broad-scale ML models, so that
+# it can be use for testing. Initially written and being used to create field refence data files to
+# share with OFO collaborators.
 
 library(dplyr)
+library(readr)
 library(googlesheets4)
 library(stringr)
 library(sf)
@@ -11,6 +14,10 @@ source(file.path("src", "web-catalog-creation_ground-ref-data.R"))
 
 PLOT_BOUNDARIES_PATH = "~/repo-data-local/ofo-catalog-data-prep/field-plot-boundaries" # Download from: https://ucdavis.box.com/s/fra31givaqf1j8jidezaruah7on42w77
 GOOGLE_SHEET_ID = "1GjDseDCR1BX_EIkJAni7rk2zvK6nHmZz1nOFBd1d6k4"
+REPO_DATA_LOCAL_PATH = "~/repo-data-local/ofo-catalog-data-prep"
+WITHHELD_PLOT_IDS_FILEPATH = file.path(REPO_DATA_LOCAL_PATH, "withheld_ground_plot_ids_v1.csv")
+GROUND_REF_PLOTS_OUTPUT_GPKG = file.path(REPO_DATA_LOCAL_PATH, "ofo_ground-reference_plots.gpkg")
+GROUND_REF_TREES_OUT_GPKG = file.path(REPO_DATA_LOCAL_PATH, "ofo_ground-reference_trees.gpkg")
 
 # ---- Processing
 
@@ -138,10 +145,14 @@ plot_bounds_w_summary = plot_bounds_w_summary |>
   )
 
 
+# Add a column indicating whether the data should be withheld from broad-scale ML model training
+withheld_plot_ids = read_csv(WITHHELD_PLOT_IDS_FILEPATH)$plot_id
 
+plot_bounds_w_summary = plot_bounds_w_summary |>
+  mutate(withhold_from_training = plot_id %in% withheld_plot_ids)
 
 # Write the plot-level data to a gpkg
-st_write(plot_bounds_w_summary, "~/temp/ofo_ground-reference_plots.gpkg", delete_dsn = TRUE)
+st_write(plot_bounds_w_summary, GROUND_REF_PLOTS_OUTPUT_GPKG, delete_dsn = TRUE)
 
 
 ### Trees
@@ -202,4 +213,4 @@ trees = trees |>
 trees_sf = sf::st_as_sf(trees, coords = c("tree_lon", "tree_lat"), crs = 4326)
 
 # Write to gpkg
-st_write(trees_sf, "~/temp/ofo_ground-reference_trees.gpkg", delete_dsn = TRUE)
+st_write(trees_sf, GROUND_REF_TREES_OUT_GPKG, delete_dsn = TRUE)
