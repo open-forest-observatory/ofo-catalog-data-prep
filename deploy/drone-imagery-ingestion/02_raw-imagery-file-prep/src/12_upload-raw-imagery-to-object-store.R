@@ -6,8 +6,8 @@
 # export RCLONE_CONFIG_JS2S3_PROVIDER=Other
 # export RCLONE_CONFIG_JS2S3_ENDPOINT=https://js2.jetstream-cloud.org:8001/
 # export RCLONE_CONFIG_JS2S3_ENV_AUTH=true
-#  export RCLONE_CONFIG_JS2S3_S3_ACCESS_KEY_ID=<access-key-id>
-#  export RCLONE_CONFIG_JS2S3_S3_SECRET_ACCESS_KEY=<secret-access-key>
+#  export AWS_ACCESS_KEY_ID=<access-key-id>
+#  export AWS_SECRET_ACCESS_KEY=<secret-access-key>
 
 upload_raw_imagery_to_object_store = function(mission_id_foc) {
 

@@ -34,3 +34,4 @@ Rscript --vanilla /ofo-share/repos-derek/ofo-catalog-data-prep/deploy/drone-imag
 echo "2024-ofo2" > /ofo-share/catalog-data-prep/00_missions-to-process/01_raw-imagery-meatadata-prep/project-to-process.txt
 Rscript --vanilla /ofo-share/repos-derek/ofo-catalog-data-prep/deploy/drone-imagery-ingestion/01_raw-imagery-metadata-prep/control_raw-imagery-metadata_01-to-07_perproject.R
 
+# Need to add projects since 2024
