@@ -22,69 +22,87 @@ THUMBNAIL_SIZE = "800"
 SKIP_EXISTING = FALSE # Skip processing for missions that already have all outputs
 
 
-PROJECT_TO_PROCESS_RAW_IMAGERY_METADATA_FILEPATH = "/ofo-share/catalog-data-prep/00_missions-to-process/01_raw-imagery-meatadata-prep/project-to-process.txt"
-PROJECT_NAME_TO_PROCESS_RAW_IMAGERY_METADATA = read_lines(PROJECT_TO_PROCESS_RAW_IMAGERY_METADATA_FILEPATH)
-MISSIONS_TO_PROCESS_RAW_IMAGERY_METADATA_LIST_PATH = "/ofo-share/catalog-data-prep/00_missions-to-process/01_raw-imagery-meatadata-prep/missions-to-process.csv"
+PROJECT_TO_PROCESS_RAW_IMAGERY_METADATA_FILEPATH = "/ofo-share/project-data/catalog-data-prep/00_missions-to-process/01_raw-imagery-meatadata-prep/project-to-process.txt"
+PROJECT_NAME_TO_PROCESS_RAW_IMAGERY_METADATA = tryCatch(
+  read_lines(PROJECT_TO_PROCESS_RAW_IMAGERY_METADATA_FILEPATH),
+  error = function(e) {
+    warning("Could not read file: ", PROJECT_TO_PROCESS_RAW_IMAGERY_METADATA_FILEPATH, "\n", e$message)
+    character(0)
+  }
+)
+MISSIONS_TO_PROCESS_RAW_IMAGERY_METADATA_LIST_PATH = "/ofo-share/project-data/catalog-data-prep/00_missions-to-process/01_raw-imagery-meatadata-prep/missions-to-process.csv"
 
-CONTRIBUTED_IMAGERY_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/1_manually-cleaned"
-RAW_EXIF_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/1_reconciling-contributions/1_raw-exif/"
+CONTRIBUTED_IMAGERY_PATH = "/ofo-share/project-data/catalog-data-prep/01_raw-imagery-ingestion/1_manually-cleaned"
+RAW_EXIF_PATH = "/ofo-share/project-data/catalog-data-prep/01_raw-imagery-ingestion/metadata/1_reconciling-contributions/1_raw-exif/"
 
-CONTRIBUTED_METADATA_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/ancillary/baserow-snapshots"
+CONTRIBUTED_METADATA_PATH = "/ofo-share/project-data/catalog-data-prep/01_raw-imagery-ingestion/ancillary/baserow-snapshots"
 
-CONTRIBUTED_TO_SORTED_MISSION_ID_CROSSWALK_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/1_reconciling-contributions/3_contributed-to-sorted-id-crosswalk/"
+CONTRIBUTED_TO_SORTED_MISSION_ID_CROSSWALK_PATH = "/ofo-share/project-data/catalog-data-prep/01_raw-imagery-ingestion/metadata/1_reconciling-contributions/3_contributed-to-sorted-id-crosswalk/"
 
-IMAGE_EXIF_W_SORTING_PLAN_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/1_reconciling-contributions/2_exif-w-sorting-plan/"
+IMAGE_EXIF_W_SORTING_PLAN_PATH = "/ofo-share/project-data/catalog-data-prep/01_raw-imagery-ingestion/metadata/1_reconciling-contributions/2_exif-w-sorting-plan/"
 
 # Should be "conributed"
-EXTRACTED_METADATA_PER_MISSION_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/2_intermediate/1_contributed-metadata-per-mission/"
-EXTRACTED_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/2_intermediate/2_contributed-metadata-per-sub-mission/"
+EXTRACTED_METADATA_PER_MISSION_PATH = "/ofo-share/project-data/catalog-data-prep/01_raw-imagery-ingestion/metadata/2_intermediate/1_contributed-metadata-per-mission/"
+EXTRACTED_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/project-data/catalog-data-prep/01_raw-imagery-ingestion/metadata/2_intermediate/2_contributed-metadata-per-sub-mission/"
 
-PARSED_EXIF_METADATA_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/2_intermediate/4_parsed-exif"
+PARSED_EXIF_METADATA_PATH = "/ofo-share/project-data/catalog-data-prep/01_raw-imagery-ingestion/metadata/2_intermediate/4_parsed-exif"
 
-PARSED_EXIF_FOR_RETAINED_IMAGES_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/3_final/3_parsed-exif-per-image"
-DERIVED_METADATA_PER_MISSION_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/2_intermediate/6_derived-metadata-per-mission"
-DERIVED_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/2_intermediate/7_derived-metadata-per-sub-mission"
+PARSED_EXIF_FOR_RETAINED_IMAGES_PATH = "/ofo-share/project-data/catalog-data-prep/01_raw-imagery-ingestion/metadata/3_final/3_parsed-exif-per-image"
+DERIVED_METADATA_PER_MISSION_PATH = "/ofo-share/project-data/catalog-data-prep/01_raw-imagery-ingestion/metadata/2_intermediate/6_derived-metadata-per-mission"
+DERIVED_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/project-data/catalog-data-prep/01_raw-imagery-ingestion/metadata/2_intermediate/7_derived-metadata-per-sub-mission"
 
-FULL_METADATA_PER_MISSION_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/3_final/1_full-metadata-per-mission/"
-FULL_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/3_final/2_full-metadata-per-sub-mission/"
+FULL_METADATA_PER_MISSION_PATH = "/ofo-share/project-data/catalog-data-prep/01_raw-imagery-ingestion/metadata/3_final/1_full-metadata-per-mission/"
+FULL_METADATA_PER_SUB_MISSION_PATH = "/ofo-share/project-data/catalog-data-prep/01_raw-imagery-ingestion/metadata/3_final/2_full-metadata-per-sub-mission/"
 
 # The following file should not be assumed to be there, since we are not necessarily keeping all
 # mission data combined locally, and it should not be assumed to contain every mission, but this is where the file will be if it has been created
-FULL_METADATA_PER_MISSION_COMBINED_FILEPATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/3_final/ofo-all-missions-metadata.gpkg"
-FULL_METADATA_PER_IMAGE_COMBINED_FILEPATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/3_final/ofo-all-images-metadata.gpkg"
+FULL_METADATA_PER_MISSION_COMBINED_FILEPATH = "/ofo-share/project-data/catalog-data-prep/01_raw-imagery-ingestion/metadata/3_final/ofo-all-missions-metadata.gpkg"
+FULL_METADATA_PER_IMAGE_COMBINED_FILEPATH = "/ofo-share/project-data/catalog-data-prep/01_raw-imagery-ingestion/metadata/3_final/ofo-all-images-metadata.gpkg"
 
-PROJECT_TO_PROCESS_RAW_IMAGERY_FILES_FILEPATH = "/ofo-share/catalog-data-prep/00_missions-to-process/02_raw-imagery-file-prep/projects-to-process.txt"
-PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES = read_lines(PROJECT_TO_PROCESS_RAW_IMAGERY_FILES_FILEPATH)
+PROJECT_TO_PROCESS_RAW_IMAGERY_FILES_FILEPATH = "/ofo-share/project-data/catalog-data-prep/00_missions-to-process/02_raw-imagery-file-prep/projects-to-process.txt"
+PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES = tryCatch(
+  read_lines(PROJECT_TO_PROCESS_RAW_IMAGERY_FILES_FILEPATH),
+  error = function(e) {
+    warning("Could not read file: ", PROJECT_TO_PROCESS_RAW_IMAGERY_FILES_FILEPATH, "\n", e$message)
+    character(0)
+  }
+)
 # Exclude "commented out" project names
 PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES = PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES[!grepl("^#", PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES)]
 
-MISSIONS_TO_PROCESS_RAW_IMAGERY_FILES_LIST_PATH = "/ofo-share/catalog-data-prep/00_missions-to-process/02_raw-imagery-file-prep/missions-to-process.csv"
+MISSIONS_TO_PROCESS_RAW_IMAGERY_FILES_LIST_PATH = "/ofo-share/project-data/catalog-data-prep/00_missions-to-process/02_raw-imagery-file-prep/missions-to-process.csv"
 
 
 
-SORTED_IMAGERY_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/2_sorted"
+SORTED_IMAGERY_PATH = "/ofo-share/project-data/catalog-data-prep/01_raw-imagery-ingestion/2_sorted"
 
-IMAGERY_ZIP_AND_EXAMPLES_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/4_raw-imagery-zip-and-examples"
+IMAGERY_ZIP_AND_EXAMPLES_PATH = "/ofo-share/project-data/catalog-data-prep/01_raw-imagery-ingestion/4_raw-imagery-zip-and-examples"
 
 IN_PROCESS_PATH = "/ofo-share/tmp/raw-imagery-publish-prep-progress-tracking/"
 
-UPLOAD_STAGING_DIR_PATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/9_temp-upload-staging"
+UPLOAD_STAGING_DIR_PATH = "/ofo-share/project-data/catalog-data-prep/01_raw-imagery-ingestion/9_temp-upload-staging"
 
 # Name of configured rclone remote for object storage
 RCLONE_REMOTE = "js2s3"
 REMOTE_MISSIONS_DIR = "/ofo-public/drone/missions_02/"
 REMOTE_PHOTOGRAMMETRY_DIR = "/ofo-internal/photogrammetry-outputs/"
 
-UPLOAD_ERROR_LOG = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/temp/cyverse-upload-log.txt"
+UPLOAD_ERROR_LOG = "/ofo-share/project-data/catalog-data-prep/01_raw-imagery-ingestion/temp/cyverse-upload-log.txt"
 
 
-PROJECTS_TO_PROCESS_PHOTOGRAMMETRY_FILEPATH = "/ofo-share/catalog-data-prep/00_missions-to-process/03_photogrammetry/projects-to-process.txt"
-PROJECT_NAMES_TO_PROCESS_PHOTOGRAMMETRY = read_lines(PROJECTS_TO_PROCESS_PHOTOGRAMMETRY_FILEPATH)
+PROJECTS_TO_PROCESS_PHOTOGRAMMETRY_FILEPATH = "/ofo-share/project-data/catalog-data-prep/00_missions-to-process/03_photogrammetry/projects-to-process.txt"
+PROJECT_NAMES_TO_PROCESS_PHOTOGRAMMETRY = tryCatch(
+  read_lines(PROJECTS_TO_PROCESS_PHOTOGRAMMETRY_FILEPATH),
+  error = function(e) {
+    warning("Could not read file: ", PROJECTS_TO_PROCESS_PHOTOGRAMMETRY_FILEPATH, "\n", e$message)
+    character(0)
+  }
+)
 # Exclude "commented out" project names
 PROJECT_NAMES_TO_PROCESS_PHOTOGRAMMETRY = PROJECT_NAMES_TO_PROCESS_PHOTOGRAMMETRY[!grepl("^#", PROJECT_NAMES_TO_PROCESS_PHOTOGRAMMETRY)]
 
-MISSIONS_TO_PROCESS_PHOTOGRAMMETRY_LIST_PATH = "/ofo-share/catalog-data-prep/00_missions-to-process/03_photogrammetry/missions-to-process.csv"
-MISSIONS_TO_PROCESS_PHOTOGRAMMETRY_PATH = "/ofo-share/catalog-data-prep/00_missions-to-process/03_photogrammetry"
+MISSIONS_TO_PROCESS_PHOTOGRAMMETRY_LIST_PATH = "/ofo-share/project-data/catalog-data-prep/00_missions-to-process/03_photogrammetry/missions-to-process.csv"
+MISSIONS_TO_PROCESS_PHOTOGRAMMETRY_PATH = "/ofo-share/project-data/catalog-data-prep/00_missions-to-process/03_photogrammetry"
 
 
 
@@ -93,7 +111,7 @@ MISSIONS_TO_PROCESS_PHOTOGRAMMETRY_PATH = "/ofo-share/catalog-data-prep/00_missi
 
 AUTOMATE_METASHAPE_PATH = "/ofo-share/repos-derek/automate-metashape"
 
-PHOTOGRAMMETRY_DIR = "/ofo-share/catalog-data-prep/02_photogrammetry"
+PHOTOGRAMMETRY_DIR = "/ofo-share/project-data/catalog-data-prep/02_photogrammetry"
 
 # All of these are relative to PHOTOGRAMMETRY_DIR:
 BASE_METASHAPE_CONFIG_SUBPATH = "01_base-metashape-config"
@@ -141,7 +159,7 @@ cat("Tempdir is:", tempdir(), "\n")
 
 # For ITD
 
-CHMS_FOR_ITD_LIST_PATH = "/ofo-share/catalog-data-prep/00_missions-to-process/04_itd/chms-for-itd.csv"
+CHMS_FOR_ITD_LIST_PATH = "/ofo-share/project-data/catalog-data-prep/00_missions-to-process/04_itd/chms-for-itd.csv"
 
 ITD_PARAMETERIZATION_ID = 1
 CHM_RES = 0.25
@@ -191,11 +209,11 @@ DATA_SERVER_BASE_URL = "https://js2.jetstream-cloud.org:8001/swift/v1/"
 DATA_SERVER_MISSIONS_BASE_URL = paste0(DATA_SERVER_BASE_URL, REMOTE_MISSIONS_DIR)
 
 # Metadata pulled from S3 to use in catalog generation
-MISSION_METADATA_FILEPATH = "/ofo-share/catalog-data-prep/05_drone-imagery-web-catalog/01_metadata/mission-metadata.gpkg"
-IMAGE_METADATA_FILEPATH = "/ofo-share/catalog-data-prep/05_drone-imagery-web-catalog/01_metadata/image-metadata.gpkg"
-S3_LISTING_FILEPATH = "/ofo-share/catalog-data-prep/05_drone-imagery-web-catalog/01_metadata/s3-listing.csv"
+MISSION_METADATA_FILEPATH = "/ofo-share/project-data/catalog-data-prep/05_drone-imagery-web-catalog/01_metadata/mission-metadata.gpkg"
+IMAGE_METADATA_FILEPATH = "/ofo-share/project-data/catalog-data-prep/05_drone-imagery-web-catalog/01_metadata/image-metadata.gpkg"
+S3_LISTING_FILEPATH = "/ofo-share/project-data/catalog-data-prep/05_drone-imagery-web-catalog/01_metadata/s3-listing.csv"
 
 # Lists of mission and plot IDs to withhold from broad-scale ML training (save for testing)
-MISSIONS_TO_WITHHOLD_FILEPATH = "/ofo-share/catalog-data-prep/stratification-data/strat-output/withheld_drone_mission_ids_v1.csv"
+MISSIONS_TO_WITHHOLD_FILEPATH = "/ofo-share/project-data/catalog-data-prep/stratification-data/strat-output/withheld_drone_mission_ids_v1.csv"
 
 # nolint end
