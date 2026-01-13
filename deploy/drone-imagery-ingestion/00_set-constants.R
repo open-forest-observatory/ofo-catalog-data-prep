@@ -222,7 +222,12 @@ SECONDARY_IMAGE_METADATA_FILEPATH = "/ofo-share/project-data/catalog-data-prep/0
 IMAGERY_METADATA_MISSION_OVERRIDE_LIST_FILEPATH = "/ofo-share/project-data/catalog-data-prep/05_drone-imagery-web-catalog/01_metadata/imagery-metadata-mission-override-list.csv"
 
 CURATION_MISSION_DETAILS_TEMPLATE_FILEPATH = fs::path("deploy/drone-imagery-ingestion/10_drone-mission-web-catalog/templates/drone-mission-details_curation.md")
+CURATION_MISSION_CATALOG_TEMPLATE_FILEPATH = fs::path("deploy/drone-imagery-ingestion/10_drone-mission-web-catalog/templates/drone-mission-catalog_curation.html")
 CURATION_MISSION_DETAILS_PAGE_DIR = "data/drone-curation/mission-details/"
+CURATION_MISSION_CATALOG_DATATABLE_DIR = "/drone-curation-mission-catalog-datatable"
+CURATION_MISSION_CATALOG_DATATABLE_FILENAME = "drone-curation-mission-catalog-datatable.html"
+CURATION_MISSION_CATALOG_MAP_DIR = "/drone-curation-mission-catalog-map"
+CURATION_MISSION_CATALOG_MAP_FILENAME = "drone-curation-mission-catalog-map.html"
 CURATION_MISSION_DETAILS_DATATABLE_DIR = "/drone-curation-mission-details-datatables"
 CURATION_MISSION_DETAILS_MAP_DIR = "/drone-curation-mission-details-maps"
 

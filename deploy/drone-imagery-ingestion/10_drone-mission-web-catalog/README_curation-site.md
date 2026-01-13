@@ -11,8 +11,8 @@ This directory contains scripts for generating both the public drone data catalo
 
 The curation site (`11_create-drone-data-curation-webpages.R`) is designed for internal data quality review and provides:
 
-1. **Mission-level metadata table**: All metadata attributes for each mission
-2. **Interactive leaflet map**: Shows drone photo locations, flight path, and image attributes
+1. **Mission catalog page**: Overview page with map and datatable of all missions
+2. **Mission detail pages**: Individual pages for each mission with metadata table and image location map
 3. **Secondary metadata support**: Allows using alternative image metadata for specific missions
 4. **Mission override list**: Specify which missions should use secondary metadata
 
@@ -91,10 +91,13 @@ Key constants are defined in `deploy/drone-imagery-ingestion/00_set-constants.R`
 
 The script generates:
 
-1. **Mission detail pages**: One markdown file per mission in `data/drone-curation/mission-details/`
-2. **Leaflet maps**: Interactive HTML maps in `static/drone-curation-mission-details-maps/`
-3. **Data tables**: HTML tables in `static/drone-curation-mission-details-datatables/`
-4. **Header files**: Shared JavaScript/CSS libraries for datatables and leaflet
+1. **Mission catalog page**: `data/drone-curation/_index.html` - Overview page with catalog map and datatable
+2. **Catalog map**: `static/drone-curation-mission-catalog-map/drone-curation-mission-catalog-map.html`
+3. **Catalog datatable**: `static/drone-curation-mission-catalog-datatable/drone-curation-mission-catalog-datatable.html`
+4. **Mission detail pages**: One markdown file per mission in `data/drone-curation/mission-details/`
+5. **Mission detail maps**: Interactive HTML maps in `static/drone-curation-mission-details-maps/`
+6. **Mission detail datatables**: HTML tables in `static/drone-curation-mission-details-datatables/`
+7. **Header files**: Shared JavaScript/CSS libraries for datatables and leaflet
 
 ## Differences from Public Catalog
 
@@ -102,6 +105,8 @@ The curation site differs from the public catalog in these ways:
 
 | Feature | Public Catalog | Curation Site |
 |---------|---------------|---------------|
+| Catalog overview page | ✓ | ✓ |
+| Mission detail pages | ✓ | ✓ |
 | Processed products | ✓ (orthomosaics, CHMs, etc.) | ✗ |
 | Example images | ✓ | ✗ |
 | Download links | ✓ | ✗ |

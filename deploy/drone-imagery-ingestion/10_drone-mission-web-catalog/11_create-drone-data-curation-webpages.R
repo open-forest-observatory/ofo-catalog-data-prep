@@ -84,8 +84,12 @@ get_image_metadata_for_missions = function(mission_ids,
   primary_subset = primary_points |> filter(mission_id %in% missions_to_keep_primary)
   secondary_subset = secondary_points |> filter(mission_id %in% missions_to_override)
 
+
+  # Convert all secondary columns to character to enable merge (was already done for primary apparently)
+  secondary_subset = secondary_subset |> mutate(across(image_id:mission_id, as.character))
+
   # Combine
-  combined_points = rbind(primary_subset, secondary_subset)
+  combined_points = bind_rows(primary_subset, secondary_subset)
 
   return(combined_points)
 }
@@ -126,6 +130,47 @@ mission_summary = mission_polygons_w_summary_data |> dplyr::arrange(mission_id)
 mission_ids = mission_summary$mission_id
 
 cat(sprintf("Processing %d missions\n", length(mission_ids)))
+
+# ============================================================================
+# Create mission catalog overview (map and datatable)
+# ============================================================================
+
+cat("Creating mission catalog map and datatable...\n")
+
+# Make HTML datatable of mission catalog
+dt = make_mission_catalog_datatable(
+  mission_summary = mission_summary,
+  website_static_path = WEBSITE_STATIC_PATH,
+  datatable_header_files_dir = DATATABLE_HEADER_FILES_DIR,
+  mission_catalog_datatable_dir = CURATION_MISSION_CATALOG_DATATABLE_DIR,
+  mission_catalog_datatable_filename = CURATION_MISSION_CATALOG_DATATABLE_FILENAME
+)
+
+# Make leaflet map of mission catalog
+m = make_mission_catalog_map(
+  mission_summary = mission_summary,
+  website_static_path = WEBSITE_STATIC_PATH,
+  leaflet_header_files_dir = LEAFLET_HEADER_FILES_DIR,
+  mission_catalog_map_dir = CURATION_MISSION_CATALOG_MAP_DIR,
+  mission_catalog_map_filename = CURATION_MISSION_CATALOG_MAP_FILENAME
+)
+
+# Copy catalog template to website content directory
+catalog_page_path = file.path(WEBSITE_CONTENT_PATH, "data/drone-curation/_index.html")
+dir.create(dirname(catalog_page_path), showWarnings = FALSE, recursive = TRUE)
+file.copy(
+  CURATION_MISSION_CATALOG_TEMPLATE_FILEPATH,
+  catalog_page_path,
+  overwrite = TRUE
+)
+
+cat(sprintf("  Catalog page saved to: %s\n", catalog_page_path))
+cat(sprintf("  Catalog map saved to: %s\n",
+            file.path(WEBSITE_STATIC_PATH, CURATION_MISSION_CATALOG_MAP_DIR,
+                      CURATION_MISSION_CATALOG_MAP_FILENAME)))
+cat(sprintf("  Catalog datatable saved to: %s\n\n",
+            file.path(WEBSITE_STATIC_PATH, CURATION_MISSION_CATALOG_DATATABLE_DIR,
+                      CURATION_MISSION_CATALOG_DATATABLE_FILENAME)))
 
 # ============================================================================
 # Create mission detail pages
@@ -214,7 +259,12 @@ walk(
 )
 
 cat("\n=== Curation site generation complete! ===\n")
+cat(sprintf("Generated mission catalog page: %s\n",
+            file.path(WEBSITE_CONTENT_PATH, "data/drone-curation/_index.html")))
 cat(sprintf("Generated %d mission detail pages\n", length(mission_ids)))
-cat(sprintf("Pages saved to: %s\n", file.path(WEBSITE_CONTENT_PATH, CURATION_MISSION_DETAILS_PAGE_DIR)))
-cat(sprintf("Maps saved to: %s\n", file.path(WEBSITE_STATIC_PATH, CURATION_MISSION_DETAILS_MAP_DIR)))
-cat(sprintf("Datatables saved to: %s\n", file.path(WEBSITE_STATIC_PATH, CURATION_MISSION_DETAILS_DATATABLE_DIR)))
+cat(sprintf("Mission detail pages saved to: %s\n",
+            file.path(WEBSITE_CONTENT_PATH, CURATION_MISSION_DETAILS_PAGE_DIR)))
+cat(sprintf("Mission detail maps saved to: %s\n",
+            file.path(WEBSITE_STATIC_PATH, CURATION_MISSION_DETAILS_MAP_DIR)))
+cat(sprintf("Mission detail datatables saved to: %s\n",
+            file.path(WEBSITE_STATIC_PATH, CURATION_MISSION_DETAILS_DATATABLE_DIR)))
