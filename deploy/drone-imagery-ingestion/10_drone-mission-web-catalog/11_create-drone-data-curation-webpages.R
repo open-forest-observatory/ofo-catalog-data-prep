@@ -24,41 +24,26 @@ source("src/web-catalog-creation_shared-functions.R")
 source("src/web-catalog-creation_drone-imagery-catalog.R")
 
 # ============================================================================
-# User-specified parameters
-# ============================================================================
-
-# Path to primary mission metadata file (.gpkg)
-PRIMARY_MISSION_METADATA_FILEPATH = MISSION_METADATA_FILEPATH
-
-# Path to primary image metadata file (.gpkg)
-PRIMARY_IMAGE_METADATA_FILEPATH = IMAGE_METADATA_FILEPATH
-
-# OPTIONAL: Path to secondary image metadata file (.gpkg)
-# This will be used for missions listed in the override list
-# Set to NULL if not using secondary metadata
-SECONDARY_IMAGE_METADATA_FILEPATH = NULL
-# SECONDARY_IMAGE_METADATA_FILEPATH = "/ofo-share/project-data/catalog-data-prep/05_drone-imagery-web-catalog/01_metadata/image-metadata-alternative.gpkg"
-
-# ============================================================================
 # Load metadata
 # ============================================================================
 
 cat("Loading mission metadata...\n")
-mission_polygons_w_metadata = st_read(PRIMARY_MISSION_METADATA_FILEPATH, quiet = TRUE)
+mission_polygons_w_metadata = st_read(MISSION_METADATA_FILEPATH, quiet = TRUE)
 
 cat("Loading primary image metadata...\n")
-primary_image_points = st_read(PRIMARY_IMAGE_METADATA_FILEPATH, quiet = TRUE)
+primary_image_points = st_read(IMAGE_METADATA_FILEPATH, quiet = TRUE)
 
-# Load secondary image metadata if specified
+# Load secondary image metadata if specified (not empty string and file exists)
 secondary_image_points = NULL
-if (!is.null(SECONDARY_IMAGE_METADATA_FILEPATH) && file.exists(SECONDARY_IMAGE_METADATA_FILEPATH)) {
+if (nzchar(SECONDARY_IMAGE_METADATA_FILEPATH) && file.exists(SECONDARY_IMAGE_METADATA_FILEPATH)) {
   cat("Loading secondary image metadata...\n")
   secondary_image_points = st_read(SECONDARY_IMAGE_METADATA_FILEPATH, quiet = TRUE)
 }
 
-# Load override list
+# Load override list if specified (not empty string and file exists)
 override_missions = character(0)
-if (file.exists(IMAGERY_METADATA_MISSION_OVERRIDE_LIST_FILEPATH)) {
+if (nzchar(IMAGERY_METADATA_MISSION_OVERRIDE_LIST_FILEPATH) &&
+    file.exists(IMAGERY_METADATA_MISSION_OVERRIDE_LIST_FILEPATH)) {
   cat("Loading override list...\n")
   override_df = read_csv(IMAGERY_METADATA_MISSION_OVERRIDE_LIST_FILEPATH, show_col_types = FALSE)
   if ("mission_id" %in% names(override_df)) {
@@ -68,7 +53,7 @@ if (file.exists(IMAGERY_METADATA_MISSION_OVERRIDE_LIST_FILEPATH)) {
     warning("Override list does not contain 'mission_id' column. Ignoring override list.")
   }
 } else {
-  warning("Override list file not found. All missions will use primary image metadata.")
+  cat("No override list specified. All missions will use primary image metadata.\n")
 }
 
 # ============================================================================
