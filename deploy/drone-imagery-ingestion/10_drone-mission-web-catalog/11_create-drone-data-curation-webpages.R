@@ -112,8 +112,8 @@ cat(sprintf("Total image points loaded: %d\n", nrow(mission_points)))
 # ============================================================================
 
 cat("Saving header library files...\n")
-save_dt_header_files(WEBSITE_STATIC_PATH, CURATION_CURATION_DATATABLE_HEADER_FILES_DIR)
-save_leaflet_header_files(WEBSITE_STATIC_PATH, CURATION_CURATION_LEAFLET_HEADER_FILES_DIR)
+save_dt_header_files(WEBSITE_STATIC_PATH, CURATION_DATATABLE_HEADER_FILES_DIR)
+save_leaflet_header_files(WEBSITE_STATIC_PATH, CURATION_LEAFLET_HEADER_FILES_DIR)
 
 # ============================================================================
 # Compile mission summary data
@@ -249,8 +249,14 @@ make_mission_curation_page = function(mission_id_foc,
 
 cat("Creating mission detail pages...\n\n")
 
+# Ensure mission details page directory exists
+mission_details_content_dir = file.path(WEBSITE_CONTENT_PATH, CURATION_MISSION_DETAILS_PAGE_DIR)
+if (!dir.exists(mission_details_content_dir)) {
+  dir.create(mission_details_content_dir, showWarnings = FALSE, recursive = TRUE)
+}
+
 # Set up parallel processing
-plan(multisession)
+plan(multisession, workers = parallel::detectCores()*2)
 
 # Process missions in parallel with progress reporting
 future_walk(
