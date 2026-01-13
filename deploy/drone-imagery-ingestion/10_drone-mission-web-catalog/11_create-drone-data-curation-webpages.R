@@ -146,73 +146,86 @@ cat(sprintf("Processing %d missions\n", length(mission_ids)))
 # Create mission detail pages
 # ============================================================================
 
+# Function to create a single curation page for a mission
+make_mission_curation_page = function(mission_id_foc,
+                                      all_mission_ids,
+                                      mission_summary,
+                                      mission_points) {
+
+  cat(sprintf("Making curation page for mission %s\n", mission_id_foc))
+
+  # Extract the mission-level metadata
+  mission_summary_foc = mission_summary |> filter(mission_id == mission_id_foc)
+
+  # Get the mission points for this mission
+  mission_points_foc = mission_points |> filter(mission_id == mission_id_foc)
+
+  # Make details map
+  mission_details_map_path = make_mission_details_map(
+    mission_summary_foc = mission_summary_foc,
+    mission_points_foc = mission_points_foc,
+    mission_polygons_for_mission_details_map = mission_summary,
+    mission_centroids = st_centroid(mission_summary),
+    website_static_path = WEBSITE_STATIC_PATH,
+    leaflet_header_files_dir = LEAFLET_HEADER_FILES_DIR,
+    mission_details_map_dir = CURATION_MISSION_DETAILS_MAP_DIR
+  )
+
+  # Make details datatable
+  mission_details_datatable_path = make_mission_details_datatable(
+    mission_summary_foc = mission_summary_foc,
+    website_static_path = WEBSITE_STATIC_PATH,
+    datatable_header_files_dir = DATATABLE_HEADER_FILES_DIR,
+    mission_details_datatable_dir = CURATION_MISSION_DETAILS_DATATABLE_DIR
+  )
+
+  # Compute previous and next dataset for navigation
+  current_index = which(all_mission_ids == mission_id_foc)
+  if (current_index == 1) {
+    previous_mission_id = all_mission_ids[length(all_mission_ids)]
+  } else {
+    previous_mission_id = all_mission_ids[current_index - 1]
+  }
+  if (current_index == length(all_mission_ids)) {
+    next_mission_id = all_mission_ids[1]
+  } else {
+    next_mission_id = all_mission_ids[current_index + 1]
+  }
+
+  next_dataset_page_path = paste0(
+    "/", CURATION_MISSION_DETAILS_PAGE_DIR, "/", next_mission_id
+  )
+  previous_dataset_page_path = paste0(
+    "/", CURATION_MISSION_DETAILS_PAGE_DIR, "/", previous_mission_id
+  )
+
+  # Render curation page from template
+  render_mission_details_page(
+    template_filepath = CURATION_MISSION_DETAILS_TEMPLATE_FILEPATH,
+    mission_summary_foc = mission_summary_foc,
+    s3_file_listing = data.frame(),  # Empty, not needed for curation view
+    mission_details_map_path = mission_details_map_path,
+    itd_map_path = NA,  # Not included in curation view
+    mission_details_datatable_path = mission_details_datatable_path,
+    next_dataset_page_path = next_dataset_page_path,
+    previous_dataset_page_path = previous_dataset_page_path,
+    website_repo_content_path = WEBSITE_CONTENT_PATH,
+    mission_details_page_dir = CURATION_MISSION_DETAILS_PAGE_DIR,
+    display_data = FALSE  # No S3 data products in curation view
+  )
+
+  gc()
+}
+
 cat("Creating mission detail pages...\n\n")
 
 # Iterate through each mission and create curation page
 walk(
   mission_ids,
-  function(mission_id_foc) {
-
-    cat(sprintf("Making curation page for mission %s\n", mission_id_foc))
-
-    # Extract the mission-level metadata
-    mission_summary_foc = mission_summary |> filter(mission_id == mission_id_foc)
-
-    # Get the mission points for this mission
-    mission_points_foc = mission_points |> filter(mission_id == mission_id_foc)
-
-    # Make details map
-    mission_details_map_path = make_mission_details_map(
-      mission_summary_foc = mission_summary_foc,
-      mission_points_foc = mission_points_foc,
-      mission_polygons_for_mission_details_map = mission_summary,
-      mission_centroids = st_centroid(mission_summary),
-      website_static_path = WEBSITE_STATIC_PATH,
-      leaflet_header_files_dir = LEAFLET_HEADER_FILES_DIR,
-      mission_details_map_dir = CURATION_MISSION_DETAILS_MAP_DIR
-    )
-
-    # Make details datatable
-    mission_details_datatable_path = make_mission_details_datatable(
-      mission_summary_foc = mission_summary_foc,
-      website_static_path = WEBSITE_STATIC_PATH,
-      datatable_header_files_dir = DATATABLE_HEADER_FILES_DIR,
-      mission_details_datatable_dir = CURATION_MISSION_DETAILS_DATATABLE_DIR
-    )
-
-    # Compute previous and next dataset for navigation
-    current_index = which(mission_ids == mission_id_foc)
-    if (current_index == 1) {
-      previous_mission_id = mission_ids[length(mission_ids)]
-    } else {
-      previous_mission_id = mission_ids[current_index - 1]
-    }
-    if (current_index == length(mission_ids)) {
-      next_mission_id = mission_ids[1]
-    } else {
-      next_mission_id = mission_ids[current_index + 1]
-    }
-
-    next_dataset_page_path = paste0("/", CURATION_MISSION_DETAILS_PAGE_DIR, "/", next_mission_id)
-    previous_dataset_page_path = paste0("/", CURATION_MISSION_DETAILS_PAGE_DIR, "/", previous_mission_id)
-
-    # Render curation page from template
-    render_mission_details_page(
-      template_filepath = CURATION_MISSION_DETAILS_TEMPLATE_FILEPATH,
-      mission_summary_foc = mission_summary_foc,
-      s3_file_listing = data.frame(),  # Empty, not needed for curation view
-      mission_details_map_path = mission_details_map_path,
-      itd_map_path = NA,  # Not included in curation view
-      mission_details_datatable_path = mission_details_datatable_path,
-      next_dataset_page_path = next_dataset_page_path,
-      previous_dataset_page_path = previous_dataset_page_path,
-      website_repo_content_path = WEBSITE_CONTENT_PATH,
-      mission_details_page_dir = CURATION_MISSION_DETAILS_PAGE_DIR,
-      display_data = FALSE  # No S3 data products in curation view
-    )
-
-    gc()
-  }
+  make_mission_curation_page,
+  all_mission_ids = mission_ids,
+  mission_summary = mission_summary,
+  mission_points = mission_points
 )
 
 cat("\n=== Curation site generation complete! ===\n")
