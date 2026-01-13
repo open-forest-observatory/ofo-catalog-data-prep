@@ -1,0 +1,222 @@
+# Purpose: Create internal curation website pages for drone mission datasets.
+# This script generates simplified pages showing only mission-level metadata and image location maps
+# for data curators to inspect datasets.
+#
+# Key features:
+# - Generates pages from image- and mission-level metadata files (.gpkg format)
+# - Supports secondary image metadata file for specific missions listed in override list
+# - Outputs simplified pages with mission metadata table and leaflet map only
+# - Reuses core functions from the public catalog creation code
+
+library(dplyr)
+library(leaflet)
+library(stringr)
+library(sf)
+library(htmlwidgets)
+library(DT)
+library(jinjar)
+library(readr)
+library(furrr)
+
+source("deploy/drone-imagery-ingestion/00_set-constants.R")
+source("src/utils.R")
+source("src/web-catalog-creation_shared-functions.R")
+source("src/web-catalog-creation_drone-imagery-catalog.R")
+
+# ============================================================================
+# User-specified parameters
+# ============================================================================
+
+# Path to primary mission metadata file (.gpkg)
+PRIMARY_MISSION_METADATA_FILEPATH = MISSION_METADATA_FILEPATH
+
+# Path to primary image metadata file (.gpkg)
+PRIMARY_IMAGE_METADATA_FILEPATH = IMAGE_METADATA_FILEPATH
+
+# OPTIONAL: Path to secondary image metadata file (.gpkg)
+# This will be used for missions listed in the override list
+# Set to NULL if not using secondary metadata
+SECONDARY_IMAGE_METADATA_FILEPATH = NULL
+# SECONDARY_IMAGE_METADATA_FILEPATH = "/ofo-share/project-data/catalog-data-prep/05_drone-imagery-web-catalog/01_metadata/image-metadata-alternative.gpkg"
+
+# ============================================================================
+# Load metadata
+# ============================================================================
+
+cat("Loading mission metadata...\n")
+mission_polygons_w_metadata = st_read(PRIMARY_MISSION_METADATA_FILEPATH, quiet = TRUE)
+
+cat("Loading primary image metadata...\n")
+primary_image_points = st_read(PRIMARY_IMAGE_METADATA_FILEPATH, quiet = TRUE)
+
+# Load secondary image metadata if specified
+secondary_image_points = NULL
+if (!is.null(SECONDARY_IMAGE_METADATA_FILEPATH) && file.exists(SECONDARY_IMAGE_METADATA_FILEPATH)) {
+  cat("Loading secondary image metadata...\n")
+  secondary_image_points = st_read(SECONDARY_IMAGE_METADATA_FILEPATH, quiet = TRUE)
+}
+
+# Load override list
+override_missions = character(0)
+if (file.exists(IMAGERY_METADATA_MISSION_OVERRIDE_LIST_FILEPATH)) {
+  cat("Loading override list...\n")
+  override_df = read_csv(IMAGERY_METADATA_MISSION_OVERRIDE_LIST_FILEPATH, show_col_types = FALSE)
+  if ("mission_id" %in% names(override_df)) {
+    override_missions = unique(override_df$mission_id)
+    cat(sprintf("  Found %d missions in override list\n", length(override_missions)))
+  } else {
+    warning("Override list does not contain 'mission_id' column. Ignoring override list.")
+  }
+} else {
+  warning("Override list file not found. All missions will use primary image metadata.")
+}
+
+# ============================================================================
+# Prepare combined image metadata
+# ============================================================================
+
+cat("Preparing image metadata...\n")
+
+# Function to determine which image metadata to use for each mission
+get_image_metadata_for_missions = function(mission_ids,
+                                           primary_points,
+                                           secondary_points = NULL,
+                                           override_list = character(0)) {
+
+  if (is.null(secondary_points) || length(override_list) == 0) {
+    # No secondary metadata or override list, use primary for all
+    return(primary_points)
+  }
+
+  # Filter missions that should use secondary metadata
+  missions_to_override = mission_ids[mission_ids %in% override_list]
+  missions_to_keep_primary = mission_ids[!(mission_ids %in% override_list)]
+
+  cat(sprintf("  Using secondary metadata for %d missions\n", length(missions_to_override)))
+  cat(sprintf("  Using primary metadata for %d missions\n", length(missions_to_keep_primary)))
+
+  # Extract relevant points from each source
+  primary_subset = primary_points |> filter(mission_id %in% missions_to_keep_primary)
+  secondary_subset = secondary_points |> filter(mission_id %in% missions_to_override)
+
+  # Combine
+  combined_points = rbind(primary_subset, secondary_subset)
+
+  return(combined_points)
+}
+
+# Get all mission IDs
+all_mission_ids = unique(mission_polygons_w_metadata$mission_id)
+
+# Get combined image metadata (primary + secondary where appropriate)
+mission_points = get_image_metadata_for_missions(
+  mission_ids = all_mission_ids,
+  primary_points = primary_image_points,
+  secondary_points = secondary_image_points,
+  override_list = override_missions
+)
+
+cat(sprintf("Total image points loaded: %d\n", nrow(mission_points)))
+
+# ============================================================================
+# Save header library files
+# ============================================================================
+
+cat("Saving header library files...\n")
+save_dt_header_files(WEBSITE_STATIC_PATH, DATATABLE_HEADER_FILES_DIR)
+save_leaflet_header_files(WEBSITE_STATIC_PATH, LEAFLET_HEADER_FILES_DIR)
+
+# ============================================================================
+# Compile mission summary data
+# ============================================================================
+
+cat("Compiling mission summary data...\n")
+mission_polygons_w_summary_data = compile_mission_summary_data(
+  mission_level_metadata = mission_polygons_w_metadata,
+  base_ofo_url = BASE_OFO_URL,
+  mission_details_dir = CURATION_MISSION_DETAILS_PAGE_DIR
+)
+
+mission_summary = mission_polygons_w_summary_data |> dplyr::arrange(mission_id)
+mission_ids = mission_summary$mission_id
+
+cat(sprintf("Processing %d missions\n", length(mission_ids)))
+
+# ============================================================================
+# Create mission detail pages
+# ============================================================================
+
+cat("Creating mission detail pages...\n\n")
+
+# Iterate through each mission and create curation page
+walk(
+  mission_ids,
+  function(mission_id_foc) {
+
+    cat(sprintf("Making curation page for mission %s\n", mission_id_foc))
+
+    # Extract the mission-level metadata
+    mission_summary_foc = mission_summary |> filter(mission_id == mission_id_foc)
+
+    # Get the mission points for this mission
+    mission_points_foc = mission_points |> filter(mission_id == mission_id_foc)
+
+    # Make details map
+    mission_details_map_path = make_mission_details_map(
+      mission_summary_foc = mission_summary_foc,
+      mission_points_foc = mission_points_foc,
+      mission_polygons_for_mission_details_map = mission_summary,
+      mission_centroids = st_centroid(mission_summary),
+      website_static_path = WEBSITE_STATIC_PATH,
+      leaflet_header_files_dir = LEAFLET_HEADER_FILES_DIR,
+      mission_details_map_dir = CURATION_MISSION_DETAILS_MAP_DIR
+    )
+
+    # Make details datatable
+    mission_details_datatable_path = make_mission_details_datatable(
+      mission_summary_foc = mission_summary_foc,
+      website_static_path = WEBSITE_STATIC_PATH,
+      datatable_header_files_dir = DATATABLE_HEADER_FILES_DIR,
+      mission_details_datatable_dir = CURATION_MISSION_DETAILS_DATATABLE_DIR
+    )
+
+    # Compute previous and next dataset for navigation
+    current_index = which(mission_ids == mission_id_foc)
+    if (current_index == 1) {
+      previous_mission_id = mission_ids[length(mission_ids)]
+    } else {
+      previous_mission_id = mission_ids[current_index - 1]
+    }
+    if (current_index == length(mission_ids)) {
+      next_mission_id = mission_ids[1]
+    } else {
+      next_mission_id = mission_ids[current_index + 1]
+    }
+
+    next_dataset_page_path = paste0("/", CURATION_MISSION_DETAILS_PAGE_DIR, "/", next_mission_id)
+    previous_dataset_page_path = paste0("/", CURATION_MISSION_DETAILS_PAGE_DIR, "/", previous_mission_id)
+
+    # Render curation page from template
+    render_mission_details_page(
+      template_filepath = CURATION_MISSION_DETAILS_TEMPLATE_FILEPATH,
+      mission_summary_foc = mission_summary_foc,
+      s3_file_listing = data.frame(),  # Empty, not needed for curation view
+      mission_details_map_path = mission_details_map_path,
+      itd_map_path = NA,  # Not included in curation view
+      mission_details_datatable_path = mission_details_datatable_path,
+      next_dataset_page_path = next_dataset_page_path,
+      previous_dataset_page_path = previous_dataset_page_path,
+      website_repo_content_path = WEBSITE_CONTENT_PATH,
+      mission_details_page_dir = CURATION_MISSION_DETAILS_PAGE_DIR,
+      display_data = FALSE  # No S3 data products in curation view
+    )
+
+    gc()
+  }
+)
+
+cat("\n=== Curation site generation complete! ===\n")
+cat(sprintf("Generated %d mission detail pages\n", length(mission_ids)))
+cat(sprintf("Pages saved to: %s\n", file.path(WEBSITE_CONTENT_PATH, CURATION_MISSION_DETAILS_PAGE_DIR)))
+cat(sprintf("Maps saved to: %s\n", file.path(WEBSITE_STATIC_PATH, CURATION_MISSION_DETAILS_MAP_DIR)))
+cat(sprintf("Datatables saved to: %s\n", file.path(WEBSITE_STATIC_PATH, CURATION_MISSION_DETAILS_DATATABLE_DIR)))

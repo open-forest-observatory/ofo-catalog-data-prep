@@ -216,4 +216,11 @@ S3_LISTING_FILEPATH = "/ofo-share/project-data/catalog-data-prep/05_drone-imager
 # Lists of mission and plot IDs to withhold from broad-scale ML training (save for testing)
 MISSIONS_TO_WITHHOLD_FILEPATH = "/ofo-share/project-data/catalog-data-prep/stratification-data/strat-output/withheld_drone_mission_ids_v1.csv"
 
+# For internal curation site generation
+IMAGERY_METADATA_MISSION_OVERRIDE_LIST_FILEPATH = "/ofo-share/project-data/catalog-data-prep/05_drone-imagery-web-catalog/01_metadata/imagery-metadata-mission-override-list.csv"
+CURATION_MISSION_DETAILS_TEMPLATE_FILEPATH = fs::path("deploy/drone-imagery-ingestion/10_drone-mission-web-catalog/templates/drone-mission-details_curation.md")
+CURATION_MISSION_DETAILS_PAGE_DIR = "data/drone-curation/mission-details/"
+CURATION_MISSION_DETAILS_DATATABLE_DIR = "/drone-curation-mission-details-datatables"
+CURATION_MISSION_DETAILS_MAP_DIR = "/drone-curation-mission-details-maps"
+
 # nolint end
