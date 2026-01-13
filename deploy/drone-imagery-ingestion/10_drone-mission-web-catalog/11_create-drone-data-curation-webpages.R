@@ -112,8 +112,8 @@ cat(sprintf("Total image points loaded: %d\n", nrow(mission_points)))
 # ============================================================================
 
 cat("Saving header library files...\n")
-save_dt_header_files(WEBSITE_STATIC_PATH, DATATABLE_HEADER_FILES_DIR)
-save_leaflet_header_files(WEBSITE_STATIC_PATH, LEAFLET_HEADER_FILES_DIR)
+save_dt_header_files(WEBSITE_STATIC_PATH, CURATION_CURATION_DATATABLE_HEADER_FILES_DIR)
+save_leaflet_header_files(WEBSITE_STATIC_PATH, CURATION_CURATION_LEAFLET_HEADER_FILES_DIR)
 
 # ============================================================================
 # Compile mission summary data
@@ -141,7 +141,7 @@ cat("Creating mission catalog map and datatable...\n")
 dt = make_mission_catalog_datatable(
   mission_summary = mission_summary,
   website_static_path = WEBSITE_STATIC_PATH,
-  datatable_header_files_dir = DATATABLE_HEADER_FILES_DIR,
+  datatable_header_files_dir = CURATION_DATATABLE_HEADER_FILES_DIR,
   mission_catalog_datatable_dir = CURATION_MISSION_CATALOG_DATATABLE_DIR,
   mission_catalog_datatable_filename = CURATION_MISSION_CATALOG_DATATABLE_FILENAME
 )
@@ -150,7 +150,7 @@ dt = make_mission_catalog_datatable(
 m = make_mission_catalog_map(
   mission_summary = mission_summary,
   website_static_path = WEBSITE_STATIC_PATH,
-  leaflet_header_files_dir = LEAFLET_HEADER_FILES_DIR,
+  leaflet_header_files_dir = CURATION_LEAFLET_HEADER_FILES_DIR,
   mission_catalog_map_dir = CURATION_MISSION_CATALOG_MAP_DIR,
   mission_catalog_map_filename = CURATION_MISSION_CATALOG_MAP_FILENAME
 )
@@ -197,7 +197,7 @@ make_mission_curation_page = function(mission_id_foc,
     mission_polygons_for_mission_details_map = mission_summary,
     mission_centroids = st_centroid(mission_summary),
     website_static_path = WEBSITE_STATIC_PATH,
-    leaflet_header_files_dir = LEAFLET_HEADER_FILES_DIR,
+    leaflet_header_files_dir = CURATION_LEAFLET_HEADER_FILES_DIR,
     mission_details_map_dir = CURATION_MISSION_DETAILS_MAP_DIR
   )
 
@@ -205,7 +205,7 @@ make_mission_curation_page = function(mission_id_foc,
   mission_details_datatable_path = make_mission_details_datatable(
     mission_summary_foc = mission_summary_foc,
     website_static_path = WEBSITE_STATIC_PATH,
-    datatable_header_files_dir = DATATABLE_HEADER_FILES_DIR,
+    datatable_header_files_dir = CURATION_DATATABLE_HEADER_FILES_DIR,
     mission_details_datatable_dir = CURATION_MISSION_DETAILS_DATATABLE_DIR
   )
 
@@ -249,14 +249,21 @@ make_mission_curation_page = function(mission_id_foc,
 
 cat("Creating mission detail pages...\n\n")
 
-# Iterate through each mission and create curation page
-walk(
+# Set up parallel processing
+plan(multisession)
+
+# Process missions in parallel with progress reporting
+future_walk(
   mission_ids,
   make_mission_curation_page,
   all_mission_ids = mission_ids,
   mission_summary = mission_summary,
-  mission_points = mission_points
+  mission_points = mission_points,
+  .progress = TRUE
 )
+
+# Reset to sequential processing
+plan(sequential)
 
 cat("\n=== Curation site generation complete! ===\n")
 cat(sprintf("Generated mission catalog page: %s\n",
