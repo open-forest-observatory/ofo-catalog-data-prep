@@ -181,7 +181,7 @@ ITD_FOLDER = paste0("itd_", str_pad(ITD_PARAMETERIZATION_ID, width = 4, pad = "0
 
 BASE_OFO_URL = "https://openforestobservatory.org/"
 # BASE_OFO_URL = "http://localhost:1313/"
-WEBSITE_REPO_PATH = "/ofo-share/repos-derek/ofo-website-3"
+WEBSITE_REPO_PATH = "ofo-website-3"
 
 # Path to the plot details template page within this repo
 MISSION_DETAILS_TEMPLATE_FILEPATH = fs::path("deploy/drone-imagery-ingestion/10_drone-mission-web-catalog/templates/drone-mission-details.md")
