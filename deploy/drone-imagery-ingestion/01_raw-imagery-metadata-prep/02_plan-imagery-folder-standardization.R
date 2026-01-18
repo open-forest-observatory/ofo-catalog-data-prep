@@ -599,10 +599,15 @@ write_csv(folderid_baserow_crosswalk, contributed_to_sorted_mision_id_crosswalk_
 
 image_data = image_data |>
   mutate(extension = tools::file_ext(image_path_in)) |>
-  rename(mission_id = dataset_id_out_final,
-         sub_mission_id = folder_out_final) |>
+  rename(
+    mission_id = dataset_id_out_final,
+    sub_mission_id = folder_out_final
+  ) |>
   mutate(image_path_in_rel = str_replace(image_path_in, paste0(".*", PROJECT_NAME_TO_PROCESS_RAW_IMAGERY_METADATA, "\\/"), "")) |>
   mutate(image_path_in_rel = paste0(PROJECT_NAME_TO_PROCESS_RAW_IMAGERY_METADATA, "/", image_path_in_rel)) |>
+  # Order by DateTimeOriginal and then image_path_in (thus assuming drone collection names images
+  # sequentially) to ensure consistent ordering
+  arrange(sub_mission_id, DateTimeOriginal, image_path_in) |>
   group_by(sub_mission_id) |>
   mutate(image_number = row_number()) |>
   ungroup() |>
