@@ -26,8 +26,9 @@ baserow_datasets = baserow_datasets |>
 # - contact_info
 # - license
 # - objectives
+# - forest_focused
 baserow_projects = baserow_projects |>
-  select(project_id, contributor_names, contact_info, license, objectives)
+  select(project_id, contributor_names, contact_info, license, objectives, forest_focused)
 baserow_datasets = baserow_datasets |>
   left_join(baserow_projects, by = c("project_id" = "project_id"))
 
