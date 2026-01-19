@@ -160,6 +160,9 @@ parse_mission_exif_at_image_level = function(mission_id_foc) {
   metadata_perimage$image_path_contrib = exif$image_path_in_rel
   metadata_perimage$image_path_ofo = exif$image_path_ofo
 
+  # Create a unique image ID from the OFO path (the original filename is not unique across folders)
+  metadata_perimage$image_id = tools::file_path_sans_ext(basename(metadata_perimage$image_path_ofo))
+
 
   # Pad the mission ID since it may start as an integer (not the case for the sub-mission ID since it
   # contains a dash and thus never gets misinterpreted as an int)
