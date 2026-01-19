@@ -23,15 +23,28 @@ get_image_data = function(dataset_folder) {
   # Compile relevant per-image info (including potential ways to distinguish two drones) into data
   # frame
 
-  # Check if nay of the relevant columns are null
-  date_null = is.null(exif$DateTimeOriginal) | any(is.na(exif$DateTimeOriginal))
-  model_null = is.null(exif$Model) | any(is.na(exif$Model))
-  serialnumber_null = is.null(exif$SerialNumber)
-
-  if (date_null || model_null) {
-    warning("Null values (likely complete image corruption) found in ", base_folder, ". Skipping.")
+  # Check if required columns exist at all (would indicate all images are corrupted)
+  if (is.null(exif$DateTimeOriginal) || is.null(exif$Model)) {
+    warning("Required EXIF columns missing entirely in ", base_folder, ". Skipping folder.")
     return(NULL)
   }
+
+  # Filter out individual corrupted images (missing date or model)
+  corrupted_mask = is.na(exif$DateTimeOriginal) | is.na(exif$Model)
+  n_corrupted = sum(corrupted_mask)
+  if (n_corrupted > 0) {
+    warning(n_corrupted, " corrupted image(s) skipped in ", base_folder)
+    exif = exif[!corrupted_mask, ]
+    image_filepaths = image_filepaths[!corrupted_mask]
+  }
+
+  # If all images were corrupted, skip the folder
+  if (nrow(exif) == 0) {
+    warning("All images corrupted in ", base_folder, ". Skipping folder.")
+    return(NULL)
+  }
+
+  serialnumber_null = is.null(exif$SerialNumber)
 
   # If the serial number is missing (as in the case of the Matrice 100) replace it with the model
   if (serialnumber_null) {
