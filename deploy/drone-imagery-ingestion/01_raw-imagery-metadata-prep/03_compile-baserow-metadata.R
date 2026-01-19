@@ -48,6 +48,18 @@ crosswalk = read_csv(crosswalk_filepath)
 # provided* attributes from Baserow like base station location and drone model will need to be
 # pulled from both matching baserow rows and concatenated
 
+concat_unique = function(x) {
+  x = x[!is.na(x)]
+  unq = unique(x)
+  if (length(unq) > 1) {
+    return(paste(unq, collapse = ", "))
+  } else if (length(unq) == 0) {
+    return(NA)
+  } else {
+    return(unq)
+  }
+}
+
 # Start with the sub-mission-level Baserow attributes
 sub_mission_baserow = left_join(crosswalk, baserow_datasets, by = c("dataset_id_baserow" = "dataset_id"))
 
@@ -85,15 +97,7 @@ if ("addl_dataset_ids_baserow" %in% colnames(sub_mission_baserow)) {
           primary_val = sub_mission_baserow[[col]][i]
           addl_vals = addl_baserow[[col]]
           all_vals = c(primary_val, addl_vals)
-          # Remove NAs and get unique values
-          all_vals = all_vals[!is.na(all_vals)]
-          unq_vals = unique(all_vals)
-          if (length(unq_vals) > 1) {
-            sub_mission_baserow[[col]][i] = paste(unq_vals, collapse = ", ")
-          } else if (length(unq_vals) == 1) {
-            sub_mission_baserow[[col]][i] = unq_vals
-          }
-          # If length == 0, leave as NA
+          sub_mission_baserow[[col]][i] = concat_unique(all_vals)
         }
       }
     }
@@ -105,18 +109,6 @@ sub_mission_baserow = sub_mission_baserow |>
 
 # Next, the mission-level Baserow attributes, including concatenating the sub-mission-level
 # attributes if they differ
-
-concat_unique = function(x) {
-  x = x[!is.na(x)]
-  unq = unique(x)
-  if (length(unq) > 1) {
-    return(paste(unq, collapse = ", "))
-  } else if (length(unq) == 0) {
-    return(NA)
-  } else {
-    return(unq)
-  }
-}
 
 mission_baserow = sub_mission_baserow |>
   # At the mission level, the dataset_id is the mission_id
