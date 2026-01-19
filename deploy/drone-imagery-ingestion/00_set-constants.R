@@ -13,8 +13,8 @@ FOLDER_DATASET_ID_PADDING = 6
 
 
 IMAGE_MERGE_DISTANCE = 50
-# If processing NRS datasets, use a larger merge distance because some datasets used very low overlap
-IMAGE_MERGE_DISTANCE = 100
+# # If processing NRS datasets, use a larger merge distance because some datasets used very low overlap
+# IMAGE_MERGE_DISTANCE = 100
 
 # For example image selection & image set zipping
 N_EXAMPLE_IMAGES = 4
