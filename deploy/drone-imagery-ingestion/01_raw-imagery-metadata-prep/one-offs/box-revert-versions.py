@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Revert Box files to their previous versions.
+Revert Box files to their earliest versions.
 
 This script reads a CSV file (in the format produced by box-file-versions.py)
-and reverts each file to its previous version using the Box "promote version" API.
+and reverts each file to its earliest version using the Box "promote version" API.
 
 The promote API creates a copy of the previous version and makes it current,
 without needing to download and re-upload the file content.
@@ -340,11 +340,11 @@ def authenticate(
     return BoxClient(auth=auth)
 
 
-def get_previous_version(client: BoxClient, file_id: str) -> Optional[dict]:
+def get_earliest_version(client: BoxClient, file_id: str) -> Optional[dict]:
     """
-    Get the previous version of a file.
+    Get the earliest version of a file.
 
-    Returns the most recent previous version (not the current one).
+    Returns the oldest version (not the current one).
     Returns None if there is no previous version.
     """
     try:
@@ -357,14 +357,14 @@ def get_previous_version(client: BoxClient, file_id: str) -> Optional[dict]:
             return None
 
         # Versions are returned with most recent first
-        # The first entry is the most recent previous version
-        prev_version = versions_response.entries[0]
+        # The last entry is the earliest version
+        earliest_version = versions_response.entries[-1]
         return {
-            'id': prev_version.id,
-            'sha1': getattr(prev_version, 'sha1', None),
-            'created_at': getattr(prev_version, 'created_at', None),
-            'modified_at': getattr(prev_version, 'modified_at', None),
-            'size': getattr(prev_version, 'size', None),
+            'id': earliest_version.id,
+            'sha1': getattr(earliest_version, 'sha1', None),
+            'created_at': getattr(earliest_version, 'created_at', None),
+            'modified_at': getattr(earliest_version, 'modified_at', None),
+            'size': getattr(earliest_version, 'size', None),
         }
     except BoxAPIError as e:
         status = getattr(e, 'response_info', None)
@@ -595,28 +595,28 @@ def main():
             }
 
             try:
-                # Get the previous version
-                prev_version = get_previous_version(client, file_id)
+                # Get the earliest version
+                earliest_version = get_earliest_version(client, file_id)
 
-                if not prev_version:
+                if not earliest_version:
                     result['status'] = 'skipped'
                     result['error'] = 'No previous version available'
                     _files_skipped += 1
                     print(f"SKIP: {file_path or file_name} - No previous version", file=sys.stderr)
                 else:
-                    result['previous_version_id'] = prev_version['id']
+                    result['previous_version_id'] = earliest_version['id']
 
                     if args.dry_run:
                         result['status'] = 'dry_run'
-                        print(f"WOULD REVERT: {file_path or file_name} -> version {prev_version['id']}", file=sys.stderr)
+                        print(f"WOULD REVERT: {file_path or file_name} -> version {earliest_version['id']}", file=sys.stderr)
                         _files_reverted += 1
                     else:
-                        # Promote the previous version
-                        new_version = promote_version(client, file_id, prev_version['id'])
+                        # Promote the earliest version
+                        new_version = promote_version(client, file_id, earliest_version['id'])
                         result['status'] = 'reverted'
                         result['new_version_id'] = new_version['id']
                         _files_reverted += 1
-                        print(f"REVERTED: {file_path or file_name} -> version {prev_version['id']} (new: {new_version['id']})", file=sys.stderr)
+                        print(f"REVERTED: {file_path or file_name} -> version {earliest_version['id']} (new: {new_version['id']})", file=sys.stderr)
 
             except BoxAPIError as e:
                 status = getattr(e, 'response_info', None)
