@@ -696,22 +696,22 @@ def main():
         max_version=max_version
     )
 
-    # Collect results
-    results = list(filtered_files)
+    # Stream results to CSV as they're found, collect for terminal display
+    results = []
+    csv_file = open(args.output, 'w', newline='', encoding='utf-8') if args.output else None
+    csv_writer = None
+    if csv_file:
+        csv_writer = csv.DictWriter(csv_file, fieldnames=[
+            'path', 'name', 'modified_at', 'version_count', 'size', 'id'
+        ])
+        csv_writer.writeheader()
 
-    # Final progress
-    print_progress(force=True)
-    print(f"Scan complete.", file=sys.stderr)
+    try:
+        for file_info in filtered_files:
+            results.append(file_info)
 
-    # Output results
-    if args.output:
-        # Write to CSV
-        with open(args.output, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                'path', 'name', 'modified_at', 'version_count', 'size', 'id'
-            ])
-            writer.writeheader()
-            for file_info in results:
+            # Write to CSV immediately
+            if csv_writer:
                 mod_date_raw = file_info.get('modified_at')
                 mod_date_str = ''
                 if mod_date_raw:
@@ -720,7 +720,7 @@ def main():
                         mod_date_str = dt.strftime('%Y-%m-%d %H:%M:%S')
                     except Exception:
                         mod_date_str = str(mod_date_raw)
-                writer.writerow({
+                csv_writer.writerow({
                     'path': file_info['path'],
                     'name': file_info['name'],
                     'modified_at': mod_date_str,
@@ -728,45 +728,55 @@ def main():
                     'size': file_info.get('size', ''),
                     'id': file_info['id']
                 })
+                csv_file.flush()  # Ensure it's written immediately
+    finally:
+        if csv_file:
+            csv_file.close()
+
+    # Final progress
+    print_progress(force=True)
+    print(f"Scan complete.", file=sys.stderr)
+
+    if args.output:
         print(f"Wrote {len(results)} files to {args.output}", file=sys.stderr)
+
+    # Print human-readable table to terminal
+    if not results:
+        print("No files found matching the criteria.")
     else:
-        # Print human-readable table
-        if not results:
-            print("No files found matching the criteria.")
-        else:
-            # Calculate column widths
-            path_width = max(len(f['path']) for f in results)
-            path_width = min(path_width, 80)  # Cap at 80 chars
+        # Calculate column widths
+        path_width = max(len(f['path']) for f in results)
+        path_width = min(path_width, 80)  # Cap at 80 chars
 
-            # Print header
-            header = f"{'Path':<{path_width}}  {'Modified':<20}  {'Ver':>4}  {'Size':>10}"
-            print(header)
-            print("-" * len(header))
+        # Print header
+        header = f"{'Path':<{path_width}}  {'Modified':<20}  {'Ver':>4}  {'Size':>10}"
+        print(header)
+        print("-" * len(header))
 
-            # Print files
-            for file_info in results:
-                path = file_info['path']
-                if len(path) > path_width:
-                    path = "..." + path[-(path_width-3):]
+        # Print files
+        for file_info in results:
+            path = file_info['path']
+            if len(path) > path_width:
+                path = "..." + path[-(path_width-3):]
 
-                mod_date_raw = file_info.get('modified_at')
-                mod_date = ''
-                if mod_date_raw:
-                    try:
-                        dt = parse_date(mod_date_raw)
-                        mod_date = dt.strftime('%Y-%m-%d %H:%M:%S')
-                    except Exception:
-                        mod_date = str(mod_date_raw)[:20]
+            mod_date_raw = file_info.get('modified_at')
+            mod_date = ''
+            if mod_date_raw:
+                try:
+                    dt = parse_date(mod_date_raw)
+                    mod_date = dt.strftime('%Y-%m-%d %H:%M:%S')
+                except Exception:
+                    mod_date = str(mod_date_raw)[:20]
 
-                version = file_info.get('version_count')
-                version_str = str(version) if version is not None else '-'
+            version = file_info.get('version_count')
+            version_str = str(version) if version is not None else '-'
 
-                size_str = format_size(file_info.get('size'))
+            size_str = format_size(file_info.get('size'))
 
-                print(f"{path:<{path_width}}  {mod_date:<20}  {version_str:>4}  {size_str:>10}")
+            print(f"{path:<{path_width}}  {mod_date:<20}  {version_str:>4}  {size_str:>10}")
 
-            print("")
-            print(f"Total: {len(results)} files")
+        print("")
+        print(f"Total: {len(results)} files")
 
 
 if __name__ == '__main__':
