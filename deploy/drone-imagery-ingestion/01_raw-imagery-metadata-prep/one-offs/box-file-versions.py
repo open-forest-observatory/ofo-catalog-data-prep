@@ -362,53 +362,76 @@ def list_files_recursively(
     global _files_scanned, _folders_scanned
 
     try:
-        def fetch_items():
-            return client.folders.get_folder_items(
-                folder_id,
-                fields=['id', 'name', 'type', 'modified_at', 'size', 'content_modified_at']
-            )
-
-        items_response = api_call_with_retry(fetch_items)
         _folders_scanned += 1
+        offset = 0
+        limit = 1000
 
-        for item in items_response.entries:
-            current_path = f"{path_prefix}/{item.name}" if path_prefix else item.name
+        while True:
+            def fetch_items(off=offset):
+                return client.folders.get_folder_items(
+                    folder_id,
+                    fields=['id', 'name', 'type', 'modified_at', 'size', 'content_modified_at'],
+                    limit=limit,
+                    offset=off
+                )
 
-            if item.type.value == 'file':
-                _files_scanned += 1
-                print_progress()
-                yield {
-                    'id': item.id,
-                    'name': item.name,
-                    'path': current_path,
-                    'size': getattr(item, 'size', 0),
-                    'modified_at': getattr(item, 'modified_at', None),
-                    'content_modified_at': getattr(item, 'content_modified_at', None),
-                }
-            elif item.type.value == 'folder':
-                yield from list_files_recursively(client, item.id, current_path)
+            items_response = api_call_with_retry(fetch_items)
+
+            if not items_response.entries:
+                break
+
+            for item in items_response.entries:
+                current_path = f"{path_prefix}/{item.name}" if path_prefix else item.name
+
+                if item.type.value == 'file':
+                    _files_scanned += 1
+                    print_progress()
+                    yield {
+                        'id': item.id,
+                        'name': item.name,
+                        'path': current_path,
+                        'size': getattr(item, 'size', 0),
+                        'modified_at': getattr(item, 'modified_at', None),
+                        'content_modified_at': getattr(item, 'content_modified_at', None),
+                    }
+                elif item.type.value == 'folder':
+                    yield from list_files_recursively(client, item.id, current_path)
+
+            # Check if there are more items
+            if len(items_response.entries) < limit:
+                break
+            offset += limit
 
     except Exception as e:
         print(f"Error listing folder '{path_prefix}': {e}", file=sys.stderr)
 
 
-def parse_date(date_str: str) -> datetime:
-    """Parse a date string in various formats."""
-    try:
-        # Try ISO format first
-        return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-    except ValueError:
-        pass
+def parse_date(date_input) -> datetime:
+    """Parse a date string or datetime object into a datetime."""
+    # If already a datetime, return it
+    if isinstance(date_input, datetime):
+        return date_input
 
-    # Try common formats
-    for fmt in ['%Y-%m-%d', '%Y/%m/%d', '%m/%d/%Y', '%d-%m-%Y']:
+    # If it's a string, parse it
+    if isinstance(date_input, str):
         try:
-            return datetime.strptime(date_str, fmt)
+            # Try ISO format first
+            return datetime.fromisoformat(date_input.replace('Z', '+00:00'))
         except ValueError:
-            continue
+            pass
 
-    # Fall back to dateutil parser
-    return date_parser.parse(date_str)
+        # Try common formats
+        for fmt in ['%Y-%m-%d', '%Y/%m/%d', '%m/%d/%Y', '%d-%m-%Y']:
+            try:
+                return datetime.strptime(date_input, fmt)
+            except ValueError:
+                continue
+
+        # Fall back to dateutil parser
+        return date_parser.parse(date_input)
+
+    # Try to convert other types (like SDK date objects) to string first
+    return date_parser.parse(str(date_input))
 
 
 def filter_files(
@@ -675,10 +698,18 @@ def main():
             ])
             writer.writeheader()
             for file_info in results:
+                mod_date_raw = file_info.get('content_modified_at') or file_info.get('modified_at')
+                mod_date_str = ''
+                if mod_date_raw:
+                    try:
+                        dt = parse_date(mod_date_raw)
+                        mod_date_str = dt.strftime('%Y-%m-%d %H:%M:%S')
+                    except Exception:
+                        mod_date_str = str(mod_date_raw)
                 writer.writerow({
                     'path': file_info['path'],
                     'name': file_info['name'],
-                    'modified_at': file_info.get('content_modified_at') or file_info.get('modified_at', ''),
+                    'modified_at': mod_date_str,
                     'version_count': file_info.get('version_count', ''),
                     'size': file_info.get('size', ''),
                     'id': file_info['id']
@@ -704,13 +735,14 @@ def main():
                 if len(path) > path_width:
                     path = "..." + path[-(path_width-3):]
 
-                mod_date = file_info.get('content_modified_at') or file_info.get('modified_at', '')
-                if mod_date:
+                mod_date_raw = file_info.get('content_modified_at') or file_info.get('modified_at')
+                mod_date = ''
+                if mod_date_raw:
                     try:
-                        dt = parse_date(mod_date)
+                        dt = parse_date(mod_date_raw)
                         mod_date = dt.strftime('%Y-%m-%d %H:%M:%S')
-                    except:
-                        pass
+                    except Exception:
+                        mod_date = str(mod_date_raw)[:20]
 
                 version = file_info.get('version_count')
                 version_str = str(version) if version is not None else '-'
