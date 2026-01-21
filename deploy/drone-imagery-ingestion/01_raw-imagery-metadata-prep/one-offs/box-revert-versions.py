@@ -91,6 +91,7 @@ _files_processed = 0
 _files_reverted = 0
 _files_skipped = 0
 _files_failed = 0
+_files_already_reverted = 0
 _last_progress_time = 0
 
 # API call tracking
@@ -171,7 +172,7 @@ def print_progress(force: bool = False):
             elapsed_minutes = (now - _start_time) / 60.0
 
         print(f"Progress: {_files_processed} processed, {_files_reverted} reverted, "
-              f"{_files_skipped} skipped, {_files_failed} failed | "
+              f"{_files_already_reverted} already reverted, {_files_skipped} skipped, {_files_failed} failed | "
               f"API calls: {total_api_calls} total, {calls_last_minute} in last min, "
               f"{elapsed_minutes:.1f} min elapsed",
               file=sys.stderr)
@@ -338,6 +339,30 @@ def authenticate(
         save_tokens(token.access_token, token.refresh_token)
 
     return BoxClient(auth=auth)
+
+
+def get_version_count(client: BoxClient, file_id: str) -> int:
+    """
+    Get the total number of versions for a file.
+
+    Returns the count including the current version (so a file with 1 previous
+    version returns 2).
+    """
+    try:
+        def fetch_versions():
+            return client.file_versions.get_file_versions(file_id)
+
+        versions_response = api_call_with_retry(fetch_versions)
+
+        # The API returns previous versions (not including current),
+        # so add 1 for the current version
+        return len(versions_response.entries) + 1 if versions_response.entries else 1
+    except BoxAPIError as e:
+        status = getattr(e, 'response_info', None)
+        status_code = getattr(status, 'status_code', None) if status else None
+        if status_code == 404:
+            return 0
+        raise
 
 
 def get_earliest_version(client: BoxClient, file_id: str) -> Optional[dict]:
@@ -571,7 +596,7 @@ def main():
         csv_writer.writeheader()
 
     # Process files
-    global _files_processed, _files_reverted, _files_skipped, _files_failed, _start_time
+    global _files_processed, _files_reverted, _files_skipped, _files_failed, _files_already_reverted, _start_time
     _start_time = time.time()
 
     results = []
@@ -597,6 +622,20 @@ def main():
             }
 
             try:
+                # Check version count first - if > 2, file was already reverted
+                version_count = get_version_count(client, file_id)
+
+                if version_count > 2:
+                    result['status'] = 'already_reverted'
+                    result['error'] = f'File has {version_count} versions (expected 2)'
+                    _files_already_reverted += 1
+                    print_progress()
+                    results.append(result)
+                    if csv_writer:
+                        csv_writer.writerow(result)
+                        output_file.flush()
+                    continue
+
                 # Get the earliest version
                 earliest_version = get_earliest_version(client, file_id)
 
@@ -655,6 +694,7 @@ def main():
     print("\n=== Summary ===", file=sys.stderr)
     print(f"Total files processed: {_files_processed}", file=sys.stderr)
     print(f"Successfully reverted: {_files_reverted}", file=sys.stderr)
+    print(f"Already reverted (>2 versions): {_files_already_reverted}", file=sys.stderr)
     print(f"Skipped (no previous version): {_files_skipped}", file=sys.stderr)
     print(f"Failed: {_files_failed}", file=sys.stderr)
 
