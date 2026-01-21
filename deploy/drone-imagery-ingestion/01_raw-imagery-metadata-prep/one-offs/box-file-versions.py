@@ -82,9 +82,9 @@ TOKEN_CACHE_PATH = os.path.expanduser("~/.box_tokens.json")
 REDIRECT_URI = "http://localhost:8080/callback"
 
 # Rate limiting and retry settings
-MAX_RETRIES = 5
-BASE_BACKOFF_SECONDS = 1.0
-MAX_BACKOFF_SECONDS = 60.0
+MAX_RETRIES = 10
+BASE_BACKOFF_SECONDS = 15.0
+MAX_BACKOFF_SECONDS = 300.0
 
 # Global to capture auth code from callback
 _auth_code = None
@@ -95,6 +95,10 @@ _files_scanned = 0
 _folders_scanned = 0
 _files_matched = 0
 _last_progress_time = 0
+
+# API call tracking
+_api_call_timestamps = []  # List of timestamps for each API call
+_start_time = None
 
 
 def api_call_with_retry(func, *args, **kwargs):
@@ -108,10 +112,12 @@ def api_call_with_retry(func, *args, **kwargs):
 
     Uses exponential backoff with jitter.
     """
+    global _api_call_timestamps
     last_exception = None
 
     for attempt in range(MAX_RETRIES):
         try:
+            _api_call_timestamps.append(time.time())
             return func(*args, **kwargs)
         except BoxAPIError as e:
             last_exception = e
@@ -157,8 +163,20 @@ def print_progress(force: bool = False):
     now = time.time()
     # Print progress every 10 seconds, or if forced
     if force or (now - _last_progress_time) >= 10:
+        # Calculate API call stats
+        total_api_calls = len(_api_call_timestamps)
+        one_minute_ago = now - 60
+        calls_last_minute = sum(1 for t in _api_call_timestamps if t > one_minute_ago)
+
+        # Calculate elapsed minutes
+        elapsed_minutes = 0.0
+        if _start_time:
+            elapsed_minutes = (now - _start_time) / 60.0
+
         print(f"Progress: {_folders_scanned} folders, {_files_scanned} files scanned, "
-              f"{_files_matched} files matched so far...",
+              f"{_files_matched} files matched | "
+              f"API calls: {total_api_calls} total, {calls_last_minute} in last min, "
+              f"{elapsed_minutes:.1f} min elapsed",
               file=sys.stderr)
         _last_progress_time = now
 
@@ -686,6 +704,8 @@ def main():
     print("", file=sys.stderr)
 
     # List and filter files
+    global _start_time
+    _start_time = time.time()
     print("Scanning folders...", file=sys.stderr)
     files = list_files_recursively(client, args.folder_id)
     filtered_files = filter_files(
