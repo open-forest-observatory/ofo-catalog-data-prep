@@ -356,15 +356,18 @@ def get_earliest_version(client: BoxClient, file_id: str) -> Optional[dict]:
         if not versions_response.entries:
             return None
 
-        # Versions are returned with most recent first
-        # The last entry is the earliest version
-        earliest_version = versions_response.entries[-1]
+        # Find the version with the lowest version_number
+        earliest_version = min(
+            versions_response.entries,
+            key=lambda v: int(getattr(v, 'version_number', '0') or '0')
+        )
         return {
             'id': earliest_version.id,
             'sha1': getattr(earliest_version, 'sha1', None),
             'created_at': getattr(earliest_version, 'created_at', None),
             'modified_at': getattr(earliest_version, 'modified_at', None),
             'size': getattr(earliest_version, 'size', None),
+            'version_number': getattr(earliest_version, 'version_number', None),
         }
     except BoxAPIError as e:
         status = getattr(e, 'response_info', None)
