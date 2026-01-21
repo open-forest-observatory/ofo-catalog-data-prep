@@ -370,7 +370,7 @@ def list_files_recursively(
             def fetch_items(off=offset):
                 return client.folders.get_folder_items(
                     folder_id,
-                    fields=['id', 'name', 'type', 'modified_at', 'size', 'content_modified_at'],
+                    fields=['id', 'name', 'type', 'modified_at', 'size', 'content_modified_at', 'version_number'],
                     limit=limit,
                     offset=off
                 )
@@ -393,6 +393,7 @@ def list_files_recursively(
                         'size': getattr(item, 'size', 0),
                         'modified_at': getattr(item, 'modified_at', None),
                         'content_modified_at': getattr(item, 'content_modified_at', None),
+                        'version_number': getattr(item, 'version_number', None),
                     }
                 elif item.type.value == 'folder':
                     yield from list_files_recursively(client, item.id, current_path)
@@ -463,8 +464,8 @@ def filter_files(
     for file_info in files:
         # Check date filter
         if start_date or end_date:
-            # Use content_modified_at if available, fall back to modified_at
-            mod_date_str = file_info.get('content_modified_at') or file_info.get('modified_at')
+            # Use modified_at (matches Box web UI "UPDATED" column)
+            mod_date_str = file_info.get('modified_at')
             if mod_date_str:
                 try:
                     mod_date = parse_date(mod_date_str)
@@ -479,8 +480,23 @@ def filter_files(
                 except Exception as e:
                     print(f"Warning: Could not parse date '{mod_date_str}': {e}", file=sys.stderr)
 
+        # Get version count - use version_number from listing if available
+        # version_number is the current version (1-indexed), so it equals the total count
+        version_count = file_info.get('version_number')
+        if version_count is not None:
+            # Convert to int if it's a string
+            version_count = int(version_count) if isinstance(version_count, str) else version_count
+        file_info['version_count'] = version_count
+
         # Check version filter
-        if need_versions:
+        if need_versions and version_count is not None:
+            if min_version and version_count < min_version:
+                continue
+            if max_version and version_count > max_version:
+                continue
+        elif need_versions:
+            # Fallback to API call if version_number wasn't returned
+            print(f"Warning: version_number not in listing, fetching via API for {file_info['name']}", file=sys.stderr)
             version_count = get_file_version_count(client, file_info['id'])
             file_info['version_count'] = version_count
 
@@ -488,8 +504,6 @@ def filter_files(
                 continue
             if max_version and version_count > max_version:
                 continue
-        else:
-            file_info['version_count'] = None
 
         _files_matched += 1
         yield file_info
@@ -698,7 +712,7 @@ def main():
             ])
             writer.writeheader()
             for file_info in results:
-                mod_date_raw = file_info.get('content_modified_at') or file_info.get('modified_at')
+                mod_date_raw = file_info.get('modified_at')
                 mod_date_str = ''
                 if mod_date_raw:
                     try:
@@ -735,7 +749,7 @@ def main():
                 if len(path) > path_width:
                     path = "..." + path[-(path_width-3):]
 
-                mod_date_raw = file_info.get('content_modified_at') or file_info.get('modified_at')
+                mod_date_raw = file_info.get('modified_at')
                 mod_date = ''
                 if mod_date_raw:
                     try:
