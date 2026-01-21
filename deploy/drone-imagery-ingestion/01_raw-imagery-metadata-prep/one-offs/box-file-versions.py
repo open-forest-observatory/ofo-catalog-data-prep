@@ -59,11 +59,16 @@ from typing import Generator, Optional
 from urllib.parse import urlparse, parse_qs
 
 try:
-    from boxsdk import OAuth2, Client
-    from boxsdk.object.folder import Folder
-    from boxsdk.exception import BoxAPIException
+    from box_sdk_gen import (
+        BoxClient,
+        BoxOAuth,
+        OAuthConfig,
+        GetAuthorizeUrlOptions,
+        AccessToken,
+        BoxAPIError,
+    )
 except ImportError:
-    print("Error: boxsdk is not installed. Install it with: pip install boxsdk")
+    print("Error: box-sdk-gen is not installed. Install it with: pip install box-sdk-gen")
     sys.exit(1)
 
 try:
@@ -108,26 +113,22 @@ def api_call_with_retry(func, *args, **kwargs):
     for attempt in range(MAX_RETRIES):
         try:
             return func(*args, **kwargs)
-        except BoxAPIException as e:
+        except BoxAPIError as e:
             last_exception = e
 
+            # Get status code from the new SDK's error structure
+            status = getattr(e, 'response_info', None)
+            status_code = getattr(status, 'status_code', None) if status else None
+
             # Check if retryable
-            if e.status in (429, 500, 502, 503, 504):
-                # Get retry-after header if available (for 429)
-                retry_after = None
-                if e.status == 429 and hasattr(e, 'headers'):
-                    retry_after = e.headers.get('Retry-After')
+            if status_code in (429, 500, 502, 503, 504):
+                # Exponential backoff with jitter
+                wait_time = min(
+                    BASE_BACKOFF_SECONDS * (2 ** attempt) + (time.time() % 1),
+                    MAX_BACKOFF_SECONDS
+                )
 
-                if retry_after:
-                    wait_time = float(retry_after)
-                else:
-                    # Exponential backoff with jitter
-                    wait_time = min(
-                        BASE_BACKOFF_SECONDS * (2 ** attempt) + (time.time() % 1),
-                        MAX_BACKOFF_SECONDS
-                    )
-
-                print(f"Rate limited or server error (HTTP {e.status}). "
+                print(f"Rate limited or server error (HTTP {status_code}). "
                       f"Retrying in {wait_time:.1f}s (attempt {attempt + 1}/{MAX_RETRIES})...",
                       file=sys.stderr)
                 time.sleep(wait_time)
@@ -228,7 +229,7 @@ def authenticate(
     client_secret: Optional[str] = None,
     access_token: Optional[str] = None,
     refresh_token: Optional[str] = None
-) -> Client:
+) -> BoxClient:
     """
     Authenticate with Box using OAuth 2.0.
 
@@ -256,52 +257,43 @@ def authenticate(
     elif not client_id or not client_secret:
         raise ValueError("Must provide either --config or both --client-id and --client-secret")
 
-    # If tokens provided via CLI, use them directly (no storage)
+    # Create OAuth config
+    oauth_config = OAuthConfig(client_id=client_id, client_secret=client_secret)
+    auth = BoxOAuth(oauth_config)
+
+    # If tokens provided via CLI, use them directly
     if access_token:
-        oauth = OAuth2(
-            client_id=client_id,
-            client_secret=client_secret,
-            access_token=access_token,
-            refresh_token=refresh_token,
-            store_tokens=lambda a, r: None  # Don't store CLI-provided tokens
-        )
-        client = Client(oauth)
+        token = AccessToken(access_token=access_token, refresh_token=refresh_token)
+        auth.token_storage.store(token)
+        client = BoxClient(auth=auth)
         # Test the connection
-        client.user().get()
+        client.users.get_user_me()
         print("Using provided tokens.", file=sys.stderr)
         return client
-
-    # Token storage callback for SDK
-    def store_tokens(access_token, refresh_token):
-        save_tokens(access_token, refresh_token)
 
     # Check for cached tokens
     cached = load_tokens()
     if cached:
         try:
-            oauth = OAuth2(
-                client_id=client_id,
-                client_secret=client_secret,
+            token = AccessToken(
                 access_token=cached.get('access_token'),
-                refresh_token=cached.get('refresh_token'),
-                store_tokens=store_tokens
+                refresh_token=cached.get('refresh_token')
             )
-            client = Client(oauth)
+            auth.token_storage.store(token)
+            client = BoxClient(auth=auth)
             # Test the connection
-            client.user().get()
+            client.users.get_user_me()
             print("Using cached authentication.", file=sys.stderr)
             return client
         except Exception:
             print("Cached tokens expired, re-authenticating...", file=sys.stderr)
+            # Create fresh auth object
+            auth = BoxOAuth(oauth_config)
 
     # Need to do fresh OAuth flow
-    oauth = OAuth2(
-        client_id=client_id,
-        client_secret=client_secret,
-        store_tokens=store_tokens
+    auth_url = auth.get_authorize_url(
+        options=GetAuthorizeUrlOptions(redirect_uri=REDIRECT_URI)
     )
-
-    auth_url, csrf_token = oauth.get_authorization_url(REDIRECT_URI)
 
     # Start local server to receive callback
     server = HTTPServer(('localhost', 8080), OAuthCallbackHandler)
@@ -323,13 +315,17 @@ def authenticate(
         raise Exception("Authorization timed out. Please try again.")
 
     # Exchange code for tokens
-    access_token, refresh_token = oauth.authenticate(_auth_code)
-    save_tokens(access_token, refresh_token)
+    auth.get_tokens_authorization_code_grant(_auth_code)
 
-    return Client(oauth)
+    # Save tokens from storage
+    token = auth.token_storage.get()
+    if token:
+        save_tokens(token.access_token, token.refresh_token)
+
+    return BoxClient(auth=auth)
 
 
-def get_file_version_count(client: Client, file_id: str) -> int:
+def get_file_version_count(client: BoxClient, file_id: str) -> int:
     """
     Get the number of versions for a file.
 
@@ -337,21 +333,19 @@ def get_file_version_count(client: Client, file_id: str) -> int:
     A file with no previous versions has version count of 1.
     """
     try:
-        file_obj = client.file(file_id)
-
         def fetch_versions():
-            return list(file_obj.get_previous_versions())
+            return client.file_versions.get_file_versions(file_id)
 
-        versions = api_call_with_retry(fetch_versions)
-        return len(versions) + 1  # +1 for current version
+        versions_response = api_call_with_retry(fetch_versions)
+        return len(versions_response.entries) + 1  # +1 for current version
     except Exception as e:
         print(f"Warning: Could not get versions for file {file_id}: {e}", file=sys.stderr)
         return 1
 
 
 def list_files_recursively(
-    client: Client,
-    folder: Folder,
+    client: BoxClient,
+    folder_id: str,
     path_prefix: str = ""
 ) -> Generator[dict, None, None]:
     """
@@ -359,7 +353,7 @@ def list_files_recursively(
 
     Args:
         client: Authenticated Box client
-        folder: Box folder object to start from
+        folder_id: Box folder ID to start from
         path_prefix: Current path for building relative paths
 
     Yields:
@@ -369,18 +363,18 @@ def list_files_recursively(
 
     try:
         def fetch_items():
-            return list(folder.get_items(
-                limit=1000,
+            return client.folders.get_folder_items(
+                folder_id,
                 fields=['id', 'name', 'type', 'modified_at', 'size', 'content_modified_at']
-            ))
+            )
 
-        items = api_call_with_retry(fetch_items)
+        items_response = api_call_with_retry(fetch_items)
         _folders_scanned += 1
 
-        for item in items:
+        for item in items_response.entries:
             current_path = f"{path_prefix}/{item.name}" if path_prefix else item.name
 
-            if item.type == 'file':
+            if item.type.value == 'file':
                 _files_scanned += 1
                 print_progress()
                 yield {
@@ -391,9 +385,8 @@ def list_files_recursively(
                     'modified_at': getattr(item, 'modified_at', None),
                     'content_modified_at': getattr(item, 'content_modified_at', None),
                 }
-            elif item.type == 'folder':
-                subfolder = client.folder(item.id)
-                yield from list_files_recursively(client, subfolder, current_path)
+            elif item.type.value == 'folder':
+                yield from list_files_recursively(client, item.id, current_path)
 
     except Exception as e:
         print(f"Error listing folder '{path_prefix}': {e}", file=sys.stderr)
@@ -419,7 +412,7 @@ def parse_date(date_str: str) -> datetime:
 
 
 def filter_files(
-    client: Client,
+    client: BoxClient,
     files: Generator[dict, None, None],
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
@@ -633,8 +626,7 @@ def main():
     # Get the folder
     print(f"Searching folder {args.folder_id}...", file=sys.stderr)
     try:
-        folder = client.folder(args.folder_id)
-        folder_info = folder.get(fields=['name'])
+        folder_info = client.folders.get_folder_by_id(args.folder_id, fields=['name'])
         folder_name = folder_info.name
     except Exception as e:
         print(f"Error: Could not access folder {args.folder_id}: {e}", file=sys.stderr)
@@ -658,7 +650,7 @@ def main():
 
     # List and filter files
     print("Scanning folders...", file=sys.stderr)
-    files = list_files_recursively(client, folder)
+    files = list_files_recursively(client, args.folder_id)
     filtered_files = filter_files(
         client, files,
         start_date=start_date,
