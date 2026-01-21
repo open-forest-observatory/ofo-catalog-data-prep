@@ -759,44 +759,8 @@ def main():
 
     if args.output:
         print(f"Wrote {len(results)} files to {args.output}", file=sys.stderr)
-
-    # Print human-readable table to terminal
-    if not results:
-        print("No files found matching the criteria.")
     else:
-        # Calculate column widths
-        path_width = max(len(f['path']) for f in results)
-        path_width = min(path_width, 80)  # Cap at 80 chars
-
-        # Print header
-        header = f"{'Path':<{path_width}}  {'Modified':<20}  {'Ver':>4}  {'Size':>10}"
-        print(header)
-        print("-" * len(header))
-
-        # Print files
-        for file_info in results:
-            path = file_info['path']
-            if len(path) > path_width:
-                path = "..." + path[-(path_width-3):]
-
-            mod_date_raw = file_info.get('modified_at')
-            mod_date = ''
-            if mod_date_raw:
-                try:
-                    dt = parse_date(mod_date_raw)
-                    mod_date = dt.strftime('%Y-%m-%d %H:%M:%S')
-                except Exception:
-                    mod_date = str(mod_date_raw)[:20]
-
-            version = file_info.get('version_count')
-            version_str = str(version) if version is not None else '-'
-
-            size_str = format_size(file_info.get('size'))
-
-            print(f"{path:<{path_width}}  {mod_date:<20}  {version_str:>4}  {size_str:>10}")
-
-        print("")
-        print(f"Total: {len(results)} files")
+        print(f"Found {len(results)} files matching the criteria.", file=sys.stderr)
 
 
 if __name__ == '__main__':
