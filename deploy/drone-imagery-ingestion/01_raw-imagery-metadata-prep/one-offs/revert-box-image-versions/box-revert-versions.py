@@ -220,6 +220,13 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
 
 def save_tokens(access_token: str, refresh_token: str):
     """Save tokens to cache file."""
+    # Check if refresh token changed
+    old_tokens = load_tokens()
+    if old_tokens and old_tokens.get('refresh_token') != refresh_token:
+        print(f"\n*** REFRESH TOKEN UPDATED ***", file=sys.stderr)
+        print(f"New refresh token: {refresh_token}", file=sys.stderr)
+        print(f"***\n", file=sys.stderr)
+
     with open(TOKEN_CACHE_PATH, 'w') as f:
         json.dump({
             'access_token': access_token,
@@ -377,9 +384,6 @@ def get_earliest_version(client: BoxClient, file_id: str) -> Optional[dict]:
             return client.file_versions.get_file_versions(file_id)
 
         versions_response = api_call_with_retry(fetch_versions)
-
-        # Debug: print what we're getting
-        print(f"DEBUG: versions_response type={type(versions_response)}, entries={versions_response.entries}", file=sys.stderr)
 
         if not versions_response.entries:
             return None
@@ -706,6 +710,14 @@ def main():
 
     if args.dry_run:
         print("\n*** This was a DRY RUN - no changes were made ***", file=sys.stderr)
+
+    # Check if tokens were refreshed during the run and save them
+    try:
+        current_token = client.auth.token_storage.get()
+        if current_token and current_token.refresh_token:
+            save_tokens(current_token.access_token, current_token.refresh_token)
+    except Exception:
+        pass  # Ignore errors when checking tokens
 
     # Exit with error code if any failures
     if _files_failed > 0:
