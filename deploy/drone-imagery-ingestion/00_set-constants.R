@@ -23,8 +23,8 @@ SKIP_EXISTING = FALSE # Skip processing for missions that already have all outpu
 
 
 # Base path for project data
-BASE_DATA_PATH = "/ofo-share/project-data/catalog-data-prep/"
-# BASE_DATA_PATH = "/z_OLD_ofo-share/ARCHIVED__SEE_README/catalog-data-prep/"
+# BASE_DATA_PATH = "/ofo-share/project-data/catalog-data-prep/"
+BASE_DATA_PATH = "/z_OLD_ofo-share/ARCHIVED__SEE_README/catalog-data-prep/"
 
 PROJECT_TO_PROCESS_RAW_IMAGERY_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "00_missions-to-process/01_raw-imagery-meatadata-prep/project-to-process.txt")
 PROJECT_NAME_TO_PROCESS_RAW_IMAGERY_METADATA = tryCatch(
@@ -65,7 +65,9 @@ FULL_METADATA_PER_SUB_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "meta
 FULL_METADATA_PER_MISSION_COMBINED_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/3_pre-curation-final/ofo-all-missions-metadata.gpkg")
 FULL_METADATA_PER_IMAGE_COMBINED_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/3_pre-curation-final/ofo-all-images-metadata.gpkg")
 
-CURATION_NOTES_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/4_curation/imagery-curation-notes.csv")
+CURATION_NOTES_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/4_curation/imagery-curation-notes_v2.csv")
+FORMERLY_CURATED_IMAGE_METADATA = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/4_curation/formerly-curated-image-metadata_2025-04-19.gpkg")
+FORMERLY_CURATED_MISSION_LIST = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/4_curation/formerly-curated-mission-list_2025-04-19.csv")
 
 PROJECT_TO_PROCESS_RAW_IMAGERY_FILES_FILEPATH = file.path(BASE_DATA_PATH, "00_missions-to-process/02_raw-imagery-file-prep/projects-to-process.txt")
 PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES = tryCatch(
