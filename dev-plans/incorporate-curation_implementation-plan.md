@@ -34,7 +34,6 @@ SORTED_IMAGERY_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "2_sorted")
 # Post-curation intermediate paths (mirror pre-curation structure)
 POST_CURATION_INTERMEDIATE_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/5_post-curation-intermediate")
 
-POST_CURATION_IMAGE_EXIF_W_SORTING_PLAN_PATH = file.path(POST_CURATION_INTERMEDIATE_PATH, "1_exif-w-sorting-plan")
 POST_CURATION_DERIVED_METADATA_PER_MISSION_PATH = file.path(POST_CURATION_INTERMEDIATE_PATH, "2_derived-metadata-per-mission")
 POST_CURATION_DERIVED_METADATA_PER_SUB_MISSION_PATH = file.path(POST_CURATION_INTERMEDIATE_PATH, "3_derived-metadata-per-sub-mission")
 
@@ -53,6 +52,192 @@ POST_CURATION_FULL_METADATA_PER_IMAGE_COMBINED_FILEPATH = file.path(POST_CURATIO
 **File:** `deploy/drone-imagery-ingestion/00_set-constants.R`
 
 **Lines to add after line 70** (after the existing curation constants)
+
+---
+
+## Phase 1.5: Modify Pre-Curation Scripts for Reuse and EXIF Column Preservation
+
+This phase modifies existing pre-curation scripts to: (a) extract shared functions for reuse by post-curation scripts, and (b) preserve EXIF columns needed by downstream scripts to eliminate dependency on the sorting plan CSVs.
+
+### Step 1.5.1: Modify `05_parse-exif-metadata-per-image.R` to preserve EXIF columns
+
+Modify the script to pass through `Orientation` and `GPSTimeStamp` columns from the input sorting plan CSV, renamed to avoid confusion with parsed values.
+
+**Changes to make in `deploy/drone-imagery-ingestion/01_raw-imagery-metadata-prep/05_parse-exif-metadata-per-image.R`:**
+
+After line 164 (after `metadata_perimage$image_id = ...`), add:
+
+```r
+  # Preserve EXIF columns needed for downstream fixes (orientation rotation, GPS timestamp format)
+  # These come from the raw EXIF in the sorting plan and are needed by fix_exif script
+  if ("Orientation" %in% names(exif)) {
+    metadata_perimage$preprocessed_exif_orientation = exif$Orientation
+  } else {
+    metadata_perimage$preprocessed_exif_orientation = NA
+  }
+
+  if ("GPSTimeStamp" %in% names(exif)) {
+    metadata_perimage$preprocessed_exif_gpstimestamp = exif$GPSTimeStamp
+  } else {
+    metadata_perimage$preprocessed_exif_gpstimestamp = NA
+  }
+```
+
+This ensures the EXIF columns flow through to the gpkg files in step 06, eliminating the need to reference the sorting plan CSV for EXIF fixes.
+
+### Step 1.5.2: Extract shared summarization function from script 06
+
+Create a new shared module by extracting the `compute_polygons_and_images_retained` function and the core summarization workflow from `06_summarize-exif-metadata-per-mission.R`.
+
+**Create new file: `src/summarization-utils.R`**
+
+```r
+# src/summarization-utils.R
+# Shared functions for summarizing image metadata at mission/sub-mission level
+
+library(tidyverse)
+library(sf)
+
+source("src/metadata-extraction_imagery_dataset.R")
+
+#' Compute mission/sub-mission polygons and identify retained images
+#'
+#' @param image_metadata Data frame with image metadata including lon, lat columns
+#' @param column_to_split_on Column name to group by ("mission_id" or "sub_mission_id")
+#' @param image_merge_distance Distance threshold for polygon computation
+#' @return List with `polygons` (named list of sf objects) and `retained_image_IDs` (character vector)
+compute_polygons_and_images_retained = function(image_metadata, column_to_split_on, image_merge_distance) {
+  # [Copy the existing function body from 06_summarize-exif-metadata-per-mission.R lines 16-58]
+  # This is already shown in the existing plan - the key point is to move it to this shared file
+}
+
+#' Summarize EXIF metadata for a single mission
+#'
+#' @param mission_id_foc Mission ID to process
+#' @param input_metadata_path Directory containing input image metadata gpkg files
+#' @param output_derived_mission_path Directory for output mission-level derived metadata
+#' @param output_derived_sub_mission_path Directory for output sub-mission-level derived metadata
+#' @param output_retained_images_path Optional: directory for output filtered image metadata gpkg
+#' @param image_merge_distance Distance threshold for polygon computation
+#' @return TRUE on success, FALSE on failure
+summarize_mission_exif = function(mission_id_foc,
+                                   input_metadata_path,
+                                   output_derived_mission_path,
+                                   output_derived_sub_mission_path,
+                                   output_retained_images_path = NULL,
+                                   image_merge_distance) {
+  # Core summarization logic extracted from 06_summarize-exif-metadata-per-mission.R
+  # The function should:
+  # 1. Read image metadata from input_metadata_path
+  # 2. Compute polygons at mission and sub-mission level
+  # 3. Filter to retained images (intersection of both polygon computations)
+  # 4. Optionally write filtered image metadata to output_retained_images_path
+  # 5. Re-compute polygons with filtered images
+  # 6. Extract summary statistics using extract_imagery_dataset_metadata()
+  # 7. Write attributed polygons to output paths
+  # 8. Return TRUE/FALSE for success/failure
+}
+```
+
+**Modify `06_summarize-exif-metadata-per-mission.R`:**
+
+Replace the inline `compute_polygons_and_images_retained` function and `summarize_exif` function with calls to the shared module:
+
+```r
+source("src/summarization-utils.R")
+
+# ... (keep existing mission list loading code) ...
+
+# Run for each mission_id using the shared function
+future::plan(multisession)
+future_walk(
+  missions_to_process,
+  ~ summarize_mission_exif(
+    mission_id_foc = .x,
+    input_metadata_path = PARSED_EXIF_METADATA_PATH,  # Script 06 reads from CSV, convert to gpkg read
+    output_derived_mission_path = DERIVED_METADATA_PER_MISSION_PATH,
+    output_derived_sub_mission_path = DERIVED_METADATA_PER_SUB_MISSION_PATH,
+    output_retained_images_path = PARSED_EXIF_FOR_RETAINED_IMAGES_PATH,
+    image_merge_distance = IMAGE_MERGE_DISTANCE
+  ),
+  .progress = TRUE,
+  .options = furrr::furrr_options(seed = TRUE)
+)
+```
+
+### Step 1.5.3: Extract shared merge function from script 07
+
+Create a shared merge function that can be used by both pre-curation script 07 and post-curation script 03.
+
+**Create new file: `src/merge-utils.R`**
+
+```r
+# src/merge-utils.R
+# Shared functions for merging derived and contributed metadata
+
+library(tidyverse)
+library(sf)
+
+#' Merge derived EXIF metadata with contributed (Baserow) metadata
+#'
+#' @param mission_foc Mission ID to process
+#' @param derived_mission_path Directory containing derived mission-level gpkg files
+#' @param derived_sub_mission_path Directory containing derived sub-mission-level gpkg files
+#' @param contributed_mission_path Directory containing contributed mission-level CSV files
+#' @param contributed_sub_mission_path Directory containing contributed sub-mission-level CSV files
+#' @param output_mission_path Directory for output full mission-level gpkg files
+#' @param output_sub_mission_path Directory for output full sub-mission-level gpkg files
+#' @param curation_notes_mission Optional: tibble with mission-level curation anomaly columns
+#' @param curation_notes_sub_mission Optional: tibble with sub-mission-level curation anomaly columns
+#' @return TRUE on success, FALSE on failure
+merge_derived_and_contributed_metadata = function(
+  mission_foc,
+  derived_mission_path,
+  derived_sub_mission_path,
+  contributed_mission_path,
+  contributed_sub_mission_path,
+  output_mission_path,
+  output_sub_mission_path,
+  curation_notes_mission = NULL,
+  curation_notes_sub_mission = NULL
+) {
+  # Core merge logic extracted from 07_merge-exif-and-baserow.R
+  # The function should:
+  # 1. Load derived gpkg and contributed CSV for the mission
+  # 2. Rename sub_mission_id to sub_mission_ids in contributed data
+  # 3. Bind columns together, putting _derived columns at end
+  # 4. If curation_notes_mission provided, add curation anomaly columns
+  # 5. Write to output_mission_path
+  # 6. Repeat for each sub-mission within the mission
+  # 7. Return TRUE/FALSE for success/failure
+}
+```
+
+**Modify `07_merge-exif-and-baserow.R`:**
+
+Replace the inline `merge_derived_and_contributed_metadata` function with the shared version:
+
+```r
+source("src/merge-utils.R")
+
+# ... (keep existing mission list loading code) ...
+
+# Run for each mission using the shared function
+future::plan(multisession)
+future_walk(
+  missions_to_process,
+  ~ merge_derived_and_contributed_metadata(
+    mission_foc = .x,
+    derived_mission_path = DERIVED_METADATA_PER_MISSION_PATH,
+    derived_sub_mission_path = DERIVED_METADATA_PER_SUB_MISSION_PATH,
+    contributed_mission_path = EXTRACTED_METADATA_PER_MISSION_PATH,
+    contributed_sub_mission_path = EXTRACTED_METADATA_PER_SUB_MISSION_PATH,
+    output_mission_path = FULL_METADATA_PER_MISSION_PATH,
+    output_sub_mission_path = FULL_METADATA_PER_SUB_MISSION_PATH
+  ),
+  .progress = TRUE
+)
+```
 
 ---
 
@@ -277,6 +462,8 @@ update_image_id_references = function(text, crosswalk) {
     new_id = crosswalk |> filter(former_image_id == old_id) |> pull(current_image_id)
     if (length(new_id) == 1) {
       result = str_replace(result, fixed(old_id), new_id)
+    } else {
+      warning(paste("Former image ID", old_id, "could not be mapped to a current image ID"))
     }
   }
 
@@ -451,13 +638,11 @@ for (i in seq_len(nrow(curation_notes_updated))) {
 
 cat("Filtering image metadata and saving post-curation versions...\n")
 
-# Create output directories
+# Create output directory
 create_dir(POST_CURATION_PARSED_EXIF_FOR_RETAINED_IMAGES_PATH)
-create_dir(POST_CURATION_IMAGE_EXIF_W_SORTING_PLAN_PATH)
 
-# Get all missions to process (those with curation notes OR in formerly curated list)
-missions_with_curation = unique(curation_notes_updated$mission_id)
-all_missions_to_process = unique(c(missions_with_curation, current_mission_ids))
+# Process all current missions (applying curation filters where they exist)
+all_missions_to_process = current_mission_ids
 
 filter_and_save_mission = function(mission_id_foc) {
   # Load pre-curation image metadata
@@ -491,32 +676,6 @@ filter_and_save_mission = function(mission_id_foc) {
   output_filepath = file.path(POST_CURATION_PARSED_EXIF_FOR_RETAINED_IMAGES_PATH,
                               paste0(mission_id_foc, "_image-metadata.gpkg"))
   st_write(image_metadata, output_filepath, delete_dsn = TRUE, quiet = TRUE)
-
-  # Also create filtered sorting plan (for script 08)
-  sorting_plan_input = file.path(IMAGE_EXIF_W_SORTING_PLAN_PATH, paste0(mission_id_foc, ".csv"))
-  if (file.exists(sorting_plan_input)) {
-    sorting_plan = read_csv(sorting_plan_input, col_types = cols(.default = "c"))
-
-    # Filter to retained images only
-    # Need to match on image filename
-    retained_image_ids = image_metadata$image_id
-    sorting_plan_filtered = sorting_plan |>
-      filter(paste0(mission_id, "-", sub_mission_id, "_",
-                    str_pad(row_number(), 6, pad = "0")) %in% retained_image_ids |
-             image_filename_out %in% paste0(retained_image_ids, ".JPG") |
-             image_filename_out %in% paste0(retained_image_ids, ".jpg"))
-
-    # Actually, let's match differently - extract image_id from filename
-    sorting_plan = sorting_plan |>
-      mutate(image_id_derived = tools::file_path_sans_ext(image_filename_out))
-
-    sorting_plan_filtered = sorting_plan |>
-      filter(image_id_derived %in% retained_image_ids)
-
-    sorting_plan_output = file.path(POST_CURATION_IMAGE_EXIF_W_SORTING_PLAN_PATH,
-                                    paste0(mission_id_foc, ".csv"))
-    write_csv(sorting_plan_filtered |> select(-image_id_derived), sorting_plan_output)
-  }
 
   return(TRUE)
 }
@@ -736,13 +895,20 @@ cat("Summarization complete.\n")
 ### Step 3.3: Create `03_merge-metadata-and-curation-notes.R`
 
 This script:
-1. Merges derived EXIF metadata with Baserow contributed metadata (like script 07)
-2. Adds curation anomaly columns to mission and sub-mission metadata
+1. Uses the shared `merge_derived_and_contributed_metadata` function from `src/merge-utils.R`
+2. Extracts contributed metadata from pre-curation full metadata gpkgs (NOT raw baserow CSVs) to avoid reconciliation issues
+3. Merges with newly-derived post-curation metadata
+4. Adds curation anomaly columns to mission and sub-mission metadata
+
+**Key change from original plan:** Instead of reading from `EXTRACTED_METADATA_PER_MISSION_PATH` (raw baserow CSVs), we extract the contributed columns from `FULL_METADATA_PER_MISSION_PATH` (pre-curation final gpkgs). This is safer because:
+- The pre-curation gpkgs have already reconciled baserow records with actual image folders (via script 02)
+- The baserow CSVs don't have 1:1 correspondence with missions and may not be archived
+- Using gpkgs ensures consistency with what was used for pre-curation
 
 ```r
 # deploy/drone-imagery-ingestion/01b_curated-raw-imagery-metadata-prep/03_merge-metadata-and-curation-notes.R
-# Purpose: Merge post-curation derived metadata with Baserow metadata and curation notes.
-# Adds anomaly columns from curation notes to mission and sub-mission metadata.
+# Purpose: Merge post-curation derived metadata with contributed metadata and curation notes.
+# Uses pre-curation full metadata gpkgs as source for contributed metadata (not raw baserow CSVs).
 
 library(tidyverse)
 library(sf)
@@ -750,6 +916,36 @@ library(furrr)
 
 source("deploy/drone-imagery-ingestion/00_set-constants.R")
 source("src/utils.R")
+source("src/merge-utils.R")
+
+# ============================================================================
+# Define columns that are "contributed" vs "derived" in pre-curation metadata
+# ============================================================================
+
+# Columns from the pre-curation gpkg that are derived (computed from EXIF)
+# These will be replaced by newly-computed post-curation derived values
+DERIVED_COLUMN_SUFFIXES = c("_derived")
+GEOMETRY_COLUMNS = c("geom", "geometry", "x")  # sf geometry column names
+
+# Function to extract contributed-only columns from pre-curation full metadata
+extract_contributed_columns = function(full_metadata_sf) {
+  # Get column names
+  all_cols = names(full_metadata_sf)
+
+  # Identify derived columns (those ending in _derived)
+  derived_cols = all_cols[str_detect(all_cols, "_derived$")]
+
+  # Identify geometry columns
+  geom_cols = intersect(all_cols, GEOMETRY_COLUMNS)
+
+  # Contributed columns = all columns minus derived and geometry
+  contributed_cols = setdiff(all_cols, c(derived_cols, geom_cols))
+
+  # Return as tibble (drop geometry)
+  full_metadata_sf |>
+    st_drop_geometry() |>
+    select(all_of(contributed_cols))
+}
 
 # ============================================================================
 # Load processed curation notes
@@ -828,22 +1024,22 @@ merge_metadata_for_mission = function(mission_foc) {
                                         paste0(mission_foc, ".gpkg"))
   derived_mission = st_read(derived_mission_filepath, quiet = TRUE)
 
-  # Load contributed (Baserow) metadata
-  baserow_mission_filepath = file.path(EXTRACTED_METADATA_PER_MISSION_PATH,
-                                        paste0(mission_foc, ".csv"))
+  # Load contributed metadata from PRE-CURATION full metadata gpkg (not raw baserow CSV)
+  pre_curation_mission_filepath = file.path(FULL_METADATA_PER_MISSION_PATH,
+                                             paste0(mission_foc, "_mission-metadata.gpkg"))
 
-  if (!file.exists(baserow_mission_filepath)) {
-    warning(paste("No Baserow metadata found for mission", mission_foc))
+  if (!file.exists(pre_curation_mission_filepath)) {
+    warning(paste("No pre-curation full metadata found for mission", mission_foc))
     return(FALSE)
   }
 
-  baserow_mission = read_csv(baserow_mission_filepath, col_types = cols(.default = "c"))
-  baserow_mission = baserow_mission |> rename(sub_mission_ids = sub_mission_id)
+  pre_curation_full = st_read(pre_curation_mission_filepath, quiet = TRUE)
+  contributed_mission = extract_contributed_columns(pre_curation_full)
 
-  # Merge derived and contributed
+  # Merge derived (post-curation) and contributed
   full_metadata_mission = bind_cols(
     derived_mission |> select(-mission_id),
-    baserow_mission
+    contributed_mission
   ) |>
     select(!ends_with("_derived"), everything())
 
@@ -877,19 +1073,21 @@ merge_metadata_for_mission = function(mission_foc) {
 
     derived_sub = st_read(sub_file, quiet = TRUE)
 
-    baserow_sub_filepath = file.path(EXTRACTED_METADATA_PER_SUB_MISSION_PATH,
-                                      paste0(sub_mission_id_foc, ".csv"))
+    # Load contributed metadata from pre-curation full metadata gpkg
+    pre_curation_sub_filepath = file.path(FULL_METADATA_PER_SUB_MISSION_PATH,
+                                           paste0(sub_mission_id_foc, "_sub-mission-metadata.gpkg"))
 
-    if (!file.exists(baserow_sub_filepath)) {
-      warning(paste("No Baserow metadata found for sub-mission", sub_mission_id_foc))
+    if (!file.exists(pre_curation_sub_filepath)) {
+      warning(paste("No pre-curation full metadata found for sub-mission", sub_mission_id_foc))
       next
     }
 
-    baserow_sub = read_csv(baserow_sub_filepath, col_types = cols(.default = "c"))
+    pre_curation_sub_full = st_read(pre_curation_sub_filepath, quiet = TRUE)
+    contributed_sub = extract_contributed_columns(pre_curation_sub_full)
 
     full_metadata_sub = bind_cols(
       derived_sub |> select(-sub_mission_id, -mission_id),
-      baserow_sub
+      contributed_sub
     ) |>
       select(!ends_with("_derived"), everything())
 
@@ -1002,7 +1200,7 @@ copy_mission_images = function(mission_id_foc, use_post_curation = TRUE) {
 
   # Create output folders
   folders_out_abs = unique(dirname(image_metadata$image_path_ofo_abs))
-  sapply(folders_out_abs, dir.create, recursive = TRUE, showWarnings = FALSE)
+  walk(folders_out_abs, create_dir)
 
   # Create symlinks (not hardlinks)
   # Remove existing files/symlinks first
@@ -1024,16 +1222,23 @@ copy_mission_images = function(mission_id_foc, use_post_curation = TRUE) {
 
 ### Step 4.2: Update `09_fix-exif.R`
 
-Modify to replace symlinks with actual files when modifications are needed.
+Modify to:
+1. Read EXIF fix information from image metadata gpkg (using `preprocessed_exif_orientation` and `preprocessed_exif_gpstimestamp` columns added in Step 1.5.1) instead of sorting plan CSV
+2. Replace symlinks with actual files when modifications are needed
+
+**Key change:** No longer depends on sorting plan CSV files. Instead reads the EXIF columns from the image metadata gpkg, which has these columns after the Step 1.5.1 modification to script 05.
 
 ```r
 # deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/src/09_fix-exif.R
 # Purpose: Fix EXIF metadata. If file is a symlink and needs modification,
 # replace symlink with actual file copy first.
+#
+# Uses preprocessed_exif_orientation and preprocessed_exif_gpstimestamp columns
+# from image metadata gpkg (added by script 05) instead of sorting plan CSV.
 
 library(furrr)
 library(tidyverse)
-library(exifr)
+library(sf)
 
 run_cmd_chunks = function(cmd, filepaths, chunk_size = 500) {
   chunks = split(filepaths, ceiling(seq_along(filepaths) / chunk_size))
@@ -1064,57 +1269,57 @@ fix_exif = function(mission_id_foc, use_post_curation = TRUE) {
 
   cat("\n **** Fixing EXIF for mission", mission_id_foc, "**** \n")
 
-  folder = file.path(SORTED_IMAGERY_PATH, mission_id_foc)
+  # Select appropriate metadata path
+  if (use_post_curation) {
+    metadata_path = POST_CURATION_PARSED_EXIF_FOR_RETAINED_IMAGES_PATH
+  } else {
+    metadata_path = PARSED_EXIF_FOR_RETAINED_IMAGES_PATH
+  }
 
-  # Get all images in the folder
-  image_filepaths = list.files(folder, full.names = TRUE, recursive = TRUE,
-                                pattern = "(.jpg$)|(.jpeg$)|(.JPG$)|(.JPEG$)")
+  metadata_file = file.path(metadata_path, paste0(mission_id_foc, "_image-metadata.gpkg"))
 
-  if (length(image_filepaths) == 0) {
+  if (!file.exists(metadata_file)) {
+    warning(paste("No image metadata found for mission", mission_id_foc))
+    return(FALSE)
+  }
+
+  # Read image metadata gpkg which contains preprocessed EXIF columns
+  image_metadata = st_read(metadata_file, quiet = TRUE) |> st_drop_geometry()
+
+  # Construct actual file paths from the sorted imagery location
+  image_metadata = image_metadata |>
+    mutate(filepath = file.path(SORTED_IMAGERY_PATH, image_path_ofo))
+
+  # Check that files exist
+  existing_files = file.exists(image_metadata$filepath)
+  if (!all(existing_files)) {
+    warning(paste("Some images not found for mission", mission_id_foc,
+                  "- missing", sum(!existing_files), "files"))
+    image_metadata = image_metadata |> filter(existing_files)
+  }
+
+  if (nrow(image_metadata) == 0) {
     warning(paste("No images found for mission", mission_id_foc))
     return(FALSE)
   }
 
-  image_filenames = basename(image_filepaths)
-  images = data.frame(filename = image_filenames, filepath = image_filepaths)
+  # Determine which images need fixing using preprocessed EXIF columns
+  # Orientation needs fixing if != 1
+  image_metadata$fix_orientation = !is.na(image_metadata$preprocessed_exif_orientation) &
+                                    image_metadata$preprocessed_exif_orientation != 1
 
-  # Select appropriate sorting plan path
-  if (use_post_curation) {
-    sorting_plan_path = POST_CURATION_IMAGE_EXIF_W_SORTING_PLAN_PATH
-  } else {
-    sorting_plan_path = IMAGE_EXIF_W_SORTING_PLAN_PATH
-  }
+  # GPSTimeStamp needs fixing if it has decimal seconds (causes Metashape errors)
+  image_metadata$fix_gpstimestamp = !is.na(image_metadata$preprocessed_exif_gpstimestamp) &
+                                     grepl("[0-9]+:[0-9]+:[0-9]+\\.[0-9]+",
+                                           image_metadata$preprocessed_exif_gpstimestamp)
 
-  sorting_plan_file = file.path(sorting_plan_path, paste0(mission_id_foc, ".csv"))
-
-  if (!file.exists(sorting_plan_file)) {
-    warning(paste("No sorting plan found for mission", mission_id_foc))
-    return(FALSE)
-  }
-
-  exif = read.csv(sorting_plan_file) |>
-    select(any_of(c("image_filename_out", "Orientation", "GPSTimeStamp")))
-
-  exif = left_join(images, exif, by = c("filename" = "image_filename_out"))
-
-  # Determine which images need fixing
-  exif$fix_orientation = ifelse(is.null(exif$Orientation), FALSE,
-                                 !is.na(exif$Orientation) & exif$Orientation != 1)
-
-  if (is.null(exif$GPSTimeStamp)) {
-    exif$fix_gpstimestamp = FALSE
-  } else {
-    exif$fix_gpstimestamp = ifelse(is.na(exif$GPSTimeStamp), FALSE,
-                                    grepl("[0-9]+:[0-9]+:[0-9]+\\.[0-9]+", exif$GPSTimeStamp))
-  }
-
-  exif = exif |>
+  image_metadata = image_metadata |>
     mutate(fix_both = (fix_orientation & fix_gpstimestamp)) |>
     mutate(fix_orientation = ifelse(fix_both, FALSE, fix_orientation),
            fix_gpstimestamp = ifelse(fix_both, FALSE, fix_gpstimestamp))
 
   # Get files that need any fixing
-  files_to_fix = exif |> filter(fix_orientation | fix_gpstimestamp | fix_both)
+  files_to_fix = image_metadata |> filter(fix_orientation | fix_gpstimestamp | fix_both)
 
   if (nrow(files_to_fix) > 0) {
     cat("Replacing symlinks with file copies for", nrow(files_to_fix), "files that need EXIF fixes...\n")
@@ -1122,7 +1327,7 @@ fix_exif = function(mission_id_foc, use_post_curation = TRUE) {
   }
 
   # Fix orientation only
-  exif_to_fix_orientation = exif |> filter(fix_orientation == TRUE)
+  exif_to_fix_orientation = image_metadata |> filter(fix_orientation == TRUE)
   if (nrow(exif_to_fix_orientation) > 0) {
     cat("Fixing orientation flag for", nrow(exif_to_fix_orientation), "images\n")
     command = "exiftool -n -r -fast4 -overwrite_original -Orientation=1"
@@ -1130,7 +1335,7 @@ fix_exif = function(mission_id_foc, use_post_curation = TRUE) {
   }
 
   # Fix GPSTimeStamp only
-  exif_to_fix_gpstimestamp = exif |> filter(fix_gpstimestamp == TRUE)
+  exif_to_fix_gpstimestamp = image_metadata |> filter(fix_gpstimestamp == TRUE)
   if (nrow(exif_to_fix_gpstimestamp) > 0) {
     cat("Fixing GPSTimeStamp for", nrow(exif_to_fix_gpstimestamp), "images\n")
     command = "exiftool -n -r -fast4 -overwrite_original -GPSTimeStamp="
@@ -1138,7 +1343,7 @@ fix_exif = function(mission_id_foc, use_post_curation = TRUE) {
   }
 
   # Fix both
-  exif_to_fix_both = exif |> filter(fix_both == TRUE)
+  exif_to_fix_both = image_metadata |> filter(fix_both == TRUE)
   if (nrow(exif_to_fix_both) > 0) {
     cat("Fixing both orientation and GPSTimeStamp for", nrow(exif_to_fix_both), "images\n")
     command = "exiftool -n -r -fast4 -overwrite_original -Orientation=1 -GPSTimeStamp="
@@ -1151,6 +1356,7 @@ fix_exif = function(mission_id_foc, use_post_curation = TRUE) {
   }
 
   # Check for incomplete exiftool operations
+  folder = file.path(SORTED_IMAGERY_PATH, mission_id_foc)
   exiftool_temp_files = list.files(folder, full.names = TRUE, recursive = TRUE,
                                     pattern = "_exiftool_tmp$")
   if (length(exiftool_temp_files) > 0) {
@@ -1378,51 +1584,3 @@ Search and replace in all R files:
 - etc.
 
 ### Step 7.3: Update constants file paths if necessary
-
----
-
-## Summary: Files to Create/Modify
-
-### New Files:
-1. `src/curation-utils.R` - Utility functions for parsing curation notes
-2. `deploy/drone-imagery-ingestion/01b_curated-raw-imagery-metadata-prep/01_apply-curation-filters.R`
-3. `deploy/drone-imagery-ingestion/01b_curated-raw-imagery-metadata-prep/02_summarize-curated-metadata-per-mission.R`
-4. `deploy/drone-imagery-ingestion/01b_curated-raw-imagery-metadata-prep/03_merge-metadata-and-curation-notes.R`
-5. `deploy/drone-imagery-ingestion/01b_curated-raw-imagery-metadata-prep/04_combine-metadata-files.R`
-6. `deploy/drone-imagery-ingestion/01b_curated-raw-imagery-metadata-prep/control_curated-metadata_01-to-03.R`
-7. `deploy/drone-imagery-ingestion/01b_curated-raw-imagery-metadata-prep/validate_curation_pipeline.R`
-
-### Modified Files:
-1. `deploy/drone-imagery-ingestion/00_set-constants.R` - Add new path constants
-2. `deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/src/08_copy-images-to-standardized-folders.R` - Use symlinks, add post-curation support
-3. `deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/src/09_fix-exif.R` - Handle symlink replacement
-4. `deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/src/10_raw-imagery-thumbnails-and-zip.R` - Add post-curation support
-5. `deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/src/11_copy-raw-imagery-to-upload-staging-dir.R` - Add post-curation support
-6. `deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/08-13_prep-raw-imagery-files_per-mission.R` - Add post-curation parameter
-
----
-
-## Execution Order
-
-1. **Phase 1:** Update constants (Step 1.1)
-2. **Phase 2:** Create utility functions (Step 2.1)
-3. **Phase 3:** Create post-curation metadata scripts (Steps 3.1-3.4)
-4. **Phase 4:** Modify file prep scripts (Steps 4.1-4.5)
-5. **Phase 5:** Update/create web catalog support (Step 5.1)
-6. **Phase 6:** Test and validate (Step 6.1)
-7. **Phase 7:** Folder renumbering (after validation passes)
-
----
-
-## Open Questions Resolved
-
-| Question | Resolution |
-|----------|------------|
-| Image ID matching for formerly curated | Spatial join handles cases where IDs match but locations differ, or IDs added/dropped |
-| Duplicate rows in curation notes | Combine additively |
-| Cross-mission references | Error with descriptive message (typo) |
-| SORTED_IMAGERY_PATH | Added to constants: `/z_OLD_ofo-share/.../2_sorted` |
-| Symlinks vs hardlinks | Use symlinks; replace with file copy when modification needed |
-| Script 06 still needed | Yes, reused in post-curation summarization |
-| Folder renumbering | After implementation tested and working |
-| Post-curation final paths | Yes, create `6_post-curation-final` structure |
