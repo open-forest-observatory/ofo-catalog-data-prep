@@ -366,7 +366,6 @@ extract_imagery_perimage_metadata = function(exif, platform_name, plot_flightpat
   # will determine that vectorization is not important -- but in that case, will need to update the
   # calling scripts because they are set up in the vectorized way -- but would not be hard to change
   # that).
-  image_id = extract_image_id(exif)
   original_file_name = extract_original_file_name(exif)
   datetime_local = extract_datetime_local(exif)
   lon_lat = extract_lon_lat(exif)
@@ -383,7 +382,6 @@ extract_imagery_perimage_metadata = function(exif, platform_name, plot_flightpat
   file_size_gb = extract_file_size(exif)
 
   metadata = data.frame(
-    image_id = image_id,
     original_file_name = original_file_name,
     datetime_local = datetime_local,
     lon_lat,

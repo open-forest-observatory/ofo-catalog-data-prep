@@ -20,7 +20,7 @@ force_all_cols_to_character = function(df) {
 
 metadata_files = list.files(PARSED_EXIF_FOR_RETAINED_IMAGES_PATH, pattern = "_image-metadata.gpkg$", full.names = TRUE)
 
-plan(multisession)
+plan(multisession, workers = availableCores()*3)
 metadata_sf_list = future_map(metadata_files, st_read, .progress = TRUE)
 
 # Need to set all cols to character, because for some missions, a given column is inferred to be

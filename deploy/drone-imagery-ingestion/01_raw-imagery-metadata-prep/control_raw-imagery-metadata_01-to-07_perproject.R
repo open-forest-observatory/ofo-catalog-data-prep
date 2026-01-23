@@ -1,6 +1,6 @@
 # Purpose: a controller script that runs the raw imagery ingestion pipeline from script 01 to 11.
 
-repo_root = "/ofo-share/repos-derek/ofo-catalog-data-prep"
+repo_root = "/ofo-share/repos/derek/ofo-catalog-data-prep"
 
 cat("\n\n****Starting script 1****\n\n")
 source(file.path(repo_root,"deploy/drone-imagery-ingestion/01_raw-imagery-metadata-prep/01_read-folder-exif-to-csv.R"))

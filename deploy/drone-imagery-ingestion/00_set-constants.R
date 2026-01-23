@@ -13,8 +13,8 @@ FOLDER_DATASET_ID_PADDING = 6
 
 
 IMAGE_MERGE_DISTANCE = 50
-# If processing NRS datasets, use a larger merge distance because some datasets used very low overlap
-IMAGE_MERGE_DISTANCE = 100
+# # If processing NRS datasets, use a larger merge distance because some datasets used very low overlap
+# IMAGE_MERGE_DISTANCE = 100
 
 # For example image selection & image set zipping
 N_EXAMPLE_IMAGES = 4
@@ -23,7 +23,8 @@ SKIP_EXISTING = FALSE # Skip processing for missions that already have all outpu
 
 
 # Base path for project data
-BASE_DATA_PATH = "/ofo-share/project-data/catalog-data-prep/"
+# BASE_DATA_PATH = "/ofo-share/project-data/catalog-data-prep/"
+BASE_DATA_PATH = "/z_OLD_ofo-share/ARCHIVED__SEE_README/catalog-data-prep/"
 
 PROJECT_TO_PROCESS_RAW_IMAGERY_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "00_missions-to-process/01_raw-imagery-meatadata-prep/project-to-process.txt")
 PROJECT_NAME_TO_PROCESS_RAW_IMAGERY_METADATA = tryCatch(
@@ -35,32 +36,38 @@ PROJECT_NAME_TO_PROCESS_RAW_IMAGERY_METADATA = tryCatch(
 )
 MISSIONS_TO_PROCESS_RAW_IMAGERY_METADATA_LIST_PATH = file.path(BASE_DATA_PATH, "00_missions-to-process/01_raw-imagery-meatadata-prep/missions-to-process.csv")
 
-CONTRIBUTED_IMAGERY_PATH = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion/1_manually-cleaned")
-RAW_EXIF_PATH = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion/metadata/1_reconciling-contributions/1_raw-exif/")
+RAW_IMAGERY_INGESTION_PATH = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion")
 
-CONTRIBUTED_METADATA_PATH = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion/ancillary/baserow-snapshots")
+CONTRIBUTED_IMAGERY_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "1_manually-cleaned")
+RAW_EXIF_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/1_reconciling-contributions/1_raw-exif/")
 
-CONTRIBUTED_TO_SORTED_MISSION_ID_CROSSWALK_PATH = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion/metadata/1_reconciling-contributions/3_contributed-to-sorted-id-crosswalk/")
+CONTRIBUTED_METADATA_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "ancillary/baserow-snapshots")
 
-IMAGE_EXIF_W_SORTING_PLAN_PATH = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion/metadata/1_reconciling-contributions/2_exif-w-sorting-plan/")
+CONTRIBUTED_TO_SORTED_MISSION_ID_CROSSWALK_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/1_reconciling-contributions/3_contributed-to-sorted-id-crosswalk/")
+
+IMAGE_EXIF_W_SORTING_PLAN_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/1_reconciling-contributions/2_exif-w-sorting-plan/")
 
 # Should be "conributed"
-EXTRACTED_METADATA_PER_MISSION_PATH = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion/metadata/2_intermediate/1_contributed-metadata-per-mission/")
-EXTRACTED_METADATA_PER_SUB_MISSION_PATH = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion/metadata/2_intermediate/2_contributed-metadata-per-sub-mission/")
+EXTRACTED_METADATA_PER_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/2_pre-curation-intermediate/1_contributed-metadata-per-mission/")
+EXTRACTED_METADATA_PER_SUB_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/2_pre-curation-intermediate/2_contributed-metadata-per-sub-mission/")
 
-PARSED_EXIF_METADATA_PATH = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion/metadata/2_intermediate/4_parsed-exif")
+PARSED_EXIF_METADATA_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/2_pre-curation-intermediate/4_parsed-exif")
 
-PARSED_EXIF_FOR_RETAINED_IMAGES_PATH = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion/metadata/3_final/3_parsed-exif-per-image")
-DERIVED_METADATA_PER_MISSION_PATH = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion/metadata/2_intermediate/6_derived-metadata-per-mission")
-DERIVED_METADATA_PER_SUB_MISSION_PATH = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion/metadata/2_intermediate/7_derived-metadata-per-sub-mission")
+PARSED_EXIF_FOR_RETAINED_IMAGES_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/3_pre-curation-final/3_parsed-exif-per-image")
+DERIVED_METADATA_PER_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/2_pre-curation-intermediate/6_derived-metadata-per-mission")
+DERIVED_METADATA_PER_SUB_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/2_pre-curation-intermediate/7_derived-metadata-per-sub-mission")
 
-FULL_METADATA_PER_MISSION_PATH = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion/metadata/3_final/1_full-metadata-per-mission/")
-FULL_METADATA_PER_SUB_MISSION_PATH = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion/metadata/3_final/2_full-metadata-per-sub-mission/")
+FULL_METADATA_PER_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/3_pre-curation-final/1_full-metadata-per-mission/")
+FULL_METADATA_PER_SUB_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/3_pre-curation-final/2_full-metadata-per-sub-mission/")
 
 # The following file should not be assumed to be there, since we are not necessarily keeping all
 # mission data combined locally, and it should not be assumed to contain every mission, but this is where the file will be if it has been created
-FULL_METADATA_PER_MISSION_COMBINED_FILEPATH = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion/metadata/3_final/ofo-all-missions-metadata.gpkg")
-FULL_METADATA_PER_IMAGE_COMBINED_FILEPATH = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion/metadata/3_final/ofo-all-images-metadata.gpkg")
+FULL_METADATA_PER_MISSION_COMBINED_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/3_pre-curation-final/ofo-all-missions-metadata.gpkg")
+FULL_METADATA_PER_IMAGE_COMBINED_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/3_pre-curation-final/ofo-all-images-metadata.gpkg")
+
+CURATION_NOTES_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/4_curation/imagery-curation-notes_v2.csv")
+FORMERLY_CURATED_IMAGE_METADATA = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/4_curation/formerly-curated-image-metadata_2025-04-19.gpkg")
+FORMERLY_CURATED_MISSION_LIST = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/4_curation/formerly-curated-mission-list_2025-04-19.csv")
 
 PROJECT_TO_PROCESS_RAW_IMAGERY_FILES_FILEPATH = file.path(BASE_DATA_PATH, "00_missions-to-process/02_raw-imagery-file-prep/projects-to-process.txt")
 PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES = tryCatch(
@@ -75,22 +82,18 @@ PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES = PROJECT_NAMES_TO_PROCESS_RAW_IMAGER
 
 MISSIONS_TO_PROCESS_RAW_IMAGERY_FILES_LIST_PATH = file.path(BASE_DATA_PATH, "00_missions-to-process/02_raw-imagery-file-prep/missions-to-process.csv")
 
-
-
-SORTED_IMAGERY_PATH = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion/2_sorted")
-
-IMAGERY_ZIP_AND_EXAMPLES_PATH = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion/4_raw-imagery-zip-and-examples")
+IMAGERY_ZIP_AND_EXAMPLES_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "4_raw-imagery-zip-and-examples")
 
 IN_PROCESS_PATH = "/ofo-share/tmp/raw-imagery-publish-prep-progress-tracking/"
 
-UPLOAD_STAGING_DIR_PATH = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion/9_temp-upload-staging")
+UPLOAD_STAGING_DIR_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "9_temp-upload-staging")
 
 # Name of configured rclone remote for object storage
 RCLONE_REMOTE = "js2s3"
 REMOTE_MISSIONS_DIR = "/ofo-public/drone/missions_02/"
 REMOTE_PHOTOGRAMMETRY_DIR = "/ofo-internal/photogrammetry-outputs/"
 
-UPLOAD_ERROR_LOG = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion/temp/cyverse-upload-log.txt")
+UPLOAD_ERROR_LOG = file.path(RAW_IMAGERY_INGESTION_PATH, "temp/cyverse-upload-log.txt")
 
 
 PROJECTS_TO_PROCESS_PHOTOGRAMMETRY_FILEPATH = file.path(BASE_DATA_PATH, "00_missions-to-process/03_photogrammetry/projects-to-process.txt")

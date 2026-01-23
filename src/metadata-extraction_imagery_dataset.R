@@ -132,6 +132,9 @@ extract_mission_polygon = function(
     simplified_poly = sf::st_buffer(simplified_poly, simplification_tol, nQuadSegs = 2, joinStyle = "MITRE", mitreLimit = 5)
   }
 
+  # Make sure the polygon is valid
+  simplified_poly = sf::st_make_valid(simplified_poly)
+
   # Identify which images are within the polygon if requested
   if (identify_images_in_polygon) {
     intersection_mat = sf::st_intersects(metadata, simplified_poly, sparse = FALSE)
@@ -464,6 +467,9 @@ extract_exposure_summary = function(metadata) {
 #'
 #' @export
 extract_area_and_density = function(metadata, mission_polygon) {
+
+  mission_polygon = sf::st_make_valid(mission_polygon)
+
   area_ha_derived = units::set_units(sf::st_area(mission_polygon), "hectare")
 
   # Crop images to the mission polygon, in case there were outlier images, or smaller outlier

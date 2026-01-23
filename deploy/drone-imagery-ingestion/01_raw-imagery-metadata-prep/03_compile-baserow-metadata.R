@@ -4,13 +4,6 @@
 # association records indicate that a mission is one part of a two-part grid, change the
 # mission-level mission type from "normal" to "grid".
 
-# TODO: Currently, we are ignoring cases where there are two baserow records for a mission, but the
-# mission could not be split out into sub-missions that we were confident corresponded to the two
-# baserow records. The occurrence of this is recorded in the crosswalks in 1c_exif-for-sorting. When
-# this occurred, all missions were crosswalked to the first Baserow record. We could improve this
-# script's workflow to take the non-directly-assignable records into account and report both entries
-# for any attributes that differ between the two records for an unsplittable dataset.
-
 library(tidyverse)
 
 source("deploy/drone-imagery-ingestion/00_set-constants.R")
@@ -33,8 +26,9 @@ baserow_datasets = baserow_datasets |>
 # - contact_info
 # - license
 # - objectives
+# - forest_focused
 baserow_projects = baserow_projects |>
-  select(project_id, contributor_names, contact_info, license, objectives)
+  select(project_id, contributor_names, contact_info, license, objectives, forest_focused)
 baserow_datasets = baserow_datasets |>
   left_join(baserow_projects, by = c("project_id" = "project_id"))
 
@@ -55,13 +49,6 @@ crosswalk = read_csv(crosswalk_filepath)
 # provided* attributes from Baserow like base station location and drone model will need to be
 # pulled from both matching baserow rows and concatenated
 
-# Start with the sub-mission-level Baserow attributes
-sub_mission_baserow = left_join(crosswalk, baserow_datasets, by = c("dataset_id_baserow" = "dataset_id")) |>
-  select(-dataset_id_baserow)
-
-# Next, the mission-level Baserow attributes, including concatenating the sub-mission-level
-# attributes if they differ
-
 concat_unique = function(x) {
   x = x[!is.na(x)]
   unq = unique(x)
@@ -73,6 +60,56 @@ concat_unique = function(x) {
     return(unq)
   }
 }
+
+# Start with the sub-mission-level Baserow attributes
+sub_mission_baserow = left_join(crosswalk, baserow_datasets, by = c("dataset_id_baserow" = "dataset_id"))
+
+# For sub-missions that came from unsplittable _and_ folders (where multiple Baserow records
+# correspond to the same images but couldn't be separated), merge in the additional Baserow
+# records' attributes
+if ("addl_dataset_ids_baserow" %in% colnames(sub_mission_baserow)) {
+
+  # Identify rows with additional dataset IDs
+  rows_with_addl = which(!is.na(sub_mission_baserow$addl_dataset_ids_baserow))
+
+  if (length(rows_with_addl) > 0) {
+
+    # Get all columns that came from baserow (everything except crosswalk columns)
+    crosswalk_cols = c("dataset_id_baserow", "sub_mission_id", "mission_id", "n_images",
+                       "project_name", "addl_dataset_ids_baserow", "addl_baserow_differ_by",
+                       "why_not_separable")
+    baserow_cols = setdiff(colnames(sub_mission_baserow), crosswalk_cols)
+
+    for (i in rows_with_addl) {
+
+      addl_ids = sub_mission_baserow$addl_dataset_ids_baserow[i] |>
+        str_split(",") |>
+        unlist() |>
+        str_trim() |>
+        str_pad(6, pad = "0", side = "left")
+
+      # Look up the additional Baserow records
+      addl_baserow = baserow_datasets |>
+        filter(dataset_id %in% addl_ids)
+
+      if (nrow(addl_baserow) > 0) {
+        # For each baserow column, concatenate unique values from primary and additional records
+        for (col in baserow_cols) {
+          primary_val = sub_mission_baserow[[col]][i]
+          addl_vals = addl_baserow[[col]]
+          all_vals = c(primary_val, addl_vals)
+          sub_mission_baserow[[col]][i] = concat_unique(all_vals)
+        }
+      }
+    }
+  }
+}
+
+sub_mission_baserow = sub_mission_baserow |>
+  select(-dataset_id_baserow, -any_of(c("addl_dataset_ids_baserow", "addl_baserow_differ_by", "why_not_separable")))
+
+# Next, the mission-level Baserow attributes, including concatenating the sub-mission-level
+# attributes if they differ
 
 mission_baserow = sub_mission_baserow |>
   # At the mission level, the dataset_id is the mission_id
