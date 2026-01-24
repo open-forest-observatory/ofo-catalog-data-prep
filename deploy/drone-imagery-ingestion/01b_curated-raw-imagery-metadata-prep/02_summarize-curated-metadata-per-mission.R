@@ -43,9 +43,10 @@ create_dir(POST_CURATION_DERIVED_METADATA_PER_SUB_MISSION_PATH)
 # Run summarization for each mission using shared function
 # ============================================================================
 
-# Note: We do NOT provide output_retained_images_path because the images are
-# already filtered by script 01. We only need to compute derived metadata
-# (polygons and summary statistics) for the filtered images.
+# Note: Script 01 filters images based on curation notes. This script further
+# filters based on polygon retention (images outside computed polygons are excluded).
+# We OVERWRITE the files in POST_CURATION_PARSED_EXIF_FOR_RETAINED_IMAGES_PATH
+# with the doubly-filtered images (curation + polygon filtering).
 
 future::plan(multisession)
 results = future_walk(
@@ -55,7 +56,7 @@ results = future_walk(
     input_metadata_path = POST_CURATION_PARSED_EXIF_FOR_RETAINED_IMAGES_PATH,
     output_derived_mission_path = POST_CURATION_DERIVED_METADATA_PER_MISSION_PATH,
     output_derived_sub_mission_path = POST_CURATION_DERIVED_METADATA_PER_SUB_MISSION_PATH,
-    output_retained_images_path = NULL,  # Don't re-write filtered images
+    output_retained_images_path = POST_CURATION_PARSED_EXIF_FOR_RETAINED_IMAGES_PATH,  # Overwrite with doubly-filtered images
     image_merge_distance = IMAGE_MERGE_DISTANCE
   ),
   .progress = TRUE,
