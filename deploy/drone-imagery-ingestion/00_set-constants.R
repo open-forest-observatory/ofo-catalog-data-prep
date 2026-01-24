@@ -69,6 +69,26 @@ CURATION_NOTES_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/4_cura
 FORMERLY_CURATED_IMAGE_METADATA = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/4_curation/formerly-curated-image-metadata_2025-04-19.gpkg")
 FORMERLY_CURATED_MISSION_LIST = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/4_curation/formerly-curated-mission-list_2025-04-19.csv")
 
+# Missing constant (used by scripts but not defined)
+SORTED_IMAGERY_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "2_sorted")
+
+# Post-curation intermediate paths (mirror pre-curation structure)
+POST_CURATION_INTERMEDIATE_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/5_post-curation-intermediate")
+
+POST_CURATION_DERIVED_METADATA_PER_MISSION_PATH = file.path(POST_CURATION_INTERMEDIATE_PATH, "2_derived-metadata-per-mission")
+POST_CURATION_DERIVED_METADATA_PER_SUB_MISSION_PATH = file.path(POST_CURATION_INTERMEDIATE_PATH, "3_derived-metadata-per-sub-mission")
+
+# Post-curation final paths
+POST_CURATION_FINAL_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/6_post-curation-final")
+
+POST_CURATION_PARSED_EXIF_FOR_RETAINED_IMAGES_PATH = file.path(POST_CURATION_FINAL_PATH, "1_parsed-exif-per-image")
+POST_CURATION_FULL_METADATA_PER_MISSION_PATH = file.path(POST_CURATION_FINAL_PATH, "2_full-metadata-per-mission")
+POST_CURATION_FULL_METADATA_PER_SUB_MISSION_PATH = file.path(POST_CURATION_FINAL_PATH, "3_full-metadata-per-sub-mission")
+
+# Combined post-curation metadata files
+POST_CURATION_FULL_METADATA_PER_MISSION_COMBINED_FILEPATH = file.path(POST_CURATION_FINAL_PATH, "ofo-all-missions-metadata-curated.gpkg")
+POST_CURATION_FULL_METADATA_PER_IMAGE_COMBINED_FILEPATH = file.path(POST_CURATION_FINAL_PATH, "ofo-all-images-metadata-curated.gpkg")
+
 PROJECT_TO_PROCESS_RAW_IMAGERY_FILES_FILEPATH = file.path(BASE_DATA_PATH, "00_missions-to-process/02_raw-imagery-file-prep/projects-to-process.txt")
 PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES = tryCatch(
   read_lines(PROJECT_TO_PROCESS_RAW_IMAGERY_FILES_FILEPATH),
