@@ -66,8 +66,8 @@ FULL_METADATA_PER_MISSION_COMBINED_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PA
 FULL_METADATA_PER_IMAGE_COMBINED_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/3_pre-curation-final/ofo-all-images-metadata.gpkg")
 
 CURATION_NOTES_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/4_curation/imagery-curation-notes_v2.csv")
-FORMERLY_CURATED_IMAGE_METADATA = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/4_curation/formerly-curated-image-metadata_2025-04-19.gpkg")
-FORMERLY_CURATED_MISSION_LIST = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/4_curation/formerly-curated-mission-list_2025-04-19.csv")
+FORMERLY_CURATED_IMAGE_METADATA = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/4_curation/formerly-curated-image-metadata_20250419.gpkg")
+FORMERLY_CURATED_MISSION_LIST = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/4_curation/formerly-curated-mission-list_20250419.csv")
 
 # Missing constant (used by scripts but not defined)
 SORTED_IMAGERY_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "2_sorted")
