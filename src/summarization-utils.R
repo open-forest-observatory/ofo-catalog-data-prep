@@ -142,42 +142,21 @@ summarize_mission_exif = function(mission_id_foc,
   }
 
   # Read image metadata
-  image_metadata = tryCatch({
-    read_image_metadata(input_filepath)
-  }, error = function(e) {
-    warning(paste("Failed to read image metadata for mission", mission_id_foc, ":", e$message))
-    return(NULL)
-  })
-
-  if (is.null(image_metadata)) return(FALSE)
+  image_metadata = read_image_metadata(input_filepath)
 
   # Compute polygons at mission level
-  mission_res = tryCatch({
-    compute_polygons_and_images_retained(
-      image_metadata = image_metadata,
-      column_to_split_on = "mission_id",
-      image_merge_distance = image_merge_distance
-    )
-  }, error = function(e) {
-    warning(paste("Failed to compute mission polygon for", mission_id_foc, ":", e$message))
-    return(NULL)
-  })
-
-  if (is.null(mission_res)) return(FALSE)
+  mission_res = compute_polygons_and_images_retained(
+    image_metadata = image_metadata,
+    column_to_split_on = "mission_id",
+    image_merge_distance = image_merge_distance
+  )
 
   # Compute polygons at sub-mission level
-  sub_mission_res = tryCatch({
-    compute_polygons_and_images_retained(
-      image_metadata = image_metadata,
-      column_to_split_on = "sub_mission_id",
-      image_merge_distance = image_merge_distance
-    )
-  }, error = function(e) {
-    warning(paste("Failed to compute sub-mission polygons for", mission_id_foc, ":", e$message))
-    return(NULL)
-  })
-
-  if (is.null(sub_mission_res)) return(FALSE)
+  sub_mission_res = compute_polygons_and_images_retained(
+    image_metadata = image_metadata,
+    column_to_split_on = "sub_mission_id",
+    image_merge_distance = image_merge_distance
+  )
 
   # Compute the images that were retained in both the mission polygons and the sub-mission polygons
   images_retained_in_both = intersect(
