@@ -39,47 +39,47 @@ MISSIONS_TO_PROCESS_RAW_IMAGERY_METADATA_LIST_PATH = file.path(BASE_DATA_PATH, "
 RAW_IMAGERY_INGESTION_PATH = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion")
 
 CONTRIBUTED_IMAGERY_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "1_manually-cleaned")
-RAW_EXIF_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/1_reconciling-contributions/1_raw-exif/")
+RAW_EXIF_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/1_reconciling-contributions/1_raw-exif/")
 
-CONTRIBUTED_METADATA_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "ancillary/baserow-snapshots")
+CONTRIBUTED_METADATA_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-inputs/baserow-snapshots")
 
-CONTRIBUTED_TO_SORTED_MISSION_ID_CROSSWALK_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/1_reconciling-contributions/3_contributed-to-sorted-id-crosswalk/")
+CONTRIBUTED_TO_SORTED_MISSION_ID_CROSSWALK_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/1_reconciling-contributions/3_contributed-to-sorted-id-crosswalk/")
 
-IMAGE_EXIF_W_SORTING_PLAN_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/1_reconciling-contributions/2_exif-w-sorting-plan/")
+IMAGE_EXIF_W_SORTING_PLAN_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/1_reconciling-contributions/2_exif-w-sorting-plan/")
 
 # Should be "conributed"
-EXTRACTED_METADATA_PER_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/2_pre-curation-intermediate/1_contributed-metadata-per-mission/")
-EXTRACTED_METADATA_PER_SUB_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/2_pre-curation-intermediate/2_contributed-metadata-per-sub-mission/")
+EXTRACTED_METADATA_PER_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/2_pre-curation-intermediate/1_contributed-metadata-per-mission/")
+EXTRACTED_METADATA_PER_SUB_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/2_pre-curation-intermediate/2_contributed-metadata-per-sub-mission/")
 
-PARSED_EXIF_METADATA_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/2_pre-curation-intermediate/4_parsed-exif")
+PARSED_EXIF_METADATA_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/2_pre-curation-intermediate/4_parsed-exif")
 
-PARSED_EXIF_FOR_RETAINED_IMAGES_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/3_pre-curation-final/3_parsed-exif-per-image")
-DERIVED_METADATA_PER_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/2_pre-curation-intermediate/6_derived-metadata-per-mission")
-DERIVED_METADATA_PER_SUB_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/2_pre-curation-intermediate/7_derived-metadata-per-sub-mission")
+PARSED_EXIF_FOR_RETAINED_IMAGES_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/3_pre-curation-final/3_parsed-exif-per-image")
+DERIVED_METADATA_PER_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/2_pre-curation-intermediate/6_derived-metadata-per-mission")
+DERIVED_METADATA_PER_SUB_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/2_pre-curation-intermediate/7_derived-metadata-per-sub-mission")
 
-FULL_METADATA_PER_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/3_pre-curation-final/1_full-metadata-per-mission/")
-FULL_METADATA_PER_SUB_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/3_pre-curation-final/2_full-metadata-per-sub-mission/")
+FULL_METADATA_PER_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/3_pre-curation-final/1_full-metadata-per-mission/")
+FULL_METADATA_PER_SUB_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/3_pre-curation-final/2_full-metadata-per-sub-mission/")
 
 # The following file should not be assumed to be there, since we are not necessarily keeping all
 # mission data combined locally, and it should not be assumed to contain every mission, but this is where the file will be if it has been created
-FULL_METADATA_PER_MISSION_COMBINED_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/3_pre-curation-final/ofo-all-missions-metadata.gpkg")
-FULL_METADATA_PER_IMAGE_COMBINED_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/3_pre-curation-final/ofo-all-images-metadata.gpkg")
+FULL_METADATA_PER_MISSION_COMBINED_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/3_pre-curation-final/ofo-all-missions-metadata.gpkg")
+FULL_METADATA_PER_IMAGE_COMBINED_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/3_pre-curation-final/ofo-all-images-metadata.gpkg")
 
-CURATION_NOTES_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/4_curation/imagery-curation-notes_v2.csv")
-FORMERLY_CURATED_IMAGE_METADATA = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/4_curation/formerly-curated-image-metadata_20250419.gpkg")
-FORMERLY_CURATED_MISSION_LIST = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/4_curation/formerly-curated-mission-list_20250419.csv")
+CURATION_NOTES_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-inputs/curation-records/imagery-curation-notes_v2.csv")
+FORMERLY_CURATED_IMAGE_METADATA = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-inputs/curation-records/formerly-curated-image-metadata_20250419.gpkg")
+FORMERLY_CURATED_MISSION_LIST = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-inputs/curation-records/formerly-curated-mission-list_20250419.csv")
 
 # Missing constant (used by scripts but not defined)
 SORTED_IMAGERY_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "2_sorted")
 
 # Post-curation intermediate paths (mirror pre-curation structure)
-POST_CURATION_INTERMEDIATE_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/5_post-curation-intermediate")
+POST_CURATION_INTERMEDIATE_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/5_post-curation-intermediate")
 
 POST_CURATION_DERIVED_METADATA_PER_MISSION_PATH = file.path(POST_CURATION_INTERMEDIATE_PATH, "2_derived-metadata-per-mission")
 POST_CURATION_DERIVED_METADATA_PER_SUB_MISSION_PATH = file.path(POST_CURATION_INTERMEDIATE_PATH, "3_derived-metadata-per-sub-mission")
 
 # Post-curation final paths
-POST_CURATION_FINAL_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/6_post-curation-final")
+POST_CURATION_FINAL_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/6_post-curation-final")
 
 POST_CURATION_PARSED_EXIF_FOR_RETAINED_IMAGES_PATH = file.path(POST_CURATION_FINAL_PATH, "1_parsed-exif-per-image")
 POST_CURATION_FULL_METADATA_PER_MISSION_PATH = file.path(POST_CURATION_FINAL_PATH, "2_full-metadata-per-mission")
