@@ -71,7 +71,7 @@ read_image_metadata = function(filepath) {
   ext = tools::file_ext(filepath)
 
   if (ext == "csv") {
-    return(read_csv(filepath, show_col_types = FALSE))
+    df = read_csv(filepath, show_col_types = FALSE)
   } else if (ext == "gpkg") {
     sf_data = st_read(filepath, quiet = TRUE)
     # Extract coordinates and add as columns for compatibility
@@ -79,9 +79,14 @@ read_image_metadata = function(filepath) {
     df = sf_data |>
       st_drop_geometry() |>
       mutate(lon = coords[, 1], lat = coords[, 2])
-    return(df)
   } else {
     stop(paste("Unsupported file format:", ext))
+  }
+
+  # If column preprocessed_exif_gpstimestamp exists, coerce to character (from hms which was the
+  # default of read_csv)
+  if ("preprocessed_exif_gpstimestamp" %in% colnames(df)) {
+    df = df |> mutate(preprocessed_exif_gpstimestamp = as.character(preprocessed_exif_gpstimestamp))
   }
 }
 
