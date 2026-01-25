@@ -83,11 +83,13 @@ read_image_metadata = function(filepath) {
     stop(paste("Unsupported file format:", ext))
   }
 
-  # If column preprocessed_exif_gpstimestamp exists, coerce to character (from hms which was the
+  # If column preprocessed_exif_GPSTimeStamp exists, coerce to character (from hms which was the
   # default of read_csv)
-  if ("preprocessed_exif_gpstimestamp" %in% colnames(df)) {
-    df = df |> mutate(preprocessed_exif_gpstimestamp = as.character(preprocessed_exif_gpstimestamp))
+  if ("preprocessed_exif_GPSTimeStamp" %in% colnames(df)) {
+    df = df |> mutate(preprocessed_exif_GPSTimeStamp = as.character(preprocessed_exif_GPSTimeStamp))
   }
+
+  return(df)
 }
 
 

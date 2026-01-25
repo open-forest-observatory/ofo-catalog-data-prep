@@ -164,17 +164,19 @@ parse_mission_exif_at_image_level = function(mission_id_foc) {
   metadata_perimage$image_id = tools::file_path_sans_ext(basename(metadata_perimage$image_path_ofo))
 
   # Preserve EXIF columns needed for downstream fixes (orientation rotation, GPS timestamp format)
-  # These come from the raw EXIF in the sorting plan and are needed by fix_exif script
+  # These come from the raw EXIF in the sorting plan and are needed by fix_exif script. We are not
+  # parsing them via the metadata extraction function because they are not part of the standardized
+  # metadata schema and what we care about are the raw exif values, not an interpreted version.
   if ("Orientation" %in% names(exif)) {
-    metadata_perimage$preprocessed_exif_orientation = exif$Orientation
+    metadata_perimage$preprocessed_exif_Orientation = exif$Orientation
   } else {
-    metadata_perimage$preprocessed_exif_orientation = NA
+    metadata_perimage$preprocessed_exif_Orientation = NA
   }
 
   if ("GPSTimeStamp" %in% names(exif)) {
-    metadata_perimage$preprocessed_exif_gpstimestamp = exif$GPSTimeStamp
+    metadata_perimage$preprocessed_exif_GPSTimeStamp = exif$GPSTimeStamp
   } else {
-    metadata_perimage$preprocessed_exif_gpstimestamp = NA
+    metadata_perimage$preprocessed_exif_GPSTimeStamp = NA
   }
 
   # Pad the mission ID since it may start as an integer (not the case for the sub-mission ID since it

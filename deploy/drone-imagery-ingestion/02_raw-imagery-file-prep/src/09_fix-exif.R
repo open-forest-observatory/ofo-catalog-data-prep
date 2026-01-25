@@ -1,7 +1,7 @@
 # Purpose: Fix EXIF metadata. If file is a symlink and needs modification,
 # replace symlink with actual file copy first.
 #
-# Uses preprocessed_exif_orientation and preprocessed_exif_gpstimestamp columns
+# Uses preprocessed_exif_Orientation and preprocessed_exif_GPSTimeStamp columns
 # from image metadata gpkg (added by script 05) instead of sorting plan CSV.
 
 library(furrr)
@@ -74,13 +74,13 @@ fix_exif = function(mission_id_foc, use_post_curation = TRUE) {
 
   # Determine which images need fixing using preprocessed EXIF columns
   # Orientation needs fixing if != 1
-  image_metadata$fix_orientation = !is.na(image_metadata$preprocessed_exif_orientation) &
-                                    image_metadata$preprocessed_exif_orientation != 1
+  image_metadata$fix_orientation = !is.na(image_metadata$preprocessed_exif_Orientation) &
+                                    image_metadata$preprocessed_exif_Orientation != 1
 
   # GPSTimeStamp needs fixing if it has decimal seconds (causes Metashape errors)
-  image_metadata$fix_gpstimestamp = !is.na(image_metadata$preprocessed_exif_gpstimestamp) &
+  image_metadata$fix_gpstimestamp = !is.na(image_metadata$preprocessed_exif_GPSTimeStamp) &
                                      grepl("[0-9]+:[0-9]+:[0-9]+\\.[0-9]+",
-                                           image_metadata$preprocessed_exif_gpstimestamp)
+                                           image_metadata$preprocessed_exif_GPSTimeStamp)
 
   image_metadata = image_metadata |>
     mutate(fix_both = (fix_orientation & fix_gpstimestamp)) |>
