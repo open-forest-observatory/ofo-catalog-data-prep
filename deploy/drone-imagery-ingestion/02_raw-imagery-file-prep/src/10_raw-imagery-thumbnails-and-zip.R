@@ -18,7 +18,7 @@ magick:::magick_threads(1)
 
 
 # Function to do all the imagery prep for a given mission, with pre-subsetted metadata and footprint
-make_raw_imagery_thumbnails_and_zip = function(mission_id_foc) {
+make_raw_imagery_thumbnails_and_zip = function(mission_id_foc, use_post_curation = TRUE) {
 
   cat("\n **** Making thumbnails and zip for mission", mission_id_foc, "**** \n")
 
@@ -40,12 +40,23 @@ make_raw_imagery_thumbnails_and_zip = function(mission_id_foc) {
   fake_df = data.frame(a = 1, b = 1)
   write.csv(fake_df, processing_file)
 
+  # Select appropriate metadata path
+  if (use_post_curation) {
+    points_filepath = file.path(POST_CURATION_PARSED_EXIF_FOR_RETAINED_IMAGES_PATH,
+                                paste0(mission_id_foc, "_image-metadata.gpkg"))
+    footprint_filepath = file.path(POST_CURATION_FULL_METADATA_PER_MISSION_PATH,
+                                    paste0(mission_id_foc, "_mission-metadata.gpkg"))
+  } else {
+    points_filepath = file.path(PARSED_EXIF_FOR_RETAINED_IMAGES_PATH,
+                                paste0(mission_id_foc, "_image-metadata.gpkg"))
+    footprint_filepath = file.path(FULL_METADATA_PER_MISSION_PATH,
+                                    paste0(mission_id_foc, "_mission-metadata.gpkg"))
+  }
+
   # Get the mission images metadata (points gpkg)
-  points_filepath = file.path(PARSED_EXIF_FOR_RETAINED_IMAGES_PATH, paste0(mission_id_foc, "_image-metadata.gpkg"))
   mission_images_metadata = st_read(points_filepath)
 
   # Get the mission footprint (polygon gpkg)
-  footprint_filepath = file.path(FULL_METADATA_PER_MISSION_PATH, paste0(mission_id_foc, "_mission-metadata.gpkg"))
   mission_footprint = st_read(footprint_filepath)
 
   # Project mission image locs and footprint to the local UTM zone
