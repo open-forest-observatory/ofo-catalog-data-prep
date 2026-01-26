@@ -21,13 +21,13 @@ force_all_cols_to_character = function(df) {
 metadata_files = list.files(PARSED_EXIF_FOR_RETAINED_IMAGES_PATH, pattern = "_image-metadata.gpkg$", full.names = TRUE)
 
 plan(multisession, workers = availableCores()*3)
-metadata_sf_list = future_map(metadata_files, st_read, .progress = TRUE)
+metadata_sf_list = future_map(metadata_files, st_read, .progress = TRUE, .options = furrr_options(seed = TRUE))
 
 # Need to set all cols to character, because for some missions, a given column is inferred to be
 # character, whereas for other, it is inferred to be numeric. This happens for example when one
 # mission has the image count as "121, 324, 134" because it is has multiple sub-missions, but
 # another has image count of "121" because it is a single mission.
-metadata_sf_list_char = future_map(metadata_sf_list, force_all_cols_to_character)
+metadata_sf_list_char = future_map(metadata_sf_list, force_all_cols_to_character, .options = furrr_options(seed = TRUE))
 
 
 metadata_sf = bind_rows(metadata_sf_list_char)
