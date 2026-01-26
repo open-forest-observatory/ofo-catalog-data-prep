@@ -27,6 +27,20 @@ curation_notes = load_and_combine_curation_notes(CURATION_NOTES_FILEPATH)
 cat(sprintf("  Loaded %d sub-mission curation records\n", nrow(curation_notes)))
 
 # ============================================================================
+# Load catalog-wide duplicate log
+# ============================================================================
+
+cat("Loading catalog-wide duplicate log...\n")
+
+if (!file.exists(CATALOG_DUPLICATE_IMAGES_LOG_PATH)) {
+  stop("Catalog duplicate log not found. Run 01a_finalize-raw-imagery-metadata-prep/merge-duplicate-logs.R first: ",
+       CATALOG_DUPLICATE_IMAGES_LOG_PATH)
+}
+
+duplicate_log = read_csv(CATALOG_DUPLICATE_IMAGES_LOG_PATH, col_types = cols(.default = "c"))
+cat(sprintf("  Loaded %d duplicate image records\n", nrow(duplicate_log)))
+
+# ============================================================================
 # Load formerly curated mission list and metadata
 # ============================================================================
 
@@ -112,27 +126,28 @@ if (length(formerly_curated_missions) > 0 && !is.null(formerly_curated_image_met
 
 cat("Updating curation notes with current image IDs...\n")
 
-update_curation_row = function(row, crosswalks, formerly_curated_missions) {
+update_curation_row = function(row, crosswalks, formerly_curated_missions, duplicate_log) {
   mission_id = row$mission_id
+  is_formerly_curated = mission_id %in% formerly_curated_missions
 
-  if (!(mission_id %in% formerly_curated_missions)) {
-    return(row)
+  # Get crosswalk if this is a formerly curated mission
+  crosswalk = NULL
+  if (is_formerly_curated) {
+    crosswalk = crosswalks[[mission_id]]
+    if (is.null(crosswalk) || nrow(crosswalk) == 0) {
+      warning(paste("No crosswalk available for formerly curated mission", mission_id))
+      # Continue anyway - duplicate resolution can still be applied
+    }
   }
 
-  crosswalk = crosswalks[[mission_id]]
-  if (is.null(crosswalk) || nrow(crosswalk) == 0) {
-    warning(paste("No crosswalk available for formerly curated mission", mission_id))
-    return(row)
-  }
+  # Anomaly columns to update (extraneous_images handled separately in Step 9)
+  anomaly_cols = c("collection_time_anomaly", "altitude_anomaly",
+                   "spatial_anomaly", "camera_pitch_anomaly", "excess_images_anomaly",
+                   "missing_images_anomaly", "other_anomalies", "anomaly_notes")
 
-  # Update all columns that might contain image ID references
-  cols_to_update = c("extraneous_images", "collection_time_anomaly", "altitude_anomaly",
-                     "spatial_anomaly", "camera_pitch_anomaly", "excess_images_anomaly",
-                     "missing_images_anomaly", "other_anomalies", "anomaly_notes")
-
-  for (col in cols_to_update) {
+  for (col in anomaly_cols) {
     if (col %in% names(row) && !is.na(row[[col]])) {
-      row[[col]] = update_image_id_references(row[[col]], crosswalk)
+      row[[col]] = update_anomaly_image_references(row[[col]], crosswalk, duplicate_log)
     }
   }
 
@@ -143,7 +158,7 @@ update_curation_row = function(row, crosswalks, formerly_curated_missions) {
 curation_notes_updated = curation_notes
 for (i in seq_len(nrow(curation_notes))) {
   row_list = as.list(curation_notes[i, ])
-  updated = update_curation_row(row_list, crosswalks, formerly_curated_missions)
+  updated = update_curation_row(row_list, crosswalks, formerly_curated_missions, duplicate_log)
   for (col in names(updated)) {
     curation_notes_updated[i, col] = updated[[col]]
   }
@@ -151,11 +166,49 @@ for (i in seq_len(nrow(curation_notes))) {
 
 # ============================================================================
 # Parse extraneous images and create exclusion lists per mission
+# (with crosswalk application and duplicate resolution)
 # ============================================================================
 
-cat("Parsing extraneous images...\n")
+cat("Parsing extraneous images, applying crosswalks, and resolving duplicates...\n")
 
 exclusion_lists = list()
+
+# Helper to crosswalk and resolve an image ID
+crosswalk_and_resolve = function(image_id, crosswalk, duplicate_log, current_image_ids) {
+  working_id = image_id
+
+  # Step 1: Apply crosswalk if available (formerly curated missions)
+  if (!is.null(crosswalk) && nrow(crosswalk) > 0) {
+    crosswalk_result = crosswalk |>
+      filter(former_image_id == image_id) |>
+      pull(current_image_id)
+
+    if (length(crosswalk_result) > 0 && crosswalk_result[1] != "none" && crosswalk_result[1] != "multiple") {
+      working_id = crosswalk_result[1]
+    } else if (length(crosswalk_result) > 0 && crosswalk_result[1] == "none") {
+      # Crosswalk says image doesn't exist in current data.
+      # No duplicate lookup needed: if duplicates existed at this location,
+      # one would remain after deduplication and the crosswalk would have found it.
+      return(NA_character_)
+    }
+    # If "multiple" or not found in crosswalk, continue with original ID
+  }
+
+  # Step 2: If the working ID exists in current data, use it directly
+  if (working_id %in% current_image_ids) {
+    return(working_id)
+  }
+
+  # Step 3: Otherwise, try to find its remaining duplicate
+  remaining = get_remaining_duplicate(working_id, duplicate_log)
+
+  if (!is.na(remaining) && remaining %in% current_image_ids) {
+    return(remaining)
+  }
+
+  # Neither exists - return NA (will be filtered out)
+  return(NA_character_)
+}
 
 for (i in seq_len(nrow(curation_notes_updated))) {
   row = curation_notes_updated[i, ]
@@ -163,15 +216,53 @@ for (i in seq_len(nrow(curation_notes_updated))) {
 
   if (!is.na(row$extraneous_images) && row$extraneous_images != "") {
     tryCatch({
+      # Parse extraneous images (handles range expansion)
       excluded_ids = parse_extraneous_images(row$extraneous_images, mission_id)
 
       if (length(excluded_ids) > 0) {
-        if (!(mission_id %in% names(exclusion_lists))) {
-          exclusion_lists[[mission_id]] = character(0)
-        }
-        exclusion_lists[[mission_id]] = unique(c(exclusion_lists[[mission_id]], excluded_ids))
+        # Load current image IDs for this mission to check existence
+        current_filepath = file.path(PARSED_EXIF_FOR_RETAINED_IMAGES_PATH,
+                                     paste0(mission_id, "_image-metadata.gpkg"))
+        if (file.exists(current_filepath)) {
+          current_images = st_read(current_filepath, quiet = TRUE)
+          current_image_ids = current_images$image_id
 
-        cat(sprintf("  Mission %s: %d images to exclude\n", mission_id, length(excluded_ids)))
+          # Get crosswalk if this is a formerly curated mission
+          crosswalk = NULL
+          is_formerly_curated = mission_id %in% formerly_curated_missions
+          if (is_formerly_curated) {
+            crosswalk = crosswalks[[mission_id]]
+          }
+
+          # Apply crosswalk and resolve duplicates for each ID
+          resolved_ids_raw = map_chr(excluded_ids, ~crosswalk_and_resolve(.x, crosswalk, duplicate_log, current_image_ids))
+
+          # Count statistics before filtering
+          n_missing = sum(is.na(resolved_ids_raw))
+          n_changed = sum(!is.na(resolved_ids_raw) & excluded_ids != resolved_ids_raw)
+
+          # Remove NAs (images that don't exist) and deduplicate
+          resolved_ids = unique(resolved_ids_raw[!is.na(resolved_ids_raw)])
+
+          if (n_missing > 0) {
+            cat(sprintf("  Mission %s: %d image(s) not found in current data (skipped)\n",
+                        mission_id, n_missing))
+          }
+
+          if (n_changed > 0) {
+            cat(sprintf("  Mission %s: resolved %d image(s) via crosswalk/duplicates\n",
+                        mission_id, n_changed))
+          }
+
+          if (length(resolved_ids) > 0) {
+            if (!(mission_id %in% names(exclusion_lists))) {
+              exclusion_lists[[mission_id]] = character(0)
+            }
+            exclusion_lists[[mission_id]] = unique(c(exclusion_lists[[mission_id]], resolved_ids))
+
+            cat(sprintf("  Mission %s: %d images to exclude\n", mission_id, length(resolved_ids)))
+          }
+        }
       }
     }, error = function(e) {
       stop(paste("Error parsing extraneous_images for mission", mission_id, ":", e$message))

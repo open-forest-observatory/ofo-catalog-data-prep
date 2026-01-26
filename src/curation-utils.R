@@ -174,10 +174,9 @@ load_and_combine_curation_notes = function(curation_filepath) {
 #'   Uses truncation to avoid rounding ambiguity.
 #' @return Tibble with columns: former_image_id, current_image_id.
 #'   current_image_id will be:
-#'   - The actual ID if exactly one match at that location and same sub-mission
+#'   - The actual ID if exactly one match at that location (regardless of sub-mission)
 #'   - "none" if no matches at that location
 #'   - "multiple" if more than one match at that location
-#'   - "different sub-mission" if exactly one match but in a different sub-mission
 create_image_id_crosswalk = function(formerly_curated_images, current_images,
                                      mission_id, coord_precision = 8) {
   # Filter to focal mission
@@ -262,22 +261,12 @@ create_image_id_crosswalk = function(formerly_curated_images, current_images,
   multi_match = match_counts > 1
   crosswalk$current_image_id[multi_match] = "multiple"
 
-  # Handle single matches - check sub-mission
+  # Handle single matches - always return actual image ID
   single_match = match_counts == 1
   if (any(single_match)) {
     single_idx = which(single_match)
     single_current_ids = map_chr(matches[single_idx], ~ .x[1])
-
-    single_former_subs = extract_sub_mission(crosswalk$former_image_id[single_idx])
-    single_current_subs = extract_sub_mission(single_current_ids)
-
-    same_sub = single_former_subs == single_current_subs
-
-    crosswalk$current_image_id[single_idx] = if_else(
-      same_sub,
-      single_current_ids,
-      "different sub-mission"
-    )
+    crosswalk$current_image_id[single_idx] = single_current_ids
   }
 
   return(crosswalk)
@@ -313,6 +302,113 @@ update_image_id_references = function(text, crosswalk) {
       result = str_replace(result, fixed(old_id), new_id)
     } else {
       warning(paste("Former image ID", old_id, "could not be mapped to a current image ID"))
+    }
+  }
+
+  return(result)
+}
+
+
+#' Find the remaining duplicate for an image that was removed during deduplication
+#'
+#' Given an image ID that may have been removed as a duplicate, look up its
+#' duplicate group and return the image ID that was kept (alphabetically first
+#' by image_path_contrib).
+#'
+#' @param image_id The image ID to look up
+#' @param duplicate_log Tibble containing the catalog-wide duplicate log with columns:
+#'   duplicate_group_id, image_id, image_path_contrib
+#' @return Character: the kept image ID if found in a duplicate group,
+#'   NA if not a duplicate, or the original image_id if it was the one kept
+get_remaining_duplicate = function(image_id, duplicate_log) {
+  # Find the duplicate group containing this image
+  image_record = duplicate_log |>
+    filter(image_id == !!image_id)
+
+  if (nrow(image_record) == 0) {
+    return(NA_character_)
+  }
+
+  group = image_record$duplicate_group_id[1]
+
+  # Get all images in this group and find the one that was kept
+  # (alphabetically first by image_path_contrib)
+  group_images = duplicate_log |>
+    filter(duplicate_group_id == group) |>
+    arrange(image_path_contrib)
+
+  # The first one was kept
+  kept_id = group_images$image_id[1]
+  return(kept_id)
+}
+
+
+#' Update image ID references in anomaly columns
+#'
+#' Updates image IDs in anomaly columns using the crosswalk (if provided) and
+#' duplicate resolution. This function is for anomaly columns only (not extraneous_images).
+#' Anomaly columns contain individual image IDs, not ranges.
+#'
+#' For formerly curated missions: applies crosswalk AND duplicate resolution.
+#' For currently curated missions: applies only duplicate resolution (crosswalk = NULL).
+#'
+#' @param text String containing image ID references (individual IDs, not ranges)
+#' @param crosswalk Tibble with former_image_id and current_image_id columns,
+#'   or NULL for currently curated missions (no crosswalking needed)
+#' @param duplicate_log Tibble with catalog-wide duplicate information
+#' @return String with updated image IDs. IDs that no longer exist are marked as "(image deleted)".
+update_anomaly_image_references = function(text, crosswalk, duplicate_log) {
+  if (is.na(text) || text == "") {
+    return(text)
+  }
+
+  # Find all image ID patterns in the text (format: NNNNNN-NN_NNNNNN)
+  pattern = "\\d{6}-\\d{2}_\\d{6}"
+  matches = str_extract_all(text, pattern)[[1]]
+
+  if (length(matches) == 0) {
+    return(text)
+  }
+
+  has_crosswalk = !is.null(crosswalk) && nrow(crosswalk) > 0
+  result = text
+
+  for (old_id in matches) {
+    new_id = old_id  # Default: keep original
+
+    # Step 1: Apply crosswalk if available (formerly curated missions)
+    if (has_crosswalk) {
+      crosswalk_result = crosswalk |>
+        filter(former_image_id == old_id) |>
+        pull(current_image_id)
+
+      if (length(crosswalk_result) > 0) {
+        new_id = crosswalk_result[1]
+      }
+    }
+
+    # Step 2: Handle crosswalk results and check for duplicates
+    if (new_id == "none") {
+      # Crosswalk says image doesn't exist in current data.
+      # No duplicate lookup needed: if duplicates existed at this location,
+      # one would remain after deduplication and the crosswalk would have found it.
+      result = str_replace(result, fixed(old_id), "(image deleted)")
+    } else if (new_id == "multiple") {
+      # Multiple matches - ambiguous, keep original with warning
+      warning(paste("Multiple matches found for image", old_id, "- keeping original"))
+    } else {
+      # new_id is a valid ID (either crosswalked or original)
+      # Check if this ID was a removed duplicate and resolve to remaining
+      remaining = get_remaining_duplicate(new_id, duplicate_log)
+
+      if (!is.na(remaining) && remaining != new_id) {
+        # The ID we have was a removed duplicate; use the remaining one
+        result = str_replace(result, fixed(old_id), remaining)
+      } else if (new_id != old_id) {
+        # Crosswalked to a different ID
+        result = str_replace(result, fixed(old_id), new_id)
+      }
+      # If new_id == old_id and not a removed duplicate, no change needed
     }
   }
 
