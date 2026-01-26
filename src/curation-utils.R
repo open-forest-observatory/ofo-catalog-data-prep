@@ -156,64 +156,128 @@ load_and_combine_curation_notes = function(curation_filepath) {
 }
 
 
-#' Map image IDs from formerly curated metadata to current metadata using spatial join
+#' Map image IDs from formerly curated metadata to current metadata using coordinate and attribute matching
 #'
 #' For missions that were curated using an older version of the image metadata,
 #' this function creates a crosswalk between the former image IDs and the current
-#' image IDs by matching images based on their geographic coordinates.
+#' image IDs by matching images based on their geographic coordinates and additional
+#' attributes (file size, camera settings, etc.) when available.
 #'
 #' @param formerly_curated_images SF object with formerly curated image points.
-#'   Must have columns: mission_id, image_id, and geometry.
+#'   Must have columns: mission_id, image_id, and geometry. Optional columns used
+#'   for matching if present and non-null: file_size_gb, accuracy_x, accuracy_y,
+#'   camera_pitch, camera_roll, camera_yaw, exposure, aperture, iso.
 #' @param current_images SF object with current image points.
-#'   Must have columns: mission_id, image_id, and geometry.
+#'   Must have columns: mission_id, image_id, and geometry. Same optional columns.
 #' @param mission_id Mission ID to filter on
-#' @param distance_threshold Maximum distance (meters) for spatial matching.
-#'   Matches beyond this distance will generate a warning.
-#' @return Tibble with columns: former_image_id, current_image_id, distance_m
+#' @param coord_precision Number of decimal places for coordinate matching (default 8).
+#'   Uses truncation to avoid rounding ambiguity.
+#' @return Tibble with columns: former_image_id, current_image_id.
+#'   current_image_id will be:
+#'   - The actual ID if exactly one match at that location and same sub-mission
+#'   - "none" if no matches at that location
+#'   - "multiple" if more than one match at that location
+#'   - "different sub-mission" if exactly one match but in a different sub-mission
 create_image_id_crosswalk = function(formerly_curated_images, current_images,
-                                      mission_id, distance_threshold = 1) {
+                                     mission_id, coord_precision = 8) {
   # Filter to focal mission
   former = formerly_curated_images |> filter(mission_id == !!mission_id)
   current = current_images |> filter(mission_id == !!mission_id)
 
   if (nrow(former) == 0 || nrow(current) == 0) {
     warning(paste("No images found for mission", mission_id, "in one or both datasets"))
-    return(tibble(former_image_id = character(), current_image_id = character(), distance_m = numeric()))
+    return(tibble(former_image_id = character(), current_image_id = character()))
   }
 
-  # Get centroid coordinates to determine appropriate UTM zone
-  centroid_coords = st_coordinates(st_centroid(st_union(former)))
+  # Helper to extract sub-mission ID from image ID (format: NNNNNN-NN_NNNNNN)
+  extract_sub_mission = function(image_id) substr(image_id, 1, 9)
 
-  # Calculate UTM zone from longitude
-  utm_zone = floor((centroid_coords[1, 1] + 180) / 6) + 1
+  # Extract coordinates (always used)
+  former_coords = st_coordinates(former)
+  current_coords = st_coordinates(current)
 
-  # Determine if northern or southern hemisphere
-  if (centroid_coords[1, 2] >= 0) {
-    utm_epsg = 32600 + utm_zone  # Northern hemisphere
-  } else {
-    utm_epsg = 32700 + utm_zone  # Southern hemisphere
-  }
+  # Use truncation (floor of scaled value) to avoid rounding ambiguity
+  coord_scale = 10^coord_precision
 
-  # Transform to UTM for accurate distance calculation
-  former_utm = former |> st_transform(utm_epsg)
-  current_utm = current |> st_transform(utm_epsg)
-
-  # Find nearest current image for each former image
-  nearest_idx = st_nearest_feature(former_utm, current_utm)
-  distances = st_distance(former_utm, current_utm[nearest_idx, ], by_element = TRUE)
-
-  crosswalk = tibble(
-    former_image_id = former$image_id,
-    current_image_id = current$image_id[nearest_idx],
-    distance_m = as.numeric(distances)
+  # Start with coordinate-based key components
+  former_key_parts = list(
+    floor(former_coords[, 1] * coord_scale),
+    floor(former_coords[, 2] * coord_scale)
+  )
+  current_key_parts = list(
+    floor(current_coords[, 1] * coord_scale),
+    floor(current_coords[, 2] * coord_scale)
   )
 
-  # Warn about matches beyond threshold
-  far_matches = crosswalk |> filter(distance_m > distance_threshold)
-  if (nrow(far_matches) > 0) {
-    warning(paste("Found", nrow(far_matches), "image matches in mission", mission_id,
-                  "with distance >", distance_threshold, "meters. Max distance:",
-                  round(max(far_matches$distance_m), 2), "m"))
+  # Define additional matching attributes and their precisions
+  match_attrs = list(
+    file_size_gb = 9,
+    accuracy_x = 4,
+    accuracy_y = 4,
+    camera_pitch = 2,
+    camera_roll = 2,
+    camera_yaw = 2,
+    exposure = 6,
+    aperture = 2,
+    iso = 0
+  )
+
+  # Add each attribute to the key if it exists and has no NULLs in both datasets
+  for (attr in names(match_attrs)) {
+    precision = match_attrs[[attr]]
+    scale = 10^precision
+
+    # Check if column exists in both and has no NAs
+    former_has = attr %in% names(former) && !any(is.na(former[[attr]]))
+    current_has = attr %in% names(current) && !any(is.na(current[[attr]]))
+
+    if (former_has && current_has) {
+      former_key_parts = c(former_key_parts, list(floor(former[[attr]] * scale)))
+      current_key_parts = c(current_key_parts, list(floor(current[[attr]] * scale)))
+    }
+  }
+
+  # Build final keys by pasting all components
+  former_key = do.call(paste, c(former_key_parts, sep = "_"))
+  current_key = do.call(paste, c(current_key_parts, sep = "_"))
+
+  # Build lookup table: key -> list of current image IDs at that location
+  current_lookup = split(current$image_id, current_key)
+
+  # Match each former image
+  matches = current_lookup[former_key]
+  match_counts = lengths(matches)
+
+  # Initialize result
+  crosswalk = tibble(
+    former_image_id = former$image_id,
+    current_image_id = character(length(former_key))
+  )
+
+  # Handle zero matches
+  no_match = match_counts == 0
+  crosswalk$current_image_id[no_match] = "none"
+
+  # Handle multiple matches
+  multi_match = match_counts > 1
+  crosswalk$current_image_id[multi_match] = "multiple"
+
+  # Handle single matches - check sub-mission
+  single_match = match_counts == 1
+  if (any(single_match)) {
+    single_idx = which(single_match)
+    single_current_ids = map_chr(matches[single_idx], ~ .x[1])
+
+    single_former_subs = extract_sub_mission(crosswalk$former_image_id[single_idx])
+    single_current_subs = extract_sub_mission(single_current_ids)
+
+    same_sub = single_former_subs == single_current_subs
+
+    crosswalk$current_image_id[single_idx] = if_else(
+      same_sub,
+      single_current_ids,
+      "different sub-mission"
+    )
   }
 
   return(crosswalk)

@@ -52,10 +52,12 @@ EXTRACTED_METADATA_PER_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "met
 EXTRACTED_METADATA_PER_SUB_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/2_pre-curation-intermediate/2_contributed-metadata-per-sub-mission/")
 
 PARSED_EXIF_METADATA_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/2_pre-curation-intermediate/4_parsed-exif")
+DUPLICATE_IMAGES_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/2_pre-curation-intermediate/5_duplicate-images")
+PARSED_EXIF_DEDUPED_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/2_pre-curation-intermediate/6_parsed-exif-duplicates-removed")
 
 PARSED_EXIF_FOR_RETAINED_IMAGES_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/3_pre-curation-final/3_parsed-exif-per-image")
-DERIVED_METADATA_PER_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/2_pre-curation-intermediate/6_derived-metadata-per-mission")
-DERIVED_METADATA_PER_SUB_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/2_pre-curation-intermediate/7_derived-metadata-per-sub-mission")
+DERIVED_METADATA_PER_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/2_pre-curation-intermediate/7_derived-metadata-per-mission")
+DERIVED_METADATA_PER_SUB_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/2_pre-curation-intermediate/8_derived-metadata-per-sub-mission")
 
 FULL_METADATA_PER_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/3_pre-curation-final/1_full-metadata-per-mission/")
 FULL_METADATA_PER_SUB_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/3_pre-curation-final/2_full-metadata-per-sub-mission/")

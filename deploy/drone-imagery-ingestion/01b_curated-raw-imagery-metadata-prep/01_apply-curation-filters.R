@@ -74,7 +74,12 @@ if (length(formerly_curated_missions) > 0 && !is.null(formerly_curated_image_met
   load_current_images = function(mission_id) {
     filepath = file.path(PARSED_EXIF_FOR_RETAINED_IMAGES_PATH, paste0(mission_id, "_image-metadata.gpkg"))
     if (file.exists(filepath)) {
-      return(st_read(filepath, quiet = TRUE))
+      images = st_read(filepath, quiet = TRUE)
+      # Extract lon/lat from geometry
+      coords = st_coordinates(images)
+      images$lon = coords[, 1]
+      images$lat = coords[, 2]
+      return(images)
     }
     return(NULL)
   }
