@@ -117,6 +117,27 @@ if (length(formerly_curated_missions) > 0 && !is.null(formerly_curated_image_met
         mission_id
       )
     }
+
+    # Handle missions with minor ID swaps (<=4 differences):
+    # Between the original curation and saving of the original curation image metadata,
+    # some missions experienced accidental corruption where up to 4 images got swapped.
+    # Since the swapping has been undone, the current IDs are correct for missions where
+    # most IDs already correspond. For these missions, we treat the current IDs as
+    # authoritative (matching the state at the time of curation, before the swap).
+    # Missions with more extensive ID changes cannot be corrected this way.
+    cat("Checking for missions with minor ID swaps (<=4 differences)...\n")
+    for (mission_id in names(crosswalks)) {
+      crosswalk = crosswalks[[mission_id]]
+      if (!is.null(crosswalk) && nrow(crosswalk) > 0) {
+        n_differences = sum(crosswalk$former_image_id != crosswalk$current_image_id)
+        if (n_differences > 0 && n_differences <= 4) {
+          cat(sprintf("  Mission %s: %d minor ID differences detected, treating current IDs as authoritative\n",
+                      mission_id, n_differences))
+          crosswalks[[mission_id]] = crosswalk |>
+            mutate(former_image_id = current_image_id)
+        }
+      }
+    }
   }
 }
 
@@ -321,7 +342,7 @@ filter_and_save_mission = function(mission_id_foc) {
 }
 
 # Process all missions in parallel
-future::plan(multisession)
+future::plan(multisession(workers = future::availableCores()*3))
 results = future_map_lgl(all_missions_to_process, filter_and_save_mission, .progress = TRUE)
 
 cat(sprintf("\nFiltered %d missions successfully\n", sum(results)))
