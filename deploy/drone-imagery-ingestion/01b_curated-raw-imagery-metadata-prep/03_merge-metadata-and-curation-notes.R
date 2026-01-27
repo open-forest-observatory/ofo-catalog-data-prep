@@ -1,4 +1,3 @@
-# deploy/drone-imagery-ingestion/01b_curated-raw-imagery-metadata-prep/03_merge-metadata-and-curation-notes.R
 # Purpose: Merge post-curation derived metadata with contributed metadata and curation notes.
 #
 # Key difference from pre-curation: Uses pre-curation full metadata gpkgs as source for
@@ -248,7 +247,7 @@ merge_metadata_for_mission = function(mission_foc) {
 # Run for all missions
 # ============================================================================
 
-future::plan(multisession)
+future::plan(multisession(workers = future::availableCores() * 3))
 results = future_map_lgl(missions_to_process, merge_metadata_for_mission, .progress = TRUE)
 
 cat(sprintf("\nMerged metadata for %d missions successfully\n", sum(results)))

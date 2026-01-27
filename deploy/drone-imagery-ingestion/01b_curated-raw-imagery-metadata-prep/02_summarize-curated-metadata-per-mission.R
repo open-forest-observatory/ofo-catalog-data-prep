@@ -1,4 +1,3 @@
-# deploy/drone-imagery-ingestion/01b_curated-raw-imagery-metadata-prep/02_summarize-curated-metadata-per-mission.R
 # Purpose: Re-summarize EXIF metadata at mission and sub-mission level after curation filtering.
 #
 # This is equivalent to 01_raw-imagery-metadata-prep/06_summarize-exif-metadata-per-mission.R
@@ -47,7 +46,7 @@ create_dir(POST_CURATION_DERIVED_METADATA_PER_SUB_MISSION_PATH)
 # This script further filters based on polygon retention (images outside computed polygons
 # are excluded), reading from intermediate and writing final doubly-filtered images.
 
-future::plan(multisession)
+future::plan(multisession(workers = future::availableCores() * 3))
 results = future_walk(
   missions_to_process,
   ~ summarize_mission_exif(
