@@ -23,8 +23,8 @@ SKIP_EXISTING = FALSE # Skip processing for missions that already have all outpu
 
 
 # Base path for project data
-# BASE_DATA_PATH = "/ofo-share/project-data/catalog-data-prep/"
-BASE_DATA_PATH = "/z_OLD_ofo-share/ARCHIVED__SEE_README/catalog-data-prep/"
+BASE_DATA_PATH = "/ofo-share/project-data/catalog-data-prep/"
+# BASE_DATA_PATH = "/z_OLD_ofo-share/ARCHIVED__SEE_README/catalog-data-prep/"
 
 PROJECT_TO_PROCESS_RAW_IMAGERY_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "00_missions-to-process/01_raw-imagery-meatadata-prep/project-to-process.txt")
 PROJECT_NAME_TO_PROCESS_RAW_IMAGERY_METADATA = tryCatch(
@@ -241,17 +241,17 @@ DATA_SERVER_BASE_URL = "https://js2.jetstream-cloud.org:8001/swift/v1/"
 DATA_SERVER_MISSIONS_BASE_URL = paste0(DATA_SERVER_BASE_URL, REMOTE_MISSIONS_DIR)
 
 # Metadata pulled from S3 to use in catalog generation
-MISSION_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/mission-metadata.gpkg")
-IMAGE_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/image-metadata.gpkg")
-S3_LISTING_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/s3-listing.csv")
+MISSION_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/pre-curation/mission-metadata.gpkg")
+IMAGE_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/pre-curation/image-metadata.gpkg")
+S3_LISTING_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/pre-curation/s3-listing.csv")
 
 # Lists of mission and plot IDs to withhold from broad-scale ML training (save for testing)
 MISSIONS_TO_WITHHOLD_FILEPATH = file.path(BASE_DATA_PATH, "stratification-data/strat-output/withheld_drone_mission_ids_v1.csv")
 
 # For internal curation site generation
 # Set both to empty strings ("") if not using secondary metadata/override functionality
-SECONDARY_IMAGE_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/archive/image-metadata_2025-04-19.gpkg")
-IMAGERY_METADATA_MISSION_OVERRIDE_LIST_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/imagery-metadata-mission-override-list.csv")
+SECONDARY_IMAGE_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/pre-curation/image-metadata_previous-curation-records_2025-04-19.gpkg")
+IMAGERY_METADATA_MISSION_OVERRIDE_LIST_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/pre-curation/previous-curation-records-metadata-mission-override-list_2025-04-19.csv")
 
 CURATION_MISSION_DETAILS_TEMPLATE_FILEPATH = fs::path("deploy/drone-imagery-ingestion/10_drone-mission-web-catalog/templates/drone-mission-details_curation.md")
 CURATION_MISSION_CATALOG_TEMPLATE_FILEPATH = fs::path("deploy/drone-imagery-ingestion/10_drone-mission-web-catalog/templates/drone-mission-catalog_curation.html")
