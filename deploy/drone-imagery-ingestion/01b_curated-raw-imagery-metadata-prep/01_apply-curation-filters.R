@@ -299,8 +299,8 @@ cat(sprintf("  Total: %d missions with images to exclude\n", length(exclusion_li
 
 cat("Filtering image metadata and saving post-curation versions...\n")
 
-# Create output directory
-create_dir(POST_CURATION_PARSED_EXIF_FOR_RETAINED_IMAGES_PATH)
+# Create output directory (intermediate, before polygon filtering in script 02)
+create_dir(POST_CURATION_INTERMEDIATE_PARSED_EXIF_PATH)
 
 # Process all current missions (applying curation filters where they exist)
 all_missions_to_process = current_mission_ids
@@ -333,8 +333,8 @@ filter_and_save_mission = function(mission_id_foc) {
                 mission_id_foc, n_original, n_retained, n_excluded))
   }
 
-  # Save filtered image metadata
-  output_filepath = file.path(POST_CURATION_PARSED_EXIF_FOR_RETAINED_IMAGES_PATH,
+  # Save filtered image metadata (to intermediate path, before polygon filtering)
+  output_filepath = file.path(POST_CURATION_INTERMEDIATE_PARSED_EXIF_PATH,
                               paste0(mission_id_foc, "_image-metadata.gpkg"))
   st_write(image_metadata, output_filepath, delete_dsn = TRUE, quiet = TRUE)
 

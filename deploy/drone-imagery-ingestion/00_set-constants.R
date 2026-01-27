@@ -80,6 +80,7 @@ SORTED_IMAGERY_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "2_sorted")
 # Post-curation intermediate paths (mirror pre-curation structure)
 POST_CURATION_INTERMEDIATE_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/5_post-curation-intermediate")
 
+POST_CURATION_INTERMEDIATE_PARSED_EXIF_PATH = file.path(POST_CURATION_INTERMEDIATE_PATH, "1_parsed-exif-per-image")
 POST_CURATION_DERIVED_METADATA_PER_MISSION_PATH = file.path(POST_CURATION_INTERMEDIATE_PATH, "2_derived-metadata-per-mission")
 POST_CURATION_DERIVED_METADATA_PER_SUB_MISSION_PATH = file.path(POST_CURATION_INTERMEDIATE_PATH, "3_derived-metadata-per-sub-mission")
 
