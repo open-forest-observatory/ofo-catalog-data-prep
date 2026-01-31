@@ -245,6 +245,10 @@ MISSION_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-cata
 IMAGE_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/pre-curation/image-metadata.gpkg")
 S3_LISTING_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/pre-curation/s3-listing.csv")
 
+# Post-curation metadata pulled from staged location for web catalog generation
+POST_CURATION_MISSION_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/post-curation/mission-metadata.gpkg")
+POST_CURATION_IMAGE_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/post-curation/image-metadata.gpkg")
+
 # Lists of mission and plot IDs to withhold from broad-scale ML training (save for testing)
 MISSIONS_TO_WITHHOLD_FILEPATH = file.path(BASE_DATA_PATH, "stratification-data/strat-output/withheld_drone_mission_ids_v1.csv")
 
@@ -264,5 +268,9 @@ CURATION_MISSION_CATALOG_MAP_DIR = "/drone-curation-mission-catalog-map"
 CURATION_MISSION_CATALOG_MAP_FILENAME = "drone-curation-mission-catalog-map.html"
 CURATION_MISSION_DETAILS_DATATABLE_DIR = "/drone-curation-mission-details-datatables"
 CURATION_MISSION_DETAILS_MAP_DIR = "/drone-curation-mission-details-maps"
+
+# Post-curation widget output directories (for curation pages showing post-curation data)
+CURATION_POST_MISSION_DETAILS_DATATABLE_DIR = "/drone-curation-post-mission-details-datatables"
+CURATION_POST_MISSION_DETAILS_MAP_DIR = "/drone-curation-post-mission-details-maps"
 
 # nolint end
