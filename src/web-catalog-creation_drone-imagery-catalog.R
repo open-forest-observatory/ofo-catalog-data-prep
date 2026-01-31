@@ -604,7 +604,11 @@ render_mission_details_page = function(
     previous_dataset_page_path,
     website_repo_content_path,
     mission_details_page_dir,
-    display_data = FALSE
+    display_data = FALSE,
+    # Optional post-curation parameters for curation pages (side-by-side display)
+    has_post_curation_data = FALSE,
+    post_curation_map_html_path = NA,
+    post_curation_datatable_html_path = NA
   ) {
 
   # The argument `display_data` determines whether to display actual drone data (e.g., images,
@@ -778,6 +782,10 @@ render_mission_details_page = function(
     log_url = log_url,
     ttops_exists = ttops_exists,
     ttops_url = ttops_url,
+    # Post-curation parameters (for curation pages with side-by-side display)
+    has_post_curation_data = has_post_curation_data,
+    post_curation_map_html_path = post_curation_map_html_path,
+    post_curation_datatable_html_path = post_curation_datatable_html_path,
     .config = jinjar_config(variable_open = "{*", variable_close = "*}")
   )
 

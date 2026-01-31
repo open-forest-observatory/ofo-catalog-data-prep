@@ -33,6 +33,27 @@ mission_polygons_w_metadata = st_read(MISSION_METADATA_FILEPATH, quiet = TRUE)
 cat("Loading primary image metadata...\n")
 primary_image_points = st_read(IMAGE_METADATA_FILEPATH, quiet = TRUE)
 
+# Load post-curation metadata if available (for side-by-side comparison on curation pages)
+post_curation_mission_metadata = NULL
+post_curation_image_points = NULL
+missions_with_post_curation_data = character(0)
+
+if (file.exists(POST_CURATION_MISSION_METADATA_FILEPATH)) {
+  cat("Loading post-curation mission metadata...\n")
+  post_curation_mission_metadata = st_read(POST_CURATION_MISSION_METADATA_FILEPATH, quiet = TRUE)
+  missions_with_post_curation_data = unique(post_curation_mission_metadata$mission_id)
+  cat(sprintf("  Found post-curation data for %d missions\n", length(missions_with_post_curation_data)))
+} else {
+  cat("No post-curation mission metadata found at:", POST_CURATION_MISSION_METADATA_FILEPATH, "\n")
+}
+
+if (file.exists(POST_CURATION_IMAGE_METADATA_FILEPATH)) {
+  cat("Loading post-curation image metadata...\n")
+  post_curation_image_points = st_read(POST_CURATION_IMAGE_METADATA_FILEPATH, quiet = TRUE)
+} else {
+  cat("No post-curation image metadata found at:", POST_CURATION_IMAGE_METADATA_FILEPATH, "\n")
+}
+
 # Load secondary image metadata if specified (not empty string and file exists)
 secondary_image_points = NULL
 if (nzchar(SECONDARY_IMAGE_METADATA_FILEPATH) && file.exists(SECONDARY_IMAGE_METADATA_FILEPATH)) {
@@ -180,7 +201,10 @@ cat(sprintf("  Catalog datatable saved to: %s\n\n",
 make_mission_curation_page = function(mission_id_foc,
                                       all_mission_ids,
                                       mission_summary,
-                                      mission_points) {
+                                      mission_points,
+                                      post_curation_mission_metadata = NULL,
+                                      post_curation_image_points = NULL,
+                                      missions_with_post_curation_data = character(0)) {
 
   cat(sprintf("Making curation page for mission %s\n", mission_id_foc))
 
@@ -190,7 +214,7 @@ make_mission_curation_page = function(mission_id_foc,
   # Get the mission points for this mission
   mission_points_foc = mission_points |> filter(mission_id == mission_id_foc)
 
-  # Make details map
+  # Make pre-curation details map
   mission_details_map_path = make_mission_details_map(
     mission_summary_foc = mission_summary_foc,
     mission_points_foc = mission_points_foc,
@@ -201,13 +225,49 @@ make_mission_curation_page = function(mission_id_foc,
     mission_details_map_dir = CURATION_MISSION_DETAILS_MAP_DIR
   )
 
-  # Make details datatable
+  # Make pre-curation details datatable
   mission_details_datatable_path = make_mission_details_datatable(
     mission_summary_foc = mission_summary_foc,
     website_static_path = WEBSITE_STATIC_PATH,
     datatable_header_files_dir = CURATION_DATATABLE_HEADER_FILES_DIR,
     mission_details_datatable_dir = CURATION_MISSION_DETAILS_DATATABLE_DIR
   )
+
+  # Check if this mission has post-curation data and generate post-curation widgets if so
+  has_post_curation_data = mission_id_foc %in% missions_with_post_curation_data
+  post_curation_map_path = NA
+  post_curation_datatable_path = NA
+
+  if (has_post_curation_data && !is.null(post_curation_image_points) && !is.null(post_curation_mission_metadata)) {
+    cat(sprintf("  Generating post-curation widgets for mission %s\n", mission_id_foc))
+
+    # Get post-curation mission metadata for this mission
+    post_curation_mission_summary_foc = post_curation_mission_metadata |>
+      filter(mission_id == mission_id_foc)
+
+    # Get post-curation image points for this mission
+    post_curation_points_foc = post_curation_image_points |>
+      filter(mission_id == mission_id_foc)
+
+    # Make post-curation details map
+    post_curation_map_path = make_mission_details_map(
+      mission_summary_foc = post_curation_mission_summary_foc,
+      mission_points_foc = post_curation_points_foc,
+      mission_polygons_for_mission_details_map = mission_summary,
+      mission_centroids = st_centroid(mission_summary),
+      website_static_path = WEBSITE_STATIC_PATH,
+      leaflet_header_files_dir = CURATION_LEAFLET_HEADER_FILES_DIR,
+      mission_details_map_dir = CURATION_POST_MISSION_DETAILS_MAP_DIR
+    )
+
+    # Make post-curation details datatable
+    post_curation_datatable_path = make_mission_details_datatable(
+      mission_summary_foc = post_curation_mission_summary_foc,
+      website_static_path = WEBSITE_STATIC_PATH,
+      datatable_header_files_dir = CURATION_DATATABLE_HEADER_FILES_DIR,
+      mission_details_datatable_dir = CURATION_POST_MISSION_DETAILS_DATATABLE_DIR
+    )
+  }
 
   # Compute previous and next dataset for navigation
   current_index = which(all_mission_ids == mission_id_foc)
@@ -241,7 +301,11 @@ make_mission_curation_page = function(mission_id_foc,
     previous_dataset_page_path = previous_dataset_page_path,
     website_repo_content_path = WEBSITE_CONTENT_PATH,
     mission_details_page_dir = CURATION_MISSION_DETAILS_PAGE_DIR,
-    display_data = FALSE  # No S3 data products in curation view
+    display_data = FALSE,  # No S3 data products in curation view
+    # Post-curation parameters for side-by-side display
+    has_post_curation_data = has_post_curation_data,
+    post_curation_map_html_path = post_curation_map_path,
+    post_curation_datatable_html_path = post_curation_datatable_path
   )
 
   gc()
@@ -265,6 +329,9 @@ future_walk(
   all_mission_ids = mission_ids,
   mission_summary = mission_summary,
   mission_points = mission_points,
+  post_curation_mission_metadata = post_curation_mission_metadata,
+  post_curation_image_points = post_curation_image_points,
+  missions_with_post_curation_data = missions_with_post_curation_data,
   .progress = TRUE
 )
 
