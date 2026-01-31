@@ -20,28 +20,28 @@ source("deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/src/12_upload-ra
 source("deploy/drone-imagery-ingestion/02_raw-imagery-file-prep/src/13_delete-prepped-raw-imagery.R")
 
 
-prep_raw_imagery_files_per_mission = function(mission_id_foc) {
+prep_raw_imagery_files_per_mission = function(mission_id_foc, use_post_curation = TRUE) {
 
   # # Check if it's already completed (based on existence of the zip file on cyverse) and skip if so
   # # But note that currently this won't work when parallelized because irods blocks the simultaneous
   # # queries. Such cases result in us assuming the mission is not completed and running the pipeline
-  # # for it. 
+  # # for it.
   # already_run = check_if_zip_file_exists(mission_id_foc)
   # if (already_run) {
   #   cat("Mission", mission_id_foc, "already completed. Skipping.\n")
   #   return(FALSE)
   # }
 
-  copy_mission_images(mission_id_foc)
-  exif_success = fix_exif(mission_id_foc)
+  copy_mission_images(mission_id_foc, use_post_curation = use_post_curation)
+  exif_success = fix_exif(mission_id_foc, use_post_curation = use_post_curation)
 
   if (!exif_success) {
     warning("EXIF fix failed for mission", mission_id_foc, ". Skipping remaining image file prep steps for this mission.\n")
     return(FALSE)
   }
 
-  make_raw_imagery_thumbnails_and_zip(mission_id_foc)
-  copy_raw_imagery_to_upload_staging_dir(mission_id_foc)
+  make_raw_imagery_thumbnails_and_zip(mission_id_foc, use_post_curation = use_post_curation)
+  copy_raw_imagery_to_upload_staging_dir(mission_id_foc, use_post_curation = use_post_curation)
   upload_raw_imagery_to_object_store(mission_id_foc)
   delete_prepped_raw_imagery(mission_id_foc)
 

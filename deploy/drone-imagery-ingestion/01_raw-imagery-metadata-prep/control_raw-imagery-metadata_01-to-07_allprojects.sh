@@ -31,11 +31,13 @@ Rscript --vanilla /ofo-share/repos/derek/ofo-catalog-data-prep/deploy/drone-imag
 echo "2025-focal2" > /z_OLD_ofo-share/ARCHIVED__SEE_README/catalog-data-prep/00_missions-to-process/01_raw-imagery-meatadata-prep/project-to-process.txt
 Rscript --vanilla /ofo-share/repos/derek/ofo-catalog-data-prep/deploy/drone-imagery-ingestion/01_raw-imagery-metadata-prep/control_raw-imagery-metadata_01-to-07_perproject.R
 
-echo "2024-ucnrs" > /z_OLD_ofo-share/ARCHIVED__SEE_README/catalog-data-prep/00_missions-to-process/01_raw-imagery-meatadata-prep/project-to-process.txt
-Rscript --vanilla /ofo-share/repos/derek/ofo-catalog-data-prep/deploy/drone-imagery-ingestion/01_raw-imagery-metadata-prep/control_raw-imagery-metadata_01-to-07_perproject.R
+# NRS needs to be run separately because it requires a different IMAGE_MERGE_DISTANCE constant (100)
 
-echo "2020-ucnrs" > /z_OLD_ofo-share/ARCHIVED__SEE_README/catalog-data-prep/00_missions-to-process/01_raw-imagery-meatadata-prep/project-to-process.txt
-Rscript --vanilla /ofo-share/repos/derek/ofo-catalog-data-prep/deploy/drone-imagery-ingestion/01_raw-imagery-metadata-prep/control_raw-imagery-metadata_01-to-07_perproject.R
+# echo "2024-ucnrs" > /z_OLD_ofo-share/ARCHIVED__SEE_README/catalog-data-prep/00_missions-to-process/01_raw-imagery-meatadata-prep/project-to-process.txt
+# Rscript --vanilla /ofo-share/repos/derek/ofo-catalog-data-prep/deploy/drone-imagery-ingestion/01_raw-imagery-metadata-prep/control_raw-imagery-metadata_01-to-07_perproject.R
 
-echo "2023-ucnrs" > /z_OLD_ofo-share/ARCHIVED__SEE_README/catalog-data-prep/00_missions-to-process/01_raw-imagery-meatadata-prep/project-to-process.txt
-Rscript --vanilla /ofo-share/repos/derek/ofo-catalog-data-prep/deploy/drone-imagery-ingestion/01_raw-imagery-metadata-prep/control_raw-imagery-metadata_01-to-07_perproject.R
+# echo "2020-ucnrs" > /z_OLD_ofo-share/ARCHIVED__SEE_README/catalog-data-prep/00_missions-to-process/01_raw-imagery-meatadata-prep/project-to-process.txt
+# Rscript --vanilla /ofo-share/repos/derek/ofo-catalog-data-prep/deploy/drone-imagery-ingestion/01_raw-imagery-metadata-prep/control_raw-imagery-metadata_01-to-07_perproject.R
+
+# echo "2023-ucnrs" > /z_OLD_ofo-share/ARCHIVED__SEE_README/catalog-data-prep/00_missions-to-process/01_raw-imagery-meatadata-prep/project-to-process.txt
+# Rscript --vanilla /ofo-share/repos/derek/ofo-catalog-data-prep/deploy/drone-imagery-ingestion/01_raw-imagery-metadata-prep/control_raw-imagery-metadata_01-to-07_perproject.R

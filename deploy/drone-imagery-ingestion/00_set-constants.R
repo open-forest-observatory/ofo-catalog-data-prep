@@ -23,8 +23,8 @@ SKIP_EXISTING = FALSE # Skip processing for missions that already have all outpu
 
 
 # Base path for project data
-# BASE_DATA_PATH = "/ofo-share/project-data/catalog-data-prep/"
-BASE_DATA_PATH = "/z_OLD_ofo-share/ARCHIVED__SEE_README/catalog-data-prep/"
+BASE_DATA_PATH = "/ofo-share/project-data/catalog-data-prep/"
+# BASE_DATA_PATH = "/z_OLD_ofo-share/ARCHIVED__SEE_README/catalog-data-prep/"
 
 PROJECT_TO_PROCESS_RAW_IMAGERY_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "00_missions-to-process/01_raw-imagery-meatadata-prep/project-to-process.txt")
 PROJECT_NAME_TO_PROCESS_RAW_IMAGERY_METADATA = tryCatch(
@@ -39,35 +39,61 @@ MISSIONS_TO_PROCESS_RAW_IMAGERY_METADATA_LIST_PATH = file.path(BASE_DATA_PATH, "
 RAW_IMAGERY_INGESTION_PATH = file.path(BASE_DATA_PATH, "01_raw-imagery-ingestion")
 
 CONTRIBUTED_IMAGERY_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "1_manually-cleaned")
-RAW_EXIF_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/1_reconciling-contributions/1_raw-exif/")
+RAW_EXIF_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/1_reconciling-contributions/1_raw-exif/")
 
-CONTRIBUTED_METADATA_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "ancillary/baserow-snapshots")
+CONTRIBUTED_METADATA_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-inputs/baserow-snapshots")
 
-CONTRIBUTED_TO_SORTED_MISSION_ID_CROSSWALK_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/1_reconciling-contributions/3_contributed-to-sorted-id-crosswalk/")
+CONTRIBUTED_TO_SORTED_MISSION_ID_CROSSWALK_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/1_reconciling-contributions/3_contributed-to-sorted-id-crosswalk/")
 
-IMAGE_EXIF_W_SORTING_PLAN_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/1_reconciling-contributions/2_exif-w-sorting-plan/")
+IMAGE_EXIF_W_SORTING_PLAN_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/1_reconciling-contributions/2_exif-w-sorting-plan/")
 
 # Should be "conributed"
-EXTRACTED_METADATA_PER_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/2_pre-curation-intermediate/1_contributed-metadata-per-mission/")
-EXTRACTED_METADATA_PER_SUB_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/2_pre-curation-intermediate/2_contributed-metadata-per-sub-mission/")
+EXTRACTED_METADATA_PER_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/2_pre-curation-intermediate/1_contributed-metadata-per-mission/")
+EXTRACTED_METADATA_PER_SUB_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/2_pre-curation-intermediate/2_contributed-metadata-per-sub-mission/")
 
-PARSED_EXIF_METADATA_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/2_pre-curation-intermediate/4_parsed-exif")
+PARSED_EXIF_METADATA_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/2_pre-curation-intermediate/4_parsed-exif")
+DUPLICATE_IMAGES_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/2_pre-curation-intermediate/5_duplicate-images")
+PARSED_EXIF_DEDUPED_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/2_pre-curation-intermediate/6_parsed-exif-duplicates-removed")
 
-PARSED_EXIF_FOR_RETAINED_IMAGES_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/3_pre-curation-final/3_parsed-exif-per-image")
-DERIVED_METADATA_PER_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/2_pre-curation-intermediate/6_derived-metadata-per-mission")
-DERIVED_METADATA_PER_SUB_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/2_pre-curation-intermediate/7_derived-metadata-per-sub-mission")
+PARSED_EXIF_FOR_RETAINED_IMAGES_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/3_pre-curation-final/3_parsed-exif-per-image")
+DERIVED_METADATA_PER_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/2_pre-curation-intermediate/7_derived-metadata-per-mission")
+DERIVED_METADATA_PER_SUB_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/2_pre-curation-intermediate/8_derived-metadata-per-sub-mission")
 
-FULL_METADATA_PER_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/3_pre-curation-final/1_full-metadata-per-mission/")
-FULL_METADATA_PER_SUB_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/3_pre-curation-final/2_full-metadata-per-sub-mission/")
+FULL_METADATA_PER_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/3_pre-curation-final/1_full-metadata-per-mission/")
+FULL_METADATA_PER_SUB_MISSION_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/3_pre-curation-final/2_full-metadata-per-sub-mission/")
 
 # The following file should not be assumed to be there, since we are not necessarily keeping all
 # mission data combined locally, and it should not be assumed to contain every mission, but this is where the file will be if it has been created
-FULL_METADATA_PER_MISSION_COMBINED_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/3_pre-curation-final/ofo-all-missions-metadata.gpkg")
-FULL_METADATA_PER_IMAGE_COMBINED_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/3_pre-curation-final/ofo-all-images-metadata.gpkg")
+FULL_METADATA_PER_MISSION_COMBINED_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/3_pre-curation-final/ofo-all-missions-metadata.gpkg")
+FULL_METADATA_PER_IMAGE_COMBINED_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/3_pre-curation-final/ofo-all-images-metadata.gpkg")
 
-CURATION_NOTES_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/4_curation/imagery-curation-notes_v2.csv")
-FORMERLY_CURATED_IMAGE_METADATA = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/4_curation/formerly-curated-image-metadata_2025-04-19.gpkg")
-FORMERLY_CURATED_MISSION_LIST = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata/4_curation/formerly-curated-mission-list_2025-04-19.csv")
+# Catalog-wide merged duplicate images log (combined from all per-project logs)
+CATALOG_DUPLICATE_IMAGES_LOG_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/3_pre-curation-final/catalog-duplicate-images-log.csv")
+
+CURATION_NOTES_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-inputs/curation-records/imagery-curation-notes_v2.csv")
+FORMERLY_CURATED_IMAGE_METADATA = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-inputs/curation-records/formerly-curated-image-metadata_20250419.gpkg")
+FORMERLY_CURATED_MISSION_LIST = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-inputs/curation-records/formerly-curated-mission-list_20250419.csv")
+
+# Missing constant (used by scripts but not defined)
+SORTED_IMAGERY_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "2_sorted")
+
+# Post-curation intermediate paths (mirror pre-curation structure)
+POST_CURATION_INTERMEDIATE_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/5_post-curation-intermediate")
+
+POST_CURATION_INTERMEDIATE_PARSED_EXIF_PATH = file.path(POST_CURATION_INTERMEDIATE_PATH, "1_parsed-exif-per-image")
+POST_CURATION_DERIVED_METADATA_PER_MISSION_PATH = file.path(POST_CURATION_INTERMEDIATE_PATH, "2_derived-metadata-per-mission")
+POST_CURATION_DERIVED_METADATA_PER_SUB_MISSION_PATH = file.path(POST_CURATION_INTERMEDIATE_PATH, "3_derived-metadata-per-sub-mission")
+
+# Post-curation final paths
+POST_CURATION_FINAL_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/6_post-curation-final")
+
+POST_CURATION_PARSED_EXIF_FOR_RETAINED_IMAGES_PATH = file.path(POST_CURATION_FINAL_PATH, "1_parsed-exif-per-image")
+POST_CURATION_FULL_METADATA_PER_MISSION_PATH = file.path(POST_CURATION_FINAL_PATH, "2_full-metadata-per-mission")
+POST_CURATION_FULL_METADATA_PER_SUB_MISSION_PATH = file.path(POST_CURATION_FINAL_PATH, "3_full-metadata-per-sub-mission")
+
+# Combined post-curation metadata files
+POST_CURATION_FULL_METADATA_PER_MISSION_COMBINED_FILEPATH = file.path(POST_CURATION_FINAL_PATH, "ofo-all-missions-metadata-curated.gpkg")
+POST_CURATION_FULL_METADATA_PER_IMAGE_COMBINED_FILEPATH = file.path(POST_CURATION_FINAL_PATH, "ofo-all-images-metadata-curated.gpkg")
 
 PROJECT_TO_PROCESS_RAW_IMAGERY_FILES_FILEPATH = file.path(BASE_DATA_PATH, "00_missions-to-process/02_raw-imagery-file-prep/projects-to-process.txt")
 PROJECT_NAMES_TO_PROCESS_RAW_IMAGERY_FILES = tryCatch(
@@ -215,17 +241,17 @@ DATA_SERVER_BASE_URL = "https://js2.jetstream-cloud.org:8001/swift/v1/"
 DATA_SERVER_MISSIONS_BASE_URL = paste0(DATA_SERVER_BASE_URL, REMOTE_MISSIONS_DIR)
 
 # Metadata pulled from S3 to use in catalog generation
-MISSION_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/mission-metadata.gpkg")
-IMAGE_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/image-metadata.gpkg")
-S3_LISTING_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/s3-listing.csv")
+MISSION_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/pre-curation/mission-metadata.gpkg")
+IMAGE_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/pre-curation/image-metadata.gpkg")
+S3_LISTING_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/pre-curation/s3-listing.csv")
 
 # Lists of mission and plot IDs to withhold from broad-scale ML training (save for testing)
 MISSIONS_TO_WITHHOLD_FILEPATH = file.path(BASE_DATA_PATH, "stratification-data/strat-output/withheld_drone_mission_ids_v1.csv")
 
 # For internal curation site generation
 # Set both to empty strings ("") if not using secondary metadata/override functionality
-SECONDARY_IMAGE_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/archive/image-metadata_2025-04-19.gpkg")
-IMAGERY_METADATA_MISSION_OVERRIDE_LIST_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/imagery-metadata-mission-override-list.csv")
+SECONDARY_IMAGE_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/pre-curation/image-metadata_previous-curation-records_2025-04-19.gpkg")
+IMAGERY_METADATA_MISSION_OVERRIDE_LIST_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/pre-curation/previous-curation-records-metadata-mission-override-list_2025-04-19.csv")
 
 CURATION_MISSION_DETAILS_TEMPLATE_FILEPATH = fs::path("deploy/drone-imagery-ingestion/10_drone-mission-web-catalog/templates/drone-mission-details_curation.md")
 CURATION_MISSION_CATALOG_TEMPLATE_FILEPATH = fs::path("deploy/drone-imagery-ingestion/10_drone-mission-web-catalog/templates/drone-mission-catalog_curation.html")

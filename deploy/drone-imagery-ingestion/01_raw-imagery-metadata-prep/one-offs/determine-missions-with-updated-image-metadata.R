@@ -5,7 +5,7 @@ library(tidyverse)
 library(sf)
 
 METADATA_OLD_FILEPATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata_backup20250918/3_final/ofo-all-images-metadata_backup20250918.gpkg"
-METADATA_NEW_FILEPATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata/3_final/ofo-all-images-metadata.gpkg"
+METADATA_NEW_FILEPATH = "/ofo-share/catalog-data-prep/01_raw-imagery-ingestion/metadata-outputs/3_pre-curation-final/ofo-all-images-metadata.gpkg"
 
 old = st_read(METADATA_OLD_FILEPATH) |> st_drop_geometry()
 new = st_read(METADATA_NEW_FILEPATH) |> st_drop_geometry()

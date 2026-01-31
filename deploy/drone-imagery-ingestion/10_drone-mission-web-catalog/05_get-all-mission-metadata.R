@@ -1,5 +1,5 @@
 # Purpose: Get all mission polygon and image point metadata from the object store and compile it in
-# a single gpkg each. TODO: Eventually we will replace this with database queries.
+# a single gpkg each (onr for point and one for poly). TODO: Eventually we will replace this with database queries.
 
 library(sf)
 library(tidyverse)
