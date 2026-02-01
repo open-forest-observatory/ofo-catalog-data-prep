@@ -6,6 +6,8 @@ show_date: false
 profile: false
 ---
 
+<div class="wide-page-content">
+
 <div class="container">
     <div class="row">
         <div class="col-sm">

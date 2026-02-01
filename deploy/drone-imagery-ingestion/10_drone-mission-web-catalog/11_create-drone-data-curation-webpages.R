@@ -41,6 +41,12 @@ missions_with_post_curation_data = character(0)
 if (file.exists(POST_CURATION_MISSION_METADATA_FILEPATH)) {
   cat("Loading post-curation mission metadata...\n")
   post_curation_mission_metadata = st_read(POST_CURATION_MISSION_METADATA_FILEPATH, quiet = TRUE)
+  # Compile post-curation metadata the same way as pre-curation (sets dataset_id = mission_id, etc.)
+  post_curation_mission_metadata = compile_mission_summary_data(
+    mission_level_metadata = post_curation_mission_metadata,
+    base_ofo_url = BASE_OFO_URL,
+    mission_details_dir = CURATION_MISSION_DETAILS_PAGE_DIR
+  )
   missions_with_post_curation_data = unique(post_curation_mission_metadata$mission_id)
   cat(sprintf("  Found post-curation data for %d missions\n", length(missions_with_post_curation_data)))
 } else {
