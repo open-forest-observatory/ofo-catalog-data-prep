@@ -151,3 +151,5 @@ document.addEventListener('DOMContentLoaded', function() {
     setView('both');
 });
 </script>
+
+</div>
