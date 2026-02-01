@@ -70,7 +70,7 @@ FULL_METADATA_PER_IMAGE_COMBINED_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH
 # Catalog-wide merged duplicate images log (combined from all per-project logs)
 CATALOG_DUPLICATE_IMAGES_LOG_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-outputs/3_pre-curation-final/catalog-duplicate-images-log.csv")
 
-CURATION_NOTES_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-inputs/curation-records/imagery-curation-notes_v2.csv")
+CURATION_NOTES_FILEPATH = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-inputs/curation-records/imagery-curation-notes_v3.csv")
 FORMERLY_CURATED_IMAGE_METADATA = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-inputs/curation-records/formerly-curated-image-metadata_20250419.gpkg")
 FORMERLY_CURATED_MISSION_LIST = file.path(RAW_IMAGERY_INGESTION_PATH, "metadata-inputs/curation-records/formerly-curated-mission-list_20250419.csv")
 
