@@ -99,15 +99,15 @@ prepare_curation_for_mission = function(curation_notes) {
   curation_notes |>
     group_by(mission_id) |>
     summarise(
-      anomaly_severity = paste(na.omit(anomaly_severity[anomaly_severity != ""]), collapse = ", "),
-      anomalies_collection_time = paste(na.omit(collection_time_anomaly[collection_time_anomaly != ""]), collapse = ", "),
-      anomalies_altitude = paste(na.omit(altitude_anomaly[altitude_anomaly != ""]), collapse = ", "),
-      anomalies_spatial = paste(na.omit(spatial_anomaly[spatial_anomaly != ""]), collapse = ", "),
-      anomalies_camera_pitch = paste(na.omit(camera_pitch_anomaly[camera_pitch_anomaly != ""]), collapse = ", "),
-      anomalies_excess_images = paste(na.omit(excess_images_anomaly[excess_images_anomaly != ""]), collapse = ", "),
-      anomalies_missing_images = paste(na.omit(missing_images_anomaly[missing_images_anomaly != ""]), collapse = ", "),
-      anomalies_other = paste(na.omit(other_anomalies[other_anomalies != ""]), collapse = ", "),
-      anomaly_notes = paste(na.omit(anomaly_notes[anomaly_notes != ""]), collapse = ", "),
+      anomaly_severity = paste(na.omit(anomaly_severity[anomaly_severity != ""]), collapse = "; "),
+      anomalies_collection_time = paste(na.omit(collection_time_anomaly[collection_time_anomaly != ""]), collapse = "; "),
+      anomalies_altitude = paste(na.omit(altitude_anomaly[altitude_anomaly != ""]), collapse = "; "),
+      anomalies_spatial = paste(na.omit(spatial_anomaly[spatial_anomaly != ""]), collapse = "; "),
+      anomalies_camera_pitch = paste(na.omit(camera_pitch_anomaly[camera_pitch_anomaly != ""]), collapse = "; "),
+      anomalies_excess_images = paste(na.omit(excess_images_anomaly[excess_images_anomaly != ""]), collapse = "; "),
+      anomalies_missing_images = paste(na.omit(missing_images_anomaly[missing_images_anomaly != ""]), collapse = "; "),
+      anomalies_other = paste(na.omit(other_anomalies[other_anomalies != ""]), collapse = "; "),
+      anomaly_notes = paste(na.omit(anomaly_notes[anomaly_notes != ""]), collapse = "; "),
       .groups = "drop"
     ) |>
     # Replace empty strings with NA
