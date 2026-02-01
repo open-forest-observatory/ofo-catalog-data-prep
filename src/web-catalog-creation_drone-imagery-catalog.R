@@ -1,11 +1,3 @@
-# Load map sync JavaScript snippet for curation pages
-MAP_SYNC_SNIPPET_PATH <- "deploy/drone-imagery-ingestion/10_drone-mission-web-catalog/templates/map-sync-snippet.js"
-MAP_SYNC_SNIPPET <- if (file.exists(MAP_SYNC_SNIPPET_PATH)) {
-  readLines(MAP_SYNC_SNIPPET_PATH, warn = FALSE) |> paste(collapse = "\n")
-} else {
-  ""
-}
-
 # Turn a data store path into a public HTTP url
 cyverse_url = function(data_store_path) {
   # data_store_path is the path to a file in the CyVerse Data Store, e.g. "/iplant/home/shared/ofo/public/missions/000001/processed_000001-0001/full/chm-mesh.tif"
@@ -372,16 +364,6 @@ make_mission_details_map = function(mission_summary_foc,
                     header_files_dir = leaflet_header_files_dir,
                     html_dir = mission_details_map_dir,
                     html_filename = mission_details_map_filename)
-
-  # Append map sync script for iframe communication
-  if (nzchar(MAP_SYNC_SNIPPET)) {
-    output_path <- file.path(website_static_path, mission_details_map_dir, mission_details_map_filename)
-    html_content <- readLines(output_path, warn = FALSE)
-    # Insert before closing </body> tag
-    html_content <- sub("</body>", paste0(MAP_SYNC_SNIPPET, "\n</body>"),
-                         paste(html_content, collapse = "\n"))
-    writeLines(html_content, output_path)
-  }
 
   # Record where it was saved to
   map_html_path = paste(mission_details_map_dir, mission_details_map_filename, sep = "/")

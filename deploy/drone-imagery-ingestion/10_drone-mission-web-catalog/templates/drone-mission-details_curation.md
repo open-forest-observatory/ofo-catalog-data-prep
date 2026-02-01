@@ -150,26 +150,6 @@ function setView(view) {
 document.addEventListener('DOMContentLoaded', function() {
     setView('both');
 });
-
-// === Map Sync Functionality ===
-// Relay pan/zoom messages between the two map iframes
-window.addEventListener('message', function(e) {
-  // Only handle mapSync messages
-  if (!e.data || e.data.type !== 'mapSync') return;
-
-  // Find both iframes
-  const preFrame = document.querySelector('.pre-curation-panel iframe');
-  const postFrame = document.querySelector('.post-curation-panel iframe');
-
-  if (!preFrame || !postFrame) return;
-
-  // Relay message to the other iframe
-  if (e.source === preFrame.contentWindow) {
-    postFrame.contentWindow.postMessage(e.data, '*');
-  } else if (e.source === postFrame.contentWindow) {
-    preFrame.contentWindow.postMessage(e.data, '*');
-  }
-});
 </script>
 
 </div>
