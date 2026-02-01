@@ -83,27 +83,6 @@ compile_mission_summary_data = function(mission_level_metadata, base_ofo_url, mi
       altitude_agl_mean_derived = NA,
       embargoed = FALSE, # Dummy, need to remove if add this attribute to the database
       display_message = NA) # Dummy, need to remove if add this attribute to the database
-  
-  # Image count is currently a list of sub-mission image counts. Turn it into a total with
-  # sub-counts in the format: "total (sub1 + sub2 + sub3 + ...)"
-  image_counts_sep = str_split(d$n_images, fixed(", "))
-  totals = sapply(image_counts_sep, function(x) sum(as.numeric(x)))
-
-  make_sub_count = function(x) {
-    if (length(x) > 1) {
-      x = paste0("(", paste(x, collapse = " + "), ")")
-      return(x)
-    } else {
-      return("")
-    }
-  }
-
-  sub_counts = sapply(image_counts_sep, make_sub_count)
-
-  d$image_count_w_subtotals = paste(totals, sub_counts)
-
-  # remove trailing whitespace
-  d$image_count_w_subtotals = gsub("\\s+$", "", d$image_count_w_subtotals)
 
   return(d)
 
@@ -127,7 +106,7 @@ make_mission_catalog_datatable = function(mission_summary,
            "Camera pitch" = camera_pitch_derived,
            "Terrain follow (N)" = terrain_follow,
            "Flight pattern" = flight_pattern,
-           "Image count" = n_images,
+           "Image count" = image_count_derived,
            "RTK (N)" = rtk_nominal,
            "RTK images (%)" = percent_images_rtk_derived,
            "Contributor dataset name" = contributor_dataset_name,
@@ -543,7 +522,7 @@ make_mission_details_datatable = function(mission_summary_foc,
       "Base station altitude (m)" = base_alt,
       "Permanent base marker" = base_marked_permanently,
       "Flight footprint area (ha)" = area_derived,
-      "Image count" = n_images,
+      "Image count" = image_count_derived,
       "Image dimensions" = image_dimensions_derived,
       "Dataset size (GB)" = file_size_derived,
       "File format" = file_format_derived,
@@ -604,7 +583,11 @@ render_mission_details_page = function(
     previous_dataset_page_path,
     website_repo_content_path,
     mission_details_page_dir,
-    display_data = FALSE
+    display_data = FALSE,
+    # Optional post-curation parameters for curation pages (side-by-side display)
+    has_post_curation_data = FALSE,
+    post_curation_map_html_path = NA,
+    post_curation_datatable_html_path = NA
   ) {
 
   # The argument `display_data` determines whether to display actual drone data (e.g., images,
@@ -778,6 +761,10 @@ render_mission_details_page = function(
     log_url = log_url,
     ttops_exists = ttops_exists,
     ttops_url = ttops_url,
+    # Post-curation parameters (for curation pages with side-by-side display)
+    has_post_curation_data = has_post_curation_data,
+    post_curation_map_html_path = post_curation_map_html_path,
+    post_curation_datatable_html_path = post_curation_datatable_html_path,
     .config = jinjar_config(variable_open = "{*", variable_close = "*}")
   )
 
