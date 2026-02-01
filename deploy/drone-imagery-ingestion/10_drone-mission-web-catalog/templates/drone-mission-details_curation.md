@@ -63,18 +63,18 @@ profile: false
 ## Image locations and attributes
 
 <div class="row">
-    <div class="col-sm-6 pre-curation-panel">
-        <div class="panel-header">Pre-curation</div>
-        <iframe src="{* map_html_path *}" frameborder="0" scrolling="yes" seamless="seamless" style="display:block; width:100%; height:65vh; background: rgba(0,0,0,0);"></iframe>
-    </div>
-    <div class="col-sm-6 post-curation-panel">
-        <div class="panel-header">Post-curation</div>
-        {% if has_post_curation_data %}
-        <iframe src="{* post_curation_map_html_path *}" frameborder="0" scrolling="yes" seamless="seamless" style="display:block; width:100%; height:65vh; background: rgba(0,0,0,0);"></iframe>
-        {% else %}
-        <p class="no-data-message">No post-curation data available</p>
-        {% endif %}
-    </div>
+<div class="col-sm-6 pre-curation-panel">
+<div class="panel-header">Pre-curation</div>
+<iframe src="{* map_html_path *}" frameborder="0" scrolling="yes" seamless="seamless" style="display:block; width:100%; height:65vh; background: rgba(0,0,0,0);"></iframe>
+</div>
+<div class="col-sm-6 post-curation-panel">
+<div class="panel-header">Post-curation</div>
+{% if has_post_curation_data -%}
+<iframe src="{* post_curation_map_html_path *}" frameborder="0" scrolling="yes" seamless="seamless" style="display:block; width:100%; height:65vh; background: rgba(0,0,0,0);"></iframe>
+{%- else -%}
+<p class="no-data-message">No post-curation data available</p>
+{%- endif -%}
+</div>
 </div>
 
 <br>
@@ -82,18 +82,18 @@ profile: false
 ## Mission metadata
 
 <div class="row">
-    <div class="col-sm-6 pre-curation-panel">
-        <div class="panel-header">Pre-curation</div>
-        <iframe src="{* datatable_html_path *}" onload='javascript:(function(o){o.style.height=o.contentWindow.document.body.scrollHeight+"px";}(this));' style="height:200px;width:100%;border:none;overflow:hidden;padding:0;"></iframe>
-    </div>
-    <div class="col-sm-6 post-curation-panel">
-        <div class="panel-header">Post-curation</div>
-        {% if has_post_curation_data %}
-        <iframe src="{* post_curation_datatable_html_path *}" onload='javascript:(function(o){o.style.height=o.contentWindow.document.body.scrollHeight+"px";}(this));' style="height:200px;width:100%;border:none;overflow:hidden;padding:0;"></iframe>
-        {% else %}
-        <p class="no-data-message">No post-curation data available</p>
-        {% endif %}
-    </div>
+<div class="col-sm-6 pre-curation-panel">
+<div class="panel-header">Pre-curation</div>
+<iframe src="{* datatable_html_path *}" onload='javascript:(function(o){o.style.height=o.contentWindow.document.body.scrollHeight+"px";}(this));' style="height:200px;width:100%;border:none;overflow:hidden;padding:0;"></iframe>
+</div>
+<div class="col-sm-6 post-curation-panel">
+<div class="panel-header">Post-curation</div>
+{% if has_post_curation_data -%}
+<iframe src="{* post_curation_datatable_html_path *}" onload='javascript:(function(o){o.style.height=o.contentWindow.document.body.scrollHeight+"px";}(this));' style="height:200px;width:100%;border:none;overflow:hidden;padding:0;"></iframe>
+{%- else -%}
+<p class="no-data-message">No post-curation data available</p>
+{%- endif -%}
+</div>
 </div>
 
 <br>
