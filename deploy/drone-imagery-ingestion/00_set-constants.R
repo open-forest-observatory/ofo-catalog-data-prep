@@ -23,8 +23,8 @@ SKIP_EXISTING = FALSE # Skip processing for missions that already have all outpu
 
 
 # Base path for project data
-# BASE_DATA_PATH = "/ofo-share/project-data/catalog-data-prep/"
-BASE_DATA_PATH = "/z_OLD_ofo-share/ARCHIVED__SEE_README/catalog-data-prep/"
+BASE_DATA_PATH = "/ofo-share/project-data/catalog-data-prep/"
+# BASE_DATA_PATH = "/z_OLD_ofo-share/ARCHIVED__SEE_README/catalog-data-prep/"
 
 PROJECT_TO_PROCESS_RAW_IMAGERY_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "00_missions-to-process/01_raw-imagery-meatadata-prep/project-to-process.txt")
 PROJECT_NAME_TO_PROCESS_RAW_IMAGERY_METADATA = tryCatch(
