@@ -219,16 +219,16 @@ extract_dates_times = function(metadata) {
 }
 
 
-# Get the correlation between the altitude of the drone and the ground elevation (i.e. trerrain
-# follow tightness, using terrain data from AWS via elevatr package)
+# Compute terrain follow fidelity score (0-100) based on consistency of above-ground-level altitude.
+# Uses terrain data from AWS via elevatr package.
+# Formula: score = max(0, 100 - 2 * std_AGL)
+# A score of 100 means perfectly consistent AGL; lower scores indicate more variation.
 extract_flight_terrain_correlation = function(metadata) {
   # Define the AOI as a polygon
   aoi = sf::st_convex_hull(sf::st_union(metadata)) |> sf::st_as_sf()
 
   # Get an elev raster for this AOI
   dem = elevatr::get_elev_raster(aoi, z = 14, prj = 4326, src = "aws")
-
-  ## Try it with USGS dem
 
   # Get the ground elevation beneath all the photo points
   ground_elev = terra::extract(dem, metadata, method = "bilinear")
@@ -240,26 +240,13 @@ extract_flight_terrain_correlation = function(metadata) {
   # Get the middle 80% of AGL (to exclude outliers like landscape shots in mission)
   agl_lwr = quantile(agl, 0.1)
   agl_upr = quantile(agl, 0.9)
+  agl_core = agl[agl > agl_lwr & agl < agl_upr]
 
-  agl_core_mask = agl > agl_lwr & agl < agl_upr
+  # Compute terrain follow fidelity: score = max(0, 100 - 2 * std_AGL)
+  std_agl = sd(agl_core)
+  fidelity_score = max(0, 100 - 2 * std_agl) |> round(0)
 
-  drone_altitude_core = drone_altitude[agl_core_mask]
-  ground_elev_core = ground_elev[agl_core_mask]
-
-  # Get the correlation between the altitude of the drone and the ground elevation (i.e. trerrain
-  # follow tightness)
-  ground_elev_no_variation = length(unique(ground_elev_core)) == 1
-  if (ground_elev_no_variation) {
-    # Note that for some small regions the DEM will not have any variation so this
-    # correlation would be NA. Instead we set it to 1 in this case, since the primary goal of this
-    # metric is to filter out missions with poor terrain following.
-    flight_terrain_correlation = 1
-  } else {
-    # Compute the correlation between the DEM and drone altitude
-    flight_terrain_correlation = cor(drone_altitude_core, ground_elev_core) |> round(2)
-  }
-
-  return(flight_terrain_correlation)
+  return(fidelity_score)
 }
 
 
