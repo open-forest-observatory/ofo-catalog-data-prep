@@ -568,7 +568,9 @@ inspect
 folderid_baserow_crosswalk = image_data |>
   select(dataset_id_baserow = dataset_id, sub_mission_id = folder_out_final) |>
   mutate(mission_id = str_sub(sub_mission_id, 1, 6)) |>
-  distinct(dataset_id_baserow, sub_mission_id, mission_id) |>
+  group_by(dataset_id_baserow, sub_mission_id, mission_id) |>
+  summarize(n_images = n()) |>
+  ungroup() |>
   mutate(project_name = PROJECT_NAME_TO_PROCESS_RAW_IMAGERY_METADATA)
 
 if (nrow(datasets_not_separable) > 0) {

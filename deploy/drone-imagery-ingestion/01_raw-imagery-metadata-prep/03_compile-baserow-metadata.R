@@ -75,7 +75,7 @@ if ("addl_dataset_ids_baserow" %in% colnames(sub_mission_baserow)) {
   if (length(rows_with_addl) > 0) {
 
     # Get all columns that came from baserow (everything except crosswalk columns)
-    crosswalk_cols = c("dataset_id_baserow", "sub_mission_id", "mission_id",
+    crosswalk_cols = c("dataset_id_baserow", "sub_mission_id", "mission_id", "n_images",
                        "project_name", "addl_dataset_ids_baserow", "addl_baserow_differ_by",
                        "why_not_separable")
     baserow_cols = setdiff(colnames(sub_mission_baserow), crosswalk_cols)
