@@ -30,7 +30,8 @@ future::plan(multicore, workers = future::availableCores()*2)
 furrr::future_map(
   missions_to_process,
   prep_raw_imagery_files_per_mission,
-  .progress = TRUE
+  .progress = TRUE,
+  .options = furrr::furrr_options(seed = TRUE)
 )
 
 
