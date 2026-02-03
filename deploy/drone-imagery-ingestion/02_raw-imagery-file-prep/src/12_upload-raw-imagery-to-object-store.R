@@ -18,7 +18,7 @@ upload_raw_imagery_to_object_store = function(mission_id_foc) {
 
   remote_dir = paste0(RCLONE_REMOTE, ":", REMOTE_MISSIONS_DIR, mission_id_foc)
 
-  command = paste("rclone copy", local_dir, remote_dir, "--progress --transfers 32 --checkers 32 --stats 1s --retries 5 --retries-sleep=15s --s3-upload-cutoff 100Mi --s3-chunk-size 100Mi --s3-upload-concurrency 16 --config /dev/null", sep = " ")
+  command = paste("rclone copy", local_dir, remote_dir, "--progress --transfers 32 --checkers 32 --copy-links --stats 1s --retries 5 --retries-sleep=15s --s3-upload-cutoff 100Mi --s3-chunk-size 100Mi --s3-upload-concurrency 16 --config /dev/null", sep = " ")
   # There are only 11 files so as long as there are at least 11 tranfers we are maxed on throughput
 
   # # OLD METHOD FOR CYVERSE IRODS

@@ -1,8 +1,9 @@
 # Purpose: Create the Hugo markdown pages for all drone mission datasets including
 # visualizations/links to the actual data on CyVerse, as well as a dataset index
-# page. NOTE that if we ever want to delete the whole directory of mission deatail pages and start
-# fresh, we have to populate it with a _index.md file so that Hugo will still recognize the directory
-# as a section of the website.
+# page. Uses post-curation metadata for all outputs. NOTE: if we ever want to
+# delete the whole directory of mission detail pages and start fresh, we have to
+# populate it with a _index.md file so that Hugo will still recognize the
+# directory as a section of the website.
 
 library(dplyr)
 library(leaflet)
@@ -22,9 +23,9 @@ source("src/web-catalog-creation_drone-imagery-catalog.R")
 
 
 
-# Load the mission polygons and points metadata
-mission_polygons_w_metadata = st_read(MISSION_METADATA_FILEPATH)
-mission_points = st_read(IMAGE_METADATA_FILEPATH)
+# Load the post-curation mission polygons and points metadata
+mission_polygons_w_metadata = st_read(POST_CURATION_MISSION_METADATA_FILEPATH)
+mission_points = st_read(POST_CURATION_IMAGE_METADATA_FILEPATH)
 
 # Save header library files required by embedded HTML datatables and leaflet maps
 save_dt_header_files(WEBSITE_STATIC_PATH, DATATABLE_HEADER_FILES_DIR)
