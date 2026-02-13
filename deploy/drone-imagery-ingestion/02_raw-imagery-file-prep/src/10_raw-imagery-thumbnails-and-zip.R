@@ -110,7 +110,7 @@ make_raw_imagery_thumbnails_and_zip = function(mission_id_foc, use_post_curation
     selected_images = rbind(selected_images, nearest_pt)
   }
 
-  # Hardlink the selected images to the publishable folder
+  # Symlink the selected images to the publishable folder
   inpaths = file.path(SORTED_IMAGERY_PATH, selected_images$image_path_ofo)
   extensions = tools::file_ext(inpaths)
   outpaths = file.path(IMAGERY_ZIP_AND_EXAMPLES_PATH, mission_id_foc, "images", "examples", "fullsize", paste0("example_", 1:N_EXAMPLE_IMAGES, ".", extensions))
@@ -123,7 +123,7 @@ make_raw_imagery_thumbnails_and_zip = function(mission_id_foc, use_post_curation
   outpaths_remove = outpaths[exists]
   file.remove(outpaths_remove)
 
-  file.link(inpaths, outpaths)
+  file.symlink(inpaths, outpaths)
 
   # Create thumbnails of the images using magick package and save to the publishable folder
   for (i in 1:N_EXAMPLE_IMAGES) {
@@ -144,7 +144,7 @@ make_raw_imagery_thumbnails_and_zip = function(mission_id_foc, use_post_curation
   # process is terminated we don't want to leave a partial temp file in the file tree
   inpath = file.path(SORTED_IMAGERY_PATH, mission_id_foc)
 
-  tempfile = paste0("/ofo-share/tmp/ofor_tempzip/tempzip_", mission_id_foc, ".zip")
+  tempfile = file.path(TEMPDIR, "catalog-prep_tempzip", paste0("tempzip_", mission_id_foc, ".zip"))
   # Delete if exists
   if (file.exists(tempfile)) {
     file.remove(tempfile)
