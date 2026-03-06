@@ -117,6 +117,9 @@ UPLOAD_STAGING_DIR_PATH = file.path(RAW_IMAGERY_INGESTION_PATH, "9_temp-upload-s
 # Name of configured rclone remote for object storage
 RCLONE_REMOTE = "js2s3"
 REMOTE_MISSIONS_DIR = "/ofo-public/drone/missions_02/"
+REMOTE_COMPOSITES_FOLDER = "mission-composites_01"
+REMOTE_COMPOSITES_DIR = paste0("/ofo-public/drone/", REMOTE_COMPOSITES_FOLDER, "/")
+COMPOSITE_METADATA_TEMPDIR = file.path(TEMPDIR, "composite-metadata-processing")
 REMOTE_PHOTOGRAMMETRY_DIR = "/ofo-internal/photogrammetry-outputs/"
 
 UPLOAD_ERROR_LOG = file.path(RAW_IMAGERY_INGESTION_PATH, "temp/cyverse-upload-log.txt")
