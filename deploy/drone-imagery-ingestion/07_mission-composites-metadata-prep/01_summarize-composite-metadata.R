@@ -7,6 +7,7 @@
 
 library(tidyverse)
 library(sf)
+library(furrr)
 
 source("deploy/drone-imagery-ingestion/00_set-constants.R")
 source("src/summarization-utils.R")  # brings in metadata-extraction_imagery_dataset.R and utils.R
@@ -102,18 +103,22 @@ fix_missing_polygon = function(composite_mission_meta, composite_id, composite_i
     warning("Inferred mission_type '", missing_type, "' for missing mission ", missing_mission_id)
   }
 
-  # Create new row with composite columns + polygon from individual mission
-  new_row = st_sf(
+  # Get the active geometry column name to ensure it matches when binding rows
+  geom_col = attr(composite_mission_meta, "sf_column")
+
+  # Ensure CRS matches before extracting geometry
+  individual_meta = st_transform(individual_meta, st_crs(composite_mission_meta))
+
+  # Create new row using the same geometry column name as composite_mission_meta
+  new_row_data = data.frame(
     composite_id = composite_id,
     mission_type = missing_type,
     mission_id = missing_mission_id,
     date = composite_mission_meta$date[1],
-    area_m2 = as.numeric(st_area(individual_meta)),
-    geometry = st_geometry(individual_meta)[1]
+    area_m2 = as.numeric(st_area(individual_meta[1, ]))
   )
-
-  # Ensure CRS matches
-  new_row = st_transform(new_row, st_crs(composite_mission_meta))
+  new_row_data[[geom_col]] = st_geometry(individual_meta)[1]
+  new_row = st_sf(new_row_data, sf_column_name = geom_col)
 
   # Combine
   result = bind_rows(composite_mission_meta, new_row)
@@ -344,6 +349,9 @@ cat(sprintf("Found %d composites on S3\n", length(composite_ids)))
 
 create_dir(COMPOSITE_METADATA_TEMPDIR)
 
-results = purrr::map_lgl(composite_ids, process_composite, .progress = TRUE)
+# Set up for parallelizing across all composites
+future::plan(future::multisession, workers = future::availableCores()*3)
+
+results = furrr::future_map_lgl(composite_ids, process_composite, .progress = TRUE)
 
 cat(sprintf("\nProcessed %d of %d composites successfully\n", sum(results), length(results)))
