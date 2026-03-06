@@ -6,6 +6,10 @@
 library(tidyverse)
 library(unixtools) # To set tempdir during session
 
+
+TEMPDIR = "/ofo-share/tmp/data-catalog-prep/"
+
+
 # What is the padding width for the dataset ID in the folder names of the imagery folders to be ingested? (New format) This is used to
 # force the Baserow dataset ID column to conform to the image folder names, so this should reflect
 # the padding used when naming the image folders in the 1_manually-cleaned folder.
@@ -180,8 +184,6 @@ CONVERT_TO_COPC = FALSE
 # without a warning.
 TERRA_MEMFRAC = 0.9
 OUTPUT_MAX_DIM = 800
-
-TEMPDIR = "/ofo-share/tmp/data-catalog-prep/"
 
 ## Some setup that should apply to any scripts we run
 
