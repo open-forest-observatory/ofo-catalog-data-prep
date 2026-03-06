@@ -669,7 +669,7 @@ extract_imagery_dataset_metadata = function(metadata, mission_polygon, dataset_i
   file_format_derived = extract_file_format_summary(metadata)
 
   if (use_new_fidelity_col) {
-    terrain_fidelity_df = data.frame(gps_terrain_follow_fidelity_derived = terrain_fidelity_score)
+    terrain_fidelity_df = data.frame(gps_terrain_fidelity_derived = terrain_fidelity_score)
   } else {
     terrain_fidelity_df = data.frame(flight_terrain_correlation_derived = terrain_fidelity_score)
   }
