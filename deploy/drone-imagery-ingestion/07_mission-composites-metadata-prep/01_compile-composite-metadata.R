@@ -45,7 +45,7 @@ download_s3_file = function(remote_path, local_path) {
   create_dir(dirname(local_path))
   cmd = paste0("rclone copyto ", remote_path, " ", local_path, " --config /dev/null")
   result = system(cmd)
-  return(result == 0)
+  return(result == 0 && file.exists(local_path))
 }
 
 
