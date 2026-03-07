@@ -569,167 +569,226 @@ make_mission_details_datatable = function(mission_summary_foc,
 }
 
 
-# Compose and render the {dataset_id}.md page for a plot based on the Jinjar template
-# TODO: Consider merging this with the render_plot_details_page function (for ground ref plots). It
-# would require both data types to have the same page template I think.
-render_mission_details_page = function(
+# Compute S3 product URLs for a given dataset (mission or composite)
+# Returns a named list of product existence flags and URLs
+compute_s3_product_urls = function(dataset_id, s3_file_listing_foc, data_server_base_url) {
+
+  processed_products = s3_file_listing_foc |> filter(str_detect(filepath, paste0("processed_", PHOTOGRAMMETRY_CONFIG_ID)))
+
+  filepath_parts = str_split(processed_products$filepath, fixed("/"))
+  part_3 = purrr::map_chr(filepath_parts, 3)
+  itd_folders = part_3[str_which(part_3, "^itd_")] |> unique() |> sort(decreasing = TRUE)
+  itd_folder_mostrecent = itd_folders[1]
+  itd_path_mostrecent = file.path(dataset_id, paste0("processed_", PHOTOGRAMMETRY_CONFIG_ID), itd_folder_mostrecent)
+  ttops_file_path = file.path(itd_path_mostrecent, paste0(dataset_id, "_treetops.gpkg"))
+
+
+  # Check if products exist and if so, get the URLs needed to add them to the page
+
+  processed_folder = paste0("processed_", PHOTOGRAMMETRY_CONFIG_ID)
+
+  # Orthomosaic
+  ortho_path_thumb = file.path(dataset_id, processed_folder, "thumbnails", paste0(dataset_id, "_ortho-dsm-mesh.png"))
+  ortho_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_ortho-dsm-mesh.tif"))
+  ortho_exists = ortho_path_thumb %in% processed_products$filepath
+  ortho_url_thumb = paste(data_server_base_url, ortho_path_thumb, sep = "/") |> strip_double_slashes()
+  ortho_url_full = paste(data_server_base_url, ortho_path_full, sep = "/") |> strip_double_slashes()
+
+  # CHM
+  chm_path_thumb = file.path(dataset_id, processed_folder, "thumbnails", paste0(dataset_id, "_chm-mesh.png"))
+  chm_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_chm-mesh.tif"))
+  chm_exists = chm_path_thumb %in% processed_products$filepath
+  chm_url_thumb = paste(data_server_base_url, chm_path_thumb, sep = "/") |> strip_double_slashes()
+  chm_url_full = paste(data_server_base_url, chm_path_full, sep = "/") |> strip_double_slashes()
+
+
+  # DSM
+  dsm_path_thumb = file.path(dataset_id, processed_folder, "thumbnails", paste0(dataset_id, "_dsm-mesh.png"))
+  dsm_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_dsm-mesh.tif"))
+  dsm_exists = dsm_path_thumb %in% processed_products$filepath
+  dsm_url_thumb = paste(data_server_base_url, dsm_path_thumb, sep = "/") |> strip_double_slashes()
+  dsm_url_full = paste(data_server_base_url, dsm_path_full, sep = "/") |> strip_double_slashes()
+
+  # DTM
+  dtm_path_thumb = file.path(dataset_id, processed_folder, "thumbnails", paste0(dataset_id, "_dtm-ptcloud.png"))
+  dtm_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_dtm-ptcloud.tif"))
+  dtm_exists = dtm_path_thumb %in% processed_products$filepath
+  dtm_url_thumb = paste(data_server_base_url, dtm_path_thumb, sep = "/") |> strip_double_slashes()
+  dtm_url_full = paste(data_server_base_url, dtm_path_full, sep = "/") |> strip_double_slashes()
+
+  # Point cloud
+  pc_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_points-copc.laz"))
+  pc_exists = pc_path_full %in% processed_products$filepath
+  pc_url_full = paste(data_server_base_url, pc_path_full, sep = "/") |> strip_double_slashes()
+
+  # Mesh model
+  mesh_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_model-georeferenced.ply"))
+  mesh_exists = mesh_path_full %in% processed_products$filepath
+  mesh_url_full = paste(data_server_base_url, mesh_path_full, sep = "/") |> strip_double_slashes()
+
+  # Raw images
+  image_example_path = file.path(dataset_id, "images", "examples", "thumbnails", "example_4.JPG")
+  images_example_exists = image_example_path %in% s3_file_listing_foc$filepath
+  images_example_url_thumb = paste(data_server_base_url, dataset_id, "images/examples/thumbnails/", sep = "/") |> strip_double_slashes()
+  images_example_url_full = paste(data_server_base_url, dataset_id, "images/examples/fullsize/", sep = "/") |> strip_double_slashes()
+
+  image_zip_path =  file.path(dataset_id, "images", paste0(dataset_id, "_images.zip"))
+  images_zip_exists = image_zip_path %in% s3_file_listing_foc$filepath
+  images_zip_url = paste(data_server_base_url, image_zip_path, sep = "/") |> strip_double_slashes()
+
+  # Mission footprint
+  footprint_path = file.path(dataset_id, "metadata-mission", paste0(dataset_id, "_mission-metadata.gpkg"))
+  footprint_exists = footprint_path %in% s3_file_listing_foc$filepath
+  footprint_url = paste(data_server_base_url, footprint_path, sep = "/") |> strip_double_slashes()
+
+  # Cameras
+  cameras_path = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_cameras.xml"))
+  cameras_exists = cameras_path %in% s3_file_listing_foc$filepath
+  cameras_url = paste(data_server_base_url, cameras_path, sep = "/") |> strip_double_slashes()
+
+  # Log
+  log_path = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_log.txt"))
+  log_exists = log_path %in% s3_file_listing_foc$filepath
+  log_url = paste(data_server_base_url, log_path, sep = "/") |> strip_double_slashes()
+
+  # ITD
+  ttops_exists = ttops_file_path %in% processed_products$filepath
+  ttops_url = paste(data_server_base_url, ttops_file_path, sep = "/") |> strip_double_slashes()
+
+  # Return a named list of all the computed values
+  return(list(
+    ortho_exists = ortho_exists,
+    ortho_url_thumb = ortho_url_thumb,
+    ortho_url_full = ortho_url_full,
+    chm_exists = chm_exists,
+    chm_url_thumb = chm_url_thumb,
+    chm_url_full = chm_url_full,
+    dsm_exists = dsm_exists,
+    dsm_url_thumb = dsm_url_thumb,
+    dsm_url_full = dsm_url_full,
+    dtm_exists = dtm_exists,
+    dtm_url_thumb = dtm_url_thumb,
+    dtm_url_full = dtm_url_full,
+    pc_exists = pc_exists,
+    pc_url_full = pc_url_full,
+    mesh_exists = mesh_exists,
+    mesh_url_full = mesh_url_full,
+    images_example_exists = images_example_exists,
+    images_example_url_thumb = images_example_url_thumb,
+    images_example_url_full = images_example_url_full,
+    images_zip_exists = images_zip_exists,
+    images_zip_url = images_zip_url,
+    footprint_exists = footprint_exists,
+    footprint_url = footprint_url,
+    cameras_exists = cameras_exists,
+    cameras_url = cameras_url,
+    log_exists = log_exists,
+    log_url = log_url,
+    ttops_exists = ttops_exists,
+    ttops_url = ttops_url,
+    itd_path_mostrecent = itd_path_mostrecent
+  ))
+}
+
+
+# Generic function to render dataset details page (works for missions, composites, etc.)
+# Reduces code duplication between render_mission_details_page and render_composite_details_page
+render_dataset_details_page = function(
     template_filepath,
-    mission_summary_foc,
+    dataset_summary_foc,
     s3_file_listing_foc,
-    mission_details_map_path,
+    data_server_base_url,
+    details_map_path,
     itd_map_path,
-    mission_details_datatable_path,
+    details_datatable_path,
     next_dataset_page_path,
     previous_dataset_page_path,
     website_repo_content_path,
-    mission_details_page_dir,
+    details_page_dir,
     display_data = FALSE,
+    additional_jinjar_vars = list(),  # For dataset-type-specific variables
     # Optional post-curation parameters for curation pages (side-by-side display)
     has_post_curation_data = FALSE,
     post_curation_map_html_path = NA,
     post_curation_datatable_html_path = NA
   ) {
 
-  # The argument `display_data` determines whether to display actual drone data (e.g., images,
-  # orthomosaic), as opposed to metadata only 
+  dataset_id = dataset_summary_foc$dataset_id
 
-  dataset_id = mission_summary_foc$dataset_id
-
-
-  # Determine if this is an oblique mission, so we can enable a message to the top of the page
-  # explaining that the photogrammetry products are not expected to look good on their own.
-  oblique = abs(as.numeric(mission_summary_foc$camera_pitch_derived)) > 10
-
-  # Initialize drone data display parameters to pass to jinjar, starting with value FALSE or NULL,
-  # but will be populated during the "display data" step below if specified
-  ortho_exists = FALSE
-  ortho_url_thumb = NULL
-  ortho_url_full = NULL
-  chm_exists = FALSE
-  chm_url_thumb = NULL
-  chm_url_full = NULL
-  dsm_exists = FALSE
-  dsm_url_thumb = NULL
-  dsm_url_full = NULL
-  dtm_exists = FALSE
-  dtm_url_thumb = NULL
-  dtm_url_full = NULL
-  pc_exists = FALSE
-  pc_url_full = NULL
-  mesh_exists = FALSE
-  mesh_url_full = NULL
-  images_example_exists = FALSE
-  images_example_url_thumb = NULL
-  images_example_url_full = NULL
-  images_zip_exists = FALSE
-  images_zip_url = NULL
-  footprint_exists = FALSE
-  footprint_url = NULL
-  cameras_exists = FALSE
-  cameras_url = NULL
-  log_exists = FALSE
-  log_url = NULL
-  ttops_exists = FALSE
-  ttops_url = NULL
-
-
+  # Compute S3 product URLs if display_data is enabled, otherwise initialize to defaults
   if (display_data) {
-
-    processed_products = s3_file_listing_foc |> filter(str_detect(filepath, paste0("processed_", PHOTOGRAMMETRY_CONFIG_ID)))
-
-    filepath_parts = str_split(processed_products$filepath, fixed("/"))
-    part_3 = purrr::map_chr(filepath_parts, 3)
-    itd_folders = part_3[str_which(part_3, "^itd_")] |> unique() |> sort(decreasing = TRUE)
-    itd_folder_mostrecent = itd_folders[1]
-    itd_path_mostrecent = file.path(dataset_id, paste0("processed_", PHOTOGRAMMETRY_CONFIG_ID), itd_folder_mostrecent)
-    ttops_file_path = file.path(itd_path_mostrecent, paste0(dataset_id, "_treetops.gpkg"))
-
-
-    # Check if products exist and if so, get the URLs needed to add them to the page
-
-    processed_folder = paste0("processed_", PHOTOGRAMMETRY_CONFIG_ID)
-
-    # Orthomosaic
-    ortho_path_thumb = file.path(dataset_id, processed_folder, "thumbnails", paste0(dataset_id, "_ortho-dsm-mesh.png"))
-    ortho_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_ortho-dsm-mesh.tif"))
-    ortho_exists = ortho_path_thumb %in% processed_products$filepath
-    ortho_url_thumb = paste(DATA_SERVER_MISSIONS_BASE_URL, ortho_path_thumb, sep = "/") |> strip_double_slashes()
-    ortho_url_full = paste(DATA_SERVER_MISSIONS_BASE_URL, ortho_path_full, sep = "/") |> strip_double_slashes()
-
-    # CHM
-    chm_path_thumb = file.path(dataset_id, processed_folder, "thumbnails", paste0(dataset_id, "_chm-mesh.png"))
-    chm_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_chm-mesh.tif"))
-    chm_exists = chm_path_thumb %in% processed_products$filepath
-    chm_url_thumb = paste(DATA_SERVER_MISSIONS_BASE_URL, chm_path_thumb, sep = "/") |> strip_double_slashes()
-    chm_url_full = paste(DATA_SERVER_MISSIONS_BASE_URL, chm_path_full, sep = "/") |> strip_double_slashes()
-
-
-    # DSM
-    dsm_path_thumb = file.path(dataset_id, processed_folder, "thumbnails", paste0(dataset_id, "_dsm-mesh.png"))
-    dsm_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_dsm-mesh.tif"))
-    dsm_exists = dsm_path_thumb %in% processed_products$filepath
-    dsm_url_thumb = paste(DATA_SERVER_MISSIONS_BASE_URL, dsm_path_thumb, sep = "/") |> strip_double_slashes()
-    dsm_url_full = paste(DATA_SERVER_MISSIONS_BASE_URL, dsm_path_full, sep = "/") |> strip_double_slashes()
-
-    # DTM
-    dtm_path_thumb = file.path(dataset_id, processed_folder, "thumbnails", paste0(dataset_id, "_dtm-ptcloud.png"))
-    dtm_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_dtm-ptcloud.tif"))
-    dtm_exists = dtm_path_thumb %in% processed_products$filepath
-    dtm_url_thumb = paste(DATA_SERVER_MISSIONS_BASE_URL, dtm_path_thumb, sep = "/") |> strip_double_slashes()
-    dtm_url_full = paste(DATA_SERVER_MISSIONS_BASE_URL, dtm_path_full, sep = "/") |> strip_double_slashes()
-
-    # Point cloud
-    pc_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_points-copc.laz"))
-    pc_exists = pc_path_full %in% processed_products$filepath
-    pc_url_full = paste(DATA_SERVER_MISSIONS_BASE_URL, pc_path_full, sep = "/") |> strip_double_slashes()
-
-    # Mesh model
-    mesh_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_model-georeferenced.ply"))
-    mesh_exists = mesh_path_full %in% processed_products$filepath
-    mesh_url_full = paste(DATA_SERVER_MISSIONS_BASE_URL, mesh_path_full, sep = "/") |> strip_double_slashes()
-
-    # Raw images
-    image_example_path = file.path(dataset_id, "images", "examples", "thumbnails", "example_4.JPG")
-    images_example_exists = image_example_path %in% s3_file_listing_foc$filepath
-    images_example_url_thumb = paste(DATA_SERVER_MISSIONS_BASE_URL, dataset_id, "images/examples/thumbnails/", sep = "/") |> strip_double_slashes()
-    images_example_url_full = paste(DATA_SERVER_MISSIONS_BASE_URL, dataset_id, "images/examples/fullsize/", sep = "/") |> strip_double_slashes()
-
-    image_zip_path =  file.path(dataset_id, "images", paste0(dataset_id, "_images.zip"))
-    images_zip_exists = image_zip_path %in% s3_file_listing_foc$filepath
-    images_zip_url = paste(DATA_SERVER_MISSIONS_BASE_URL, image_zip_path, sep = "/") |> strip_double_slashes()
-
-    # Mission footprint
-    footprint_path = file.path(dataset_id, "metadata-mission", paste0(dataset_id, "_mission-metadata.gpkg"))
-    footprint_exists = footprint_path %in% s3_file_listing_foc$filepath
-    footprint_url = paste(DATA_SERVER_MISSIONS_BASE_URL, footprint_path, sep = "/") |> strip_double_slashes()
-
-    # Cameras
-    cameras_path = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_cameras.xml"))
-    cameras_exists = cameras_path %in% s3_file_listing_foc$filepath
-    cameras_url = paste(DATA_SERVER_MISSIONS_BASE_URL, cameras_path, sep = "/") |> strip_double_slashes()
-
-    # Log
-    log_path = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_log.txt"))
-    log_exists = log_path %in% s3_file_listing_foc$filepath
-    log_url = paste(DATA_SERVER_MISSIONS_BASE_URL, log_path, sep = "/") |> strip_double_slashes()
-
-    # ITD
-    ttops_exists = ttops_file_path %in% processed_products$filepath
-    ttops_url = paste(DATA_SERVER_MISSIONS_BASE_URL, ttops_file_path, sep = "/") |> strip_double_slashes()
-
-    # TODO: Consider adding image point metadata. Would be in the file listing so easy to add, just
-    # have to add to the template too.
-
+    product_urls = compute_s3_product_urls(dataset_id, s3_file_listing_foc, data_server_base_url)
+    ortho_exists = product_urls$ortho_exists
+    ortho_url_thumb = product_urls$ortho_url_thumb
+    ortho_url_full = product_urls$ortho_url_full
+    chm_exists = product_urls$chm_exists
+    chm_url_thumb = product_urls$chm_url_thumb
+    chm_url_full = product_urls$chm_url_full
+    dsm_exists = product_urls$dsm_exists
+    dsm_url_thumb = product_urls$dsm_url_thumb
+    dsm_url_full = product_urls$dsm_url_full
+    dtm_exists = product_urls$dtm_exists
+    dtm_url_thumb = product_urls$dtm_url_thumb
+    dtm_url_full = product_urls$dtm_url_full
+    pc_exists = product_urls$pc_exists
+    pc_url_full = product_urls$pc_url_full
+    mesh_exists = product_urls$mesh_exists
+    mesh_url_full = product_urls$mesh_url_full
+    images_example_exists = product_urls$images_example_exists
+    images_example_url_thumb = product_urls$images_example_url_thumb
+    images_example_url_full = product_urls$images_example_url_full
+    images_zip_exists = product_urls$images_zip_exists
+    images_zip_url = product_urls$images_zip_url
+    footprint_exists = product_urls$footprint_exists
+    footprint_url = product_urls$footprint_url
+    cameras_exists = product_urls$cameras_exists
+    cameras_url = product_urls$cameras_url
+    log_exists = product_urls$log_exists
+    log_url = product_urls$log_url
+    ttops_exists = product_urls$ttops_exists
+    ttops_url = product_urls$ttops_url
+    itd_path_mostrecent = product_urls$itd_path_mostrecent
+  } else {
+    # Initialize all to defaults when not displaying data
+    ortho_exists = FALSE
+    ortho_url_thumb = NULL
+    ortho_url_full = NULL
+    chm_exists = FALSE
+    chm_url_thumb = NULL
+    chm_url_full = NULL
+    dsm_exists = FALSE
+    dsm_url_thumb = NULL
+    dsm_url_full = NULL
+    dtm_exists = FALSE
+    dtm_url_thumb = NULL
+    dtm_url_full = NULL
+    pc_exists = FALSE
+    pc_url_full = NULL
+    mesh_exists = FALSE
+    mesh_url_full = NULL
+    images_example_exists = FALSE
+    images_example_url_thumb = NULL
+    images_example_url_full = NULL
+    images_zip_exists = FALSE
+    images_zip_url = NULL
+    footprint_exists = FALSE
+    footprint_url = NULL
+    cameras_exists = FALSE
+    cameras_url = NULL
+    log_exists = FALSE
+    log_url = NULL
+    ttops_exists = FALSE
+    ttops_url = NULL
+    itd_path_mostrecent = NULL
   }
 
-
-  rendered = jinjar::render(
-    template_filepath,
+  # Build base jinjar variables (common to all dataset types)
+  base_vars = list(
     dataset_id = dataset_id,
-    oblique = oblique,
-    map_html_path = mission_details_map_path,
+    map_html_path = details_map_path,
     itd_map_html_path = itd_map_path,
-    datatable_html_path = mission_details_datatable_path,
+    itd_map_path = itd_map_path,  # Composite template uses this name
+    datatable_html_path = details_datatable_path,
     next_dataset_page_path = next_dataset_page_path,
     previous_dataset_page_path = previous_dataset_page_path,
     ortho_exists = ortho_exists,
@@ -761,17 +820,70 @@ render_mission_details_page = function(
     log_url = log_url,
     ttops_exists = ttops_exists,
     ttops_url = ttops_url,
-    # Post-curation parameters (for curation pages with side-by-side display)
+    itd_path_mostrecent = itd_path_mostrecent,
     has_post_curation_data = has_post_curation_data,
     post_curation_map_html_path = post_curation_map_html_path,
-    post_curation_datatable_html_path = post_curation_datatable_html_path,
-    .config = jinjar_config(variable_open = "{*", variable_close = "*}")
+    post_curation_datatable_html_path = post_curation_datatable_html_path
   )
 
+  # Merge with additional dataset-type-specific variables
+  all_vars = c(base_vars, additional_jinjar_vars)
+  all_vars$.config = jinjar_config(variable_open = "{*", variable_close = "*}")
+
+  # Render template
+  rendered = do.call(jinjar::render, c(list(template_filepath), all_vars))
+
   write_path = file.path(website_repo_content_path,
-                         mission_details_page_dir,
+                         details_page_dir,
                          paste0(dataset_id, ".md"))
   writeLines(rendered, write_path)
+
+  return(write_path)
+}
+
+
+# Compose and render the {dataset_id}.md page for a mission based on the Jinjar template
+# This is now a wrapper around render_dataset_details_page for backward compatibility
+render_mission_details_page = function(
+    template_filepath,
+    mission_summary_foc,
+    s3_file_listing_foc,
+    mission_details_map_path,
+    itd_map_path,
+    mission_details_datatable_path,
+    next_dataset_page_path,
+    previous_dataset_page_path,
+    website_repo_content_path,
+    mission_details_page_dir,
+    display_data = FALSE,
+    # Optional post-curation parameters for curation pages (side-by-side display)
+    has_post_curation_data = FALSE,
+    post_curation_map_html_path = NA,
+    post_curation_datatable_html_path = NA
+  ) {
+
+  # Determine if this is an oblique mission for the template
+  oblique = abs(as.numeric(mission_summary_foc$camera_pitch_derived)) > 10
+
+  # Call generic function with mission-specific parameters
+  render_dataset_details_page(
+    template_filepath = template_filepath,
+    dataset_summary_foc = mission_summary_foc,
+    s3_file_listing_foc = s3_file_listing_foc,
+    data_server_base_url = DATA_SERVER_MISSIONS_BASE_URL,
+    details_map_path = mission_details_map_path,
+    itd_map_path = itd_map_path,
+    details_datatable_path = mission_details_datatable_path,
+    next_dataset_page_path = next_dataset_page_path,
+    previous_dataset_page_path = previous_dataset_page_path,
+    website_repo_content_path = website_repo_content_path,
+    details_page_dir = mission_details_page_dir,
+    display_data = display_data,
+    additional_jinjar_vars = list(oblique = oblique),
+    has_post_curation_data = has_post_curation_data,
+    post_curation_map_html_path = post_curation_map_html_path,
+    post_curation_datatable_html_path = post_curation_datatable_html_path
+  )
 
   return(TRUE)
 
@@ -907,4 +1019,561 @@ make_mission_details_page = function(
 
   gc()
 
+}
+
+
+# ==== COMPOSITE MISSION FUNCTIONS ====
+
+
+# Compile composite summary data for catalog generation
+compile_composite_summary_data = function(composite_mission_metadata,
+                                          base_ofo_url,
+                                          composite_details_dir,
+                                          individual_mission_details_dir) {
+
+  # First, call existing compile_mission_summary_data to get standard derived columns
+  d = compile_mission_summary_data(composite_mission_metadata, base_ofo_url, individual_mission_details_dir, dataset_type = "mission")
+
+  # Override dataset_id with composite_id
+  d$dataset_id = d$composite_id
+
+  # Override dataset_id_link to point to composite detail pages
+  d$dataset_id_link = paste0('<a href="', base_ofo_url, composite_details_dir, d$dataset_id, '/"', ' target="_PARENT">', d$dataset_id, "</a>")
+
+  # Within each composite_id group, tag missions as "higher" or "lower" based on altitude
+  d = d |>
+    group_by(composite_id) |>
+    mutate(
+      composite_role = if_else(altitude_agl_nominal == max(altitude_agl_nominal, na.rm = TRUE), "higher", "lower"),
+      individual_mission_link = paste0('<a href="', base_ofo_url, individual_mission_details_dir, mission_id, '/"', ' target="_PARENT">', mission_id, "</a>")
+    ) |>
+    arrange(composite_id, desc(altitude_agl_nominal)) |>  # Higher altitude first within each composite
+    ungroup()
+
+  return(d)
+}
+
+
+# Make composite catalog datatable with separator for differing values
+make_composite_catalog_datatable = function(composite_summary,
+                                            website_static_path,
+                                            datatable_header_files_dir,
+                                            composite_catalog_datatable_dir,
+                                            composite_catalog_datatable_filename) {
+
+  # Group by composite_id and collapse values
+  d = composite_summary |>
+    sf::st_drop_geometry() |>
+    group_by(composite_id) |>
+    summarise(
+      dataset_id_link = first(dataset_id_link),  # Link is same for both
+      area_derived = if_else(n_distinct(area_derived) == 1, first(area_derived), paste(area_derived[composite_role == "higher"], area_derived[composite_role == "lower"], sep = "   |   ")),
+      earliest_date_derived = if_else(n_distinct(earliest_date_derived) == 1, first(earliest_date_derived), paste(earliest_date_derived[composite_role == "higher"], earliest_date_derived[composite_role == "lower"], sep = "   |   ")),
+      altitude_agl_nominal = if_else(n_distinct(altitude_agl_nominal) == 1, first(altitude_agl_nominal), paste(altitude_agl_nominal[composite_role == "higher"], altitude_agl_nominal[composite_role == "lower"], sep = "   |   ")),
+      overlap_front_side_nominal = if_else(n_distinct(overlap_front_side_nominal) == 1, first(overlap_front_side_nominal), paste(overlap_front_side_nominal[composite_role == "higher"], overlap_front_side_nominal[composite_role == "lower"], sep = "   |   ")),
+      camera_pitch_derived = if_else(n_distinct(camera_pitch_derived) == 1, first(camera_pitch_derived), paste(camera_pitch_derived[composite_role == "higher"], camera_pitch_derived[composite_role == "lower"], sep = "   |   ")),
+      terrain_follow = if_else(n_distinct(terrain_follow) == 1, first(terrain_follow), paste(terrain_follow[composite_role == "higher"], terrain_follow[composite_role == "lower"], sep = "   |   ")),
+      flight_pattern = if_else(n_distinct(flight_pattern) == 1, first(flight_pattern), paste(flight_pattern[composite_role == "higher"], flight_pattern[composite_role == "lower"], sep = "   |   ")),
+      image_count_derived = if_else(n_distinct(image_count_derived) == 1, first(image_count_derived), paste(image_count_derived[composite_role == "higher"], image_count_derived[composite_role == "lower"], sep = "   |   ")),
+      rtk_nominal = if_else(n_distinct(rtk_nominal) == 1, first(rtk_nominal), paste(rtk_nominal[composite_role == "higher"], rtk_nominal[composite_role == "lower"], sep = "   |   ")),
+      percent_images_rtk_derived = if_else(n_distinct(percent_images_rtk_derived) == 1, first(percent_images_rtk_derived), paste(percent_images_rtk_derived[composite_role == "higher"], percent_images_rtk_derived[composite_role == "lower"], sep = "   |   ")),
+      contributor_dataset_name = if_else(n_distinct(contributor_dataset_name) == 1, first(contributor_dataset_name), paste(contributor_dataset_name[composite_role == "higher"], contributor_dataset_name[composite_role == "lower"], sep = "   |   ")),
+      project_id = if_else(n_distinct(project_id) == 1, first(project_id), paste(project_id[composite_role == "higher"], project_id[composite_role == "lower"], sep = "   |   ")),
+      aircraft_model_name = if_else(n_distinct(aircraft_model_name) == 1, first(aircraft_model_name), paste(aircraft_model_name[composite_role == "higher"], aircraft_model_name[composite_role == "lower"], sep = "   |   "))
+    ) |>
+    ungroup() |>
+    select("ID" = dataset_id_link,
+           "Area (ha)" = area_derived,
+           "Date" = earliest_date_derived,
+           "Altitude (m) (N)" = altitude_agl_nominal,
+           "Overlap (N)" = overlap_front_side_nominal,
+           "Camera pitch" = camera_pitch_derived,
+           "Terrain follow (N)" = terrain_follow,
+           "Flight pattern" = flight_pattern,
+           "Image count" = image_count_derived,
+           "RTK (N)" = rtk_nominal,
+           "RTK images (%)" = percent_images_rtk_derived,
+           "Contributor dataset name" = contributor_dataset_name,
+           "Project" = project_id,
+           "Aircraft" = aircraft_model_name) |>
+    arrange(ID)
+
+  # Prep formatting code to pass to datatable creation
+  format_js = DT::JS("function(settings, json) {",
+                     "$('body').css({'font-family': 'Arial'});",
+                     "}")
+
+  dt = DT::datatable(d,
+                     escape = FALSE,
+                     options = list(paging = FALSE, initComplete = format_js))
+
+  # Save the datatable HTML to the website repo
+  save_widget_html(dt,
+                   website_static_path = website_static_path,
+                   header_files_dir = datatable_header_files_dir,
+                   html_dir = composite_catalog_datatable_dir,
+                   html_filename = composite_catalog_datatable_filename,
+                   delete_folder_first = TRUE)
+
+  return(dt)
+}
+
+
+# Make composite catalog map showing one polygon per composite (the higher-altitude one)
+make_composite_catalog_map = function(composite_summary,
+                                      website_static_path,
+                                      leaflet_header_files_dir,
+                                      composite_catalog_map_dir,
+                                      composite_catalog_map_filename) {
+
+  # Keep only the higher-altitude mission from each composite for the map
+  composite_summary_map = composite_summary |>
+    filter(composite_role == "higher")
+
+  # Get both rows for popup content
+  composite_summary_popup = composite_summary |>
+    group_by(composite_id) |>
+    summarise(
+      dataset_id_link = first(dataset_id_link),
+      popup = paste0(
+        "<b>Composite: </b>", first(dataset_id_link), "<br>",
+        "<b>Mission ", mission_id[composite_role == "higher"], " (higher alt):</b><br>",
+        "&nbsp;&nbsp;Date: ", earliest_date_derived[composite_role == "higher"], "<br>",
+        "&nbsp;&nbsp;Alt: ", altitude_agl_nominal[composite_role == "higher"], " m<br>",
+        "&nbsp;&nbsp;Overlap: ", overlap_front_side_nominal[composite_role == "higher"], "<br>",
+        "&nbsp;&nbsp;Pitch: ", camera_pitch_derived[composite_role == "higher"], " deg<br>",
+        "<b>Mission ", mission_id[composite_role == "lower"], " (lower alt):</b><br>",
+        "&nbsp;&nbsp;Date: ", earliest_date_derived[composite_role == "lower"], "<br>",
+        "&nbsp;&nbsp;Alt: ", altitude_agl_nominal[composite_role == "lower"], " m<br>",
+        "&nbsp;&nbsp;Overlap: ", overlap_front_side_nominal[composite_role == "lower"], "<br>",
+        "&nbsp;&nbsp;Pitch: ", camera_pitch_derived[composite_role == "lower"], " deg<br>"
+      ),
+      geometry = first(geometry)
+    ) |>
+    ungroup() |>
+    st_as_sf()
+
+  composite_centroids = sf::st_centroid(composite_summary_popup)
+
+  m = leaflet() |>
+    addTiles(options = providerTileOptions(maxZoom = 16)) |>
+    addMarkers(data = composite_centroids, popup = ~popup, clusterOptions = markerClusterOptions(freezeAtZoom = 16)) |>
+    addPolygons(data = composite_summary_popup, popup = ~popup, group = "bounds") |>
+    addProviderTiles(providers$Esri.WorldTopoMap, group = "Topo", options = providerTileOptions(maxZoom = 16)) |>
+    addProviderTiles(providers$Esri.WorldImagery, group = "Imagery") |>
+    groupOptions("bounds", zoomLevels = 13:20) |>
+    addLayersControl(baseGroups = c("Topo", "Imagery"),
+                     options = layersControlOptions(collapsed = FALSE))
+
+  save_widget_html(m,
+                   website_static_path = website_static_path,
+                   header_files_dir = leaflet_header_files_dir,
+                   html_dir = composite_catalog_map_dir,
+                   html_filename = composite_catalog_map_filename,
+                   delete_folder_first = TRUE)
+
+  return(m)
+}
+
+
+# Make composite details map with both polygons and all image points, color-coded by mission_id
+make_composite_details_map = function(composite_summary_foc,
+                                      composite_points_foc,
+                                      website_static_path,
+                                      leaflet_header_files_dir,
+                                      composite_details_map_dir) {
+
+  composite_id = unique(composite_summary_foc$composite_id)
+  mission_ids = composite_summary_foc$mission_id
+
+  # Create color palette for two missions
+  mission_colors = colorFactor(c("#E41A1C", "#377EB8"), domain = mission_ids)
+
+  # Create flight paths per mission
+  flight_paths = composite_points_foc |>
+    arrange(mission_id, time_local_derived) |>
+    group_by(mission_id) |>
+    summarise(do_union = FALSE) |>
+    st_cast("LINESTRING")
+
+  # Create map
+  m = leaflet() |>
+    addProviderTiles(providers$Esri.WorldTopoMap, group = "Topo", options = providerTileOptions(maxZoom = 22)) |>
+    addProviderTiles(providers$Esri.WorldImagery, group = "Imagery", options = providerTileOptions(maxZoom = 22))
+
+  # Add polygons for both missions
+  for (i in 1:nrow(composite_summary_foc)) {
+    mission = composite_summary_foc[i, ]
+    m = m |>
+      addPolygons(data = mission,
+                  fillColor = mission_colors(mission$mission_id),
+                  fillOpacity = 0.2,
+                  color = mission_colors(mission$mission_id),
+                  weight = 2,
+                  group = "Mission Footprints",
+                  label = ~mission_id)
+  }
+
+  # Add flight paths
+  for (i in 1:nrow(flight_paths)) {
+    path = flight_paths[i, ]
+    m = m |>
+      addPolylines(data = path,
+                   color = mission_colors(path$mission_id),
+                   weight = 2,
+                   opacity = 0.7,
+                   group = "Flight Paths")
+  }
+
+  # Add image points
+  for (mission_id_i in mission_ids) {
+    points_i = composite_points_foc |> filter(mission_id == mission_id_i)
+    m = m |>
+      addCircleMarkers(data = points_i,
+                       radius = 3,
+                       fillColor = mission_colors(mission_id_i),
+                       fillOpacity = 0.6,
+                       color = mission_colors(mission_id_i),
+                       weight = 1,
+                       group = "Image Locations",
+                       popup = ~image_id)
+  }
+
+  # Add legend
+  m = m |>
+    addLegend("bottomright",
+              colors = c("#E41A1C", "#377EB8"),
+              labels = mission_ids,
+              title = "Mission ID",
+              opacity = 1) |>
+    addLayersControl(baseGroups = c("Topo", "Imagery"),
+                     overlayGroups = c("Mission Footprints", "Flight Paths", "Image Locations"),
+                     options = layersControlOptions(collapsed = FALSE))
+
+  # Save widget
+  composite_details_map_filename = paste0(composite_id, ".html")
+  save_widget_html(m,
+                   website_static_path = website_static_path,
+                   header_files_dir = leaflet_header_files_dir,
+                   html_dir = composite_details_map_dir,
+                   html_filename = composite_details_map_filename,
+                   delete_folder_first = FALSE)
+
+  composite_details_map_path = paste(composite_details_map_dir, composite_details_map_filename, sep = "/")
+
+  return(composite_details_map_path)
+}
+
+
+# Make composite details datatable with 3 columns: Attribute, Mission A (higher), Mission B (lower)
+make_composite_details_datatable = function(composite_summary_foc,
+                                            website_static_path,
+                                            datatable_header_files_dir,
+                                            composite_details_datatable_dir) {
+
+  composite_id = unique(composite_summary_foc$composite_id)
+
+  # Ensure higher altitude is first
+  composite_summary_foc = composite_summary_foc |>
+    arrange(desc(altitude_agl_nominal))
+
+  mission_id_a = composite_summary_foc$mission_id[1]
+  mission_id_b = composite_summary_foc$mission_id[2]
+
+  # Select same attributes as individual mission details datatable
+  d = composite_summary_foc |>
+    sf::st_drop_geometry() |>
+    select(
+      mission_id,
+      area_derived,
+      earliest_date_derived,
+      earliest_time_local_derived,
+      latest_time_local_derived,
+      altitude_agl_nominal,
+      overlap_front_nominal,
+      overlap_side_nominal,
+      camera_pitch_derived,
+      terrain_follow,
+      flight_pattern,
+      image_count_derived,
+      rtk_nominal,
+      percent_images_rtk_derived,
+      contributor_dataset_name,
+      project_id,
+      aircraft_model_name,
+      camera_make,
+      camera_model_name,
+      focal_length_mm,
+      resolution_x_derived,
+      resolution_y_derived,
+      photogrammetry_platform,
+      photogrammetry_platform_version,
+      photogrammetry_config_id,
+      lat_min_derived,
+      lat_max_derived,
+      lon_min_derived,
+      lon_max_derived,
+      elevation_min_wgs84_derived,
+      elevation_max_wgs84_derived,
+      comment
+    )
+
+  # Pivot to long format for each mission
+  d_long_a = d |>
+    filter(mission_id == mission_id_a) |>
+    select(-mission_id) |>
+    pivot_longer(everything(), names_to = "Attribute", values_to = paste0("Mission ", mission_id_a, " (higher alt)"))
+
+  d_long_b = d |>
+    filter(mission_id == mission_id_b) |>
+    select(-mission_id) |>
+    pivot_longer(everything(), names_to = "Attribute", values_to = paste0("Mission ", mission_id_b, " (lower alt)"))
+
+  # Join on Attribute
+  d_combined = d_long_a |>
+    left_join(d_long_b, by = "Attribute")
+
+  # Format attribute names for display
+  d_combined = d_combined |>
+    mutate(Attribute = case_when(
+      Attribute == "area_derived" ~ "Area (ha)",
+      Attribute == "earliest_date_derived" ~ "Date",
+      Attribute == "earliest_time_local_derived" ~ "Earliest time (local)",
+      Attribute == "latest_time_local_derived" ~ "Latest time (local)",
+      Attribute == "altitude_agl_nominal" ~ "Altitude (m) (N)",
+      Attribute == "overlap_front_nominal" ~ "Overlap front (N)",
+      Attribute == "overlap_side_nominal" ~ "Overlap side (N)",
+      Attribute == "camera_pitch_derived" ~ "Camera pitch (deg)",
+      Attribute == "terrain_follow" ~ "Terrain follow (N)",
+      Attribute == "flight_pattern" ~ "Flight pattern",
+      Attribute == "image_count_derived" ~ "Image count",
+      Attribute == "rtk_nominal" ~ "RTK (N)",
+      Attribute == "percent_images_rtk_derived" ~ "RTK images (%)",
+      Attribute == "contributor_dataset_name" ~ "Contributor dataset name",
+      Attribute == "project_id" ~ "Project",
+      Attribute == "aircraft_model_name" ~ "Aircraft",
+      Attribute == "camera_make" ~ "Camera make",
+      Attribute == "camera_model_name" ~ "Camera model",
+      Attribute == "focal_length_mm" ~ "Focal length (mm)",
+      Attribute == "resolution_x_derived" ~ "Resolution X",
+      Attribute == "resolution_y_derived" ~ "Resolution Y",
+      Attribute == "photogrammetry_platform" ~ "Photogrammetry platform",
+      Attribute == "photogrammetry_platform_version" ~ "Photogrammetry version",
+      Attribute == "photogrammetry_config_id" ~ "Photogrammetry config ID",
+      Attribute == "lat_min_derived" ~ "Latitude min",
+      Attribute == "lat_max_derived" ~ "Latitude max",
+      Attribute == "lon_min_derived" ~ "Longitude min",
+      Attribute == "lon_max_derived" ~ "Longitude max",
+      Attribute == "elevation_min_wgs84_derived" ~ "Elevation min (m, WGS84)",
+      Attribute == "elevation_max_wgs84_derived" ~ "Elevation max (m, WGS84)",
+      Attribute == "comment" ~ "Comment",
+      TRUE ~ Attribute
+    ))
+
+  # Create datatable
+  format_js = DT::JS("function(settings, json) {",
+                     "$('body').css({'font-family': 'Arial'});",
+                     "}")
+
+  dt = DT::datatable(d_combined,
+                     escape = FALSE,
+                     options = list(
+                       paging = FALSE,
+                       dom = 't',
+                       bSort = FALSE,
+                       initComplete = format_js,
+                       columnDefs = list(
+                         list(width = '35%', targets = 0),
+                         list(width = '32.5%', targets = 1),
+                         list(width = '32.5%', targets = 2)
+                       )
+                     ))
+
+  # Save widget
+  composite_details_datatable_filename = paste0(composite_id, ".html")
+  save_widget_html(dt,
+                   website_static_path = website_static_path,
+                   header_files_dir = datatable_header_files_dir,
+                   html_dir = composite_details_datatable_dir,
+                   html_filename = composite_details_datatable_filename,
+                   delete_folder_first = FALSE)
+
+  composite_details_datatable_path = paste(composite_details_datatable_dir, composite_details_datatable_filename, sep = "/")
+
+  return(composite_details_datatable_path)
+}
+
+
+# Render composite details page template
+# Render composite details page template
+# This is now a wrapper around render_dataset_details_page
+render_composite_details_page = function(
+    template_filepath,
+    composite_summary_foc,
+    s3_file_listing_foc,
+    composite_details_map_path,
+    itd_map_path,
+    composite_details_datatable_path,
+    next_dataset_page_path,
+    previous_dataset_page_path,
+    website_repo_content_path,
+    composite_details_page_dir,
+    display_data = TRUE) {
+
+  composite_id = unique(composite_summary_foc$composite_id)
+
+  # Get mission IDs (higher altitude first)
+  composite_summary_foc = composite_summary_foc |>
+    arrange(desc(altitude_agl_nominal))
+  mission_id_a = composite_summary_foc$mission_id[1]
+  mission_id_b = composite_summary_foc$mission_id[2]
+
+  # Build individual mission page paths
+  individual_mission_page_path_a = paste0(MISSION_DETAILS_PAGE_DIR, mission_id_a, "/")
+  individual_mission_page_path_b = paste0(MISSION_DETAILS_PAGE_DIR, mission_id_b, "/")
+
+  # Call generic function with composite-specific parameters
+  render_dataset_details_page(
+    template_filepath = template_filepath,
+    dataset_summary_foc = composite_summary_foc,
+    s3_file_listing_foc = s3_file_listing_foc,
+    data_server_base_url = DATA_SERVER_COMPOSITES_BASE_URL,
+    details_map_path = composite_details_map_path,
+    itd_map_path = itd_map_path,
+    details_datatable_path = composite_details_datatable_path,
+    next_dataset_page_path = next_dataset_page_path,
+    previous_dataset_page_path = previous_dataset_page_path,
+    website_repo_content_path = website_repo_content_path,
+    details_page_dir = composite_details_page_dir,
+    display_data = display_data,
+    additional_jinjar_vars = list(
+      composite_id = composite_id,
+      mission_id_a = mission_id_a,
+      mission_id_b = mission_id_b,
+      individual_mission_page_path_a = individual_mission_page_path_a,
+      individual_mission_page_path_b = individual_mission_page_path_b,
+      composite_details_map_path = composite_details_map_path,
+      composite_details_datatable_path = composite_details_datatable_path
+    )
+  )
+}
+
+
+# Top-level orchestrator for a single composite's detail page
+make_composite_details_page = function(composite_id_foc,
+                                       all_composite_ids,
+                                       composite_summaries,
+                                       composite_points,
+                                       s3_file_listing,
+                                       website_static_path,
+                                       website_content_path,
+                                       datatable_header_files_dir,
+                                       leaflet_header_files_dir,
+                                       composite_details_template_filepath,
+                                       composite_details_datatable_dir,
+                                       composite_details_map_dir,
+                                       composite_details_page_dir,
+                                       composite_itd_map_dir) {
+
+  # Filter to focal composite
+  composite_summary_foc = composite_summaries |>
+    filter(composite_id == composite_id_foc) |>
+    arrange(desc(altitude_agl_nominal))  # Higher altitude first
+
+  composite_points_foc = composite_points |>
+    filter(composite_id == composite_id_foc)
+
+  s3_file_listing_foc = s3_file_listing |>
+    filter(composite_id == composite_id_foc)
+
+  # Extract mission IDs
+  mission_id_a = composite_summary_foc$mission_id[1]  # higher
+  mission_id_b = composite_summary_foc$mission_id[2]  # lower
+
+  # Make composite details map
+  composite_details_map_path = make_composite_details_map(
+    composite_summary_foc = composite_summary_foc,
+    composite_points_foc = composite_points_foc,
+    website_static_path = website_static_path,
+    leaflet_header_files_dir = leaflet_header_files_dir,
+    composite_details_map_dir = composite_details_map_dir
+  )
+
+  # Make composite details datatable
+  composite_details_datatable_path = make_composite_details_datatable(
+    composite_summary_foc = composite_summary_foc,
+    website_static_path = website_static_path,
+    datatable_header_files_dir = datatable_header_files_dir,
+    composite_details_datatable_dir = composite_details_datatable_dir
+  )
+
+  # Check for ITD data and create ITD map if exists
+  itd_map_path = NA
+  product_urls = compute_s3_product_urls(composite_id_foc, s3_file_listing_foc, DATA_SERVER_COMPOSITES_BASE_URL)
+  if (product_urls$ttops_exists) {
+    # Download ITD data
+    itd_path_mostrecent = product_urls$itd_path_mostrecent
+    ttops_url = product_urls$ttops_url
+    ttops_tempfile = tempfile(fileext = ".gpkg")
+
+    download_result = tryCatch({
+      download.file(ttops_url, ttops_tempfile, quiet = TRUE, method = "wget")
+      TRUE
+    }, error = function(e) {
+      FALSE
+    })
+
+    if (download_result && file.exists(ttops_tempfile)) {
+      ttops = st_read(ttops_tempfile, quiet = TRUE)
+
+      # Create ITD map (simplified version without attribute switching)
+      m_itd = leaflet() |>
+        addProviderTiles(providers$Esri.WorldTopoMap, group = "Topo", options = providerTileOptions(maxZoom = 22)) |>
+        addProviderTiles(providers$Esri.WorldImagery, group = "Imagery", options = providerTileOptions(maxZoom = 22)) |>
+        addCircleMarkers(data = ttops,
+                         radius = 3,
+                         fillColor = "green",
+                         fillOpacity = 0.6,
+                         color = "darkgreen",
+                         weight = 1) |>
+        addLayersControl(baseGroups = c("Topo", "Imagery"),
+                         options = layersControlOptions(collapsed = FALSE))
+
+      itd_map_filename = paste0(composite_id_foc, ".html")
+      save_widget_html(m_itd,
+                       website_static_path = website_static_path,
+                       header_files_dir = leaflet_header_files_dir,
+                       html_dir = composite_itd_map_dir,
+                       html_filename = itd_map_filename,
+                       delete_folder_first = FALSE)
+
+      itd_map_path = paste(composite_itd_map_dir, itd_map_filename, sep = "/")
+
+      unlink(ttops_tempfile)
+    }
+  }
+
+  # Compute prev/next composite navigation (wraparound)
+  current_index = which(all_composite_ids == composite_id_foc)
+  next_index = ifelse(current_index == length(all_composite_ids), 1, current_index + 1)
+  previous_index = ifelse(current_index == 1, length(all_composite_ids), current_index - 1)
+  next_dataset_page_path = paste0(composite_details_page_dir, all_composite_ids[next_index], "/")
+  previous_dataset_page_path = paste0(composite_details_page_dir, all_composite_ids[previous_index], "/")
+
+  # Render composite details page
+  render_composite_details_page(
+    template_filepath = composite_details_template_filepath,
+    composite_summary_foc = composite_summary_foc,
+    s3_file_listing = s3_file_listing_foc,
+    composite_details_map_path = composite_details_map_path,
+    itd_map_path = itd_map_path,
+    composite_details_datatable_path = composite_details_datatable_path,
+    next_dataset_page_path = next_dataset_page_path,
+    previous_dataset_page_path = previous_dataset_page_path,
+    website_repo_content_path = website_content_path,
+    composite_details_page_dir = composite_details_page_dir,
+    display_data = TRUE
+  )
+
+  gc()
 }
