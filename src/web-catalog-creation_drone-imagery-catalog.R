@@ -1040,17 +1040,30 @@ compile_composite_summary_data = function(composite_mission_metadata,
   # Override dataset_id_link to point to composite detail pages
   d$dataset_id_link = paste0('<a href="', base_ofo_url, composite_details_dir, d$dataset_id, '/"', ' target="_PARENT">', d$dataset_id, "</a>")
 
-  # Within each composite_id group, tag missions as "higher" or "lower" based on altitude
+  # Add mission link (mission_type already has "hn" or "lo")
   d = d |>
     group_by(composite_id) |>
     mutate(
-      composite_role = if_else(altitude_agl_nominal == max(altitude_agl_nominal, na.rm = TRUE), "higher", "lower"),
       individual_mission_link = paste0('<a href="', base_ofo_url, individual_mission_details_dir, mission_id, '/"', ' target="_PARENT">', mission_id, "</a>")
     ) |>
     arrange(composite_id, desc(altitude_agl_nominal)) |>  # Higher altitude first within each composite
     ungroup()
 
   return(d)
+}
+
+
+# Helper function to collapse composite fields
+# If values are the same for both datasets, use the single value
+# If different, paste higher and lower values with separator
+collapse_composite_field = function(field, mission_type) {
+  # mission_type is "hn" (high nadir) or "lo" (low oblique)
+  # if (5.63 %in% field) browser()
+  if_else(
+    n_distinct(field) == 1,
+    first(field),
+    paste(field[mission_type == "hn"], field[mission_type == "lo"], sep = "   |   ")
+  )
 }
 
 
@@ -1067,36 +1080,36 @@ make_composite_catalog_datatable = function(composite_summary,
     group_by(composite_id) |>
     summarise(
       dataset_id_link = first(dataset_id_link),  # Link is same for both
-      area_derived = if_else(n_distinct(area_derived) == 1, first(area_derived), paste(area_derived[composite_role == "higher"], area_derived[composite_role == "lower"], sep = "   |   ")),
-      earliest_date_derived = if_else(n_distinct(earliest_date_derived) == 1, first(earliest_date_derived), paste(earliest_date_derived[composite_role == "higher"], earliest_date_derived[composite_role == "lower"], sep = "   |   ")),
-      altitude_agl_nominal = if_else(n_distinct(altitude_agl_nominal) == 1, first(altitude_agl_nominal), paste(altitude_agl_nominal[composite_role == "higher"], altitude_agl_nominal[composite_role == "lower"], sep = "   |   ")),
-      overlap_front_side_nominal = if_else(n_distinct(overlap_front_side_nominal) == 1, first(overlap_front_side_nominal), paste(overlap_front_side_nominal[composite_role == "higher"], overlap_front_side_nominal[composite_role == "lower"], sep = "   |   ")),
-      camera_pitch_derived = if_else(n_distinct(camera_pitch_derived) == 1, first(camera_pitch_derived), paste(camera_pitch_derived[composite_role == "higher"], camera_pitch_derived[composite_role == "lower"], sep = "   |   ")),
-      terrain_follow = if_else(n_distinct(terrain_follow) == 1, first(terrain_follow), paste(terrain_follow[composite_role == "higher"], terrain_follow[composite_role == "lower"], sep = "   |   ")),
-      flight_pattern = if_else(n_distinct(flight_pattern) == 1, first(flight_pattern), paste(flight_pattern[composite_role == "higher"], flight_pattern[composite_role == "lower"], sep = "   |   ")),
-      image_count_derived = if_else(n_distinct(image_count_derived) == 1, first(image_count_derived), paste(image_count_derived[composite_role == "higher"], image_count_derived[composite_role == "lower"], sep = "   |   ")),
-      rtk_nominal = if_else(n_distinct(rtk_nominal) == 1, first(rtk_nominal), paste(rtk_nominal[composite_role == "higher"], rtk_nominal[composite_role == "lower"], sep = "   |   ")),
-      percent_images_rtk_derived = if_else(n_distinct(percent_images_rtk_derived) == 1, first(percent_images_rtk_derived), paste(percent_images_rtk_derived[composite_role == "higher"], percent_images_rtk_derived[composite_role == "lower"], sep = "   |   ")),
-      contributor_dataset_name = if_else(n_distinct(contributor_dataset_name) == 1, first(contributor_dataset_name), paste(contributor_dataset_name[composite_role == "higher"], contributor_dataset_name[composite_role == "lower"], sep = "   |   ")),
-      project_id = if_else(n_distinct(project_id) == 1, first(project_id), paste(project_id[composite_role == "higher"], project_id[composite_role == "lower"], sep = "   |   ")),
-      aircraft_model_name = if_else(n_distinct(aircraft_model_name) == 1, first(aircraft_model_name), paste(aircraft_model_name[composite_role == "higher"], aircraft_model_name[composite_role == "lower"], sep = "   |   "))
+      area_derived = collapse_composite_field(area_derived, mission_type),
+      earliest_date_derived = collapse_composite_field(earliest_date_derived, mission_type),
+      altitude_agl_nominal = collapse_composite_field(altitude_agl_nominal, mission_type),
+      overlap_front_side_nominal = collapse_composite_field(overlap_front_side_nominal, mission_type),
+      camera_pitch_derived = collapse_composite_field(camera_pitch_derived, mission_type),
+      terrain_follow = collapse_composite_field(terrain_follow, mission_type),
+      flight_pattern = collapse_composite_field(flight_pattern, mission_type),
+      image_count_derived = collapse_composite_field(image_count_derived, mission_type),
+      rtk_nominal = collapse_composite_field(rtk_nominal, mission_type),
+      percent_images_rtk_derived = collapse_composite_field(percent_images_rtk_derived, mission_type),
+      contributor_dataset_name = collapse_composite_field(contributor_dataset_name, mission_type),
+      project_id = collapse_composite_field(project_id, mission_type),
+      aircraft_model_name = collapse_composite_field(aircraft_model_name, mission_type)
     ) |>
-    ungroup() |>
-    select("ID" = dataset_id_link,
-           "Area (ha)" = area_derived,
-           "Date" = earliest_date_derived,
-           "Altitude (m) (N)" = altitude_agl_nominal,
-           "Overlap (N)" = overlap_front_side_nominal,
-           "Camera pitch" = camera_pitch_derived,
-           "Terrain follow (N)" = terrain_follow,
-           "Flight pattern" = flight_pattern,
-           "Image count" = image_count_derived,
-           "RTK (N)" = rtk_nominal,
-           "RTK images (%)" = percent_images_rtk_derived,
-           "Contributor dataset name" = contributor_dataset_name,
-           "Project" = project_id,
-           "Aircraft" = aircraft_model_name) |>
-    arrange(ID)
+    ungroup() #|>
+    # select("ID" = dataset_id_link,
+    #        "Area (ha)" = area_derived,
+    #        "Date" = earliest_date_derived,
+    #        "Altitude (m) (N)" = altitude_agl_nominal,
+    #        "Overlap (N)" = overlap_front_side_nominal,
+    #        "Camera pitch" = camera_pitch_derived,
+    #        "Terrain follow (N)" = terrain_follow,
+    #        "Flight pattern" = flight_pattern,
+    #        "Image count" = image_count_derived,
+    #        "RTK (N)" = rtk_nominal,
+    #        "RTK images (%)" = percent_images_rtk_derived,
+    #        "Contributor dataset name" = contributor_dataset_name,
+    #        "Project" = project_id,
+    #        "Aircraft" = aircraft_model_name) |>
+    # arrange(ID)
 
   # Prep formatting code to pass to datatable creation
   format_js = DT::JS("function(settings, json) {",
@@ -1126,9 +1139,9 @@ make_composite_catalog_map = function(composite_summary,
                                       composite_catalog_map_dir,
                                       composite_catalog_map_filename) {
 
-  # Keep only the higher-altitude mission from each composite for the map
+  # Keep only the high nadir (hn) mission from each composite for the map
   composite_summary_map = composite_summary |>
-    filter(composite_role == "higher")
+    filter(mission_type == "hn")
 
   # Get both rows for popup content
   composite_summary_popup = composite_summary |>
@@ -1137,16 +1150,16 @@ make_composite_catalog_map = function(composite_summary,
       dataset_id_link = first(dataset_id_link),
       popup = paste0(
         "<b>Composite: </b>", first(dataset_id_link), "<br>",
-        "<b>Mission ", mission_id[composite_role == "higher"], " (higher alt):</b><br>",
-        "&nbsp;&nbsp;Date: ", earliest_date_derived[composite_role == "higher"], "<br>",
-        "&nbsp;&nbsp;Alt: ", altitude_agl_nominal[composite_role == "higher"], " m<br>",
-        "&nbsp;&nbsp;Overlap: ", overlap_front_side_nominal[composite_role == "higher"], "<br>",
-        "&nbsp;&nbsp;Pitch: ", camera_pitch_derived[composite_role == "higher"], " deg<br>",
-        "<b>Mission ", mission_id[composite_role == "lower"], " (lower alt):</b><br>",
-        "&nbsp;&nbsp;Date: ", earliest_date_derived[composite_role == "lower"], "<br>",
-        "&nbsp;&nbsp;Alt: ", altitude_agl_nominal[composite_role == "lower"], " m<br>",
-        "&nbsp;&nbsp;Overlap: ", overlap_front_side_nominal[composite_role == "lower"], "<br>",
-        "&nbsp;&nbsp;Pitch: ", camera_pitch_derived[composite_role == "lower"], " deg<br>"
+        "<b>Mission ", mission_id[mission_type == "hn"], " (high nadir):</b><br>",
+        "&nbsp;&nbsp;Date: ", earliest_date_derived[mission_type == "hn"], "<br>",
+        "&nbsp;&nbsp;Alt: ", altitude_agl_nominal[mission_type == "hn"], " m<br>",
+        "&nbsp;&nbsp;Overlap: ", overlap_front_side_nominal[mission_type == "hn"], "<br>",
+        "&nbsp;&nbsp;Pitch: ", camera_pitch_derived[mission_type == "hn"], " deg<br>",
+        "<b>Mission ", mission_id[mission_type == "lo"], " (low oblique):</b><br>",
+        "&nbsp;&nbsp;Date: ", earliest_date_derived[mission_type == "lo"], "<br>",
+        "&nbsp;&nbsp;Alt: ", altitude_agl_nominal[mission_type == "lo"], " m<br>",
+        "&nbsp;&nbsp;Overlap: ", overlap_front_side_nominal[mission_type == "lo"], "<br>",
+        "&nbsp;&nbsp;Pitch: ", camera_pitch_derived[mission_type == "lo"], " deg<br>"
       ),
       geometry = first(geometry)
     ) |>
