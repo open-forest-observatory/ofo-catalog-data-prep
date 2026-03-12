@@ -1,0 +1,49 @@
+---
+# Creating this as a "landing page" because we need to access the full width, whereas content pages are narrower
+title: Composite drone missions catalog
+type: landing
+sections:
+  - block: markdown
+    design:
+      spacing:
+        padding: ["0px", "0px", "0px", "0px"]
+      css_class: fullscreen
+    content:
+      title:
+      text: |
+
+        <div style="text-align: center; font-size: 225%; line-height: 120%;">
+
+        Composite drone mission catalog
+
+        </div>
+
+        <br>
+
+        <div class="container">
+          <div class="row justify-content-center">
+          <div class="col-xl-10">
+
+          This catalog features composite drone missions — pairs of overlapping flights at different altitudes that are processed together for unified data products. Visit the [main drone imagery catalog](/data/drone/) for individual missions.
+
+          </div>
+          </div>
+          </div>
+
+
+        <br>
+
+        <div style="justify-content:center;">
+        <div style="width:100%;">
+
+        <iframe src="{{< static "/drone-composite-catalog-map/drone-composite-catalog-map.html" >}}" frameborder="0" scrolling="yes" seamless="seamless" style="display:block; width:100%; height:76vh;" class="tester"></iframe>
+
+        [View fullscreen map](/drone-composite-catalog-map/drone-composite-catalog-map.html)
+
+        <object type="text/html" data="{{< static "/drone-composite-catalog-datatable/drone-composite-catalog-datatable.html" >}}" frameborder="0" scrolling="yes" seamless="seamless" style="width:100%; height:76vh; display:flex;" class="tester"></object>
+
+
+        </div>
+        </div>
+
+---

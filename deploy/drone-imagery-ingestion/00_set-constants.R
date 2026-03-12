@@ -166,7 +166,7 @@ PHOTOGRAMMETRY_POSTPROCESSED_SUBDIR = "07_photogrammetry-outputs-postprocessed"
 
 # The photogrammetry base config file in BASE_METASHAPE_CONFIG_SUBPATH should have the following ID
 # as its filename (with a .yml extension)
-PHOTOGRAMMETRY_CONFIG_ID = "02"
+PHOTOGRAMMETRY_CONFIG_ID = "01"
 
 # The number of chunks to break the photogrammetry processing into (one chunk for each instance)
 N_CHUNKS_PHOTOGRAMMETRY = 24
@@ -277,5 +277,26 @@ CURATION_MISSION_DETAILS_MAP_DIR = "/drone-curation-mission-details-maps"
 # Post-curation widget output directories (for curation pages showing post-curation data)
 CURATION_POST_MISSION_DETAILS_DATATABLE_DIR = "/drone-curation-post-mission-details-datatables"
 CURATION_POST_MISSION_DETAILS_MAP_DIR = "/drone-curation-post-mission-details-maps"
+
+### Composite mission web catalog
+DATA_SERVER_COMPOSITES_BASE_URL = paste0(DATA_SERVER_BASE_URL, REMOTE_COMPOSITES_DIR)
+
+COMPOSITE_MISSION_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/composites/mission-metadata.gpkg")
+COMPOSITE_IMAGE_METADATA_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/composites/image-metadata.gpkg")
+COMPOSITE_S3_LISTING_FILEPATH = file.path(BASE_DATA_PATH, "05_drone-imagery-web-catalog/01_metadata/composites/s3-listing.csv")
+
+COMPOSITE_MISSION_DETAILS_TEMPLATE_FILEPATH = fs::path("deploy/drone-imagery-ingestion/10_drone-mission-web-catalog/templates/drone-composite-mission-details.md")
+COMPOSITE_MISSION_CATALOG_TEMPLATE_FILEPATH = fs::path("deploy/drone-imagery-ingestion/10_drone-mission-web-catalog/templates/drone-composite-mission-catalog.html")
+COMPOSITE_MISSION_DETAILS_PAGE_DIR = "data/drone-composites/mission-details/"
+
+COMPOSITE_DATATABLE_HEADER_FILES_DIR = "/datatable-header-files_drone-composite-catalog"
+COMPOSITE_LEAFLET_HEADER_FILES_DIR = "/leaflet-header-files_drone-composite-catalog"
+COMPOSITE_MISSION_CATALOG_DATATABLE_DIR = "/drone-composite-catalog-datatable/"
+COMPOSITE_MISSION_CATALOG_DATATABLE_FILENAME = "drone-composite-catalog-datatable.html"
+COMPOSITE_MISSION_CATALOG_MAP_DIR = "/drone-composite-catalog-map/"
+COMPOSITE_MISSION_CATALOG_MAP_FILENAME = "drone-composite-catalog-map.html"
+COMPOSITE_MISSION_DETAILS_DATATABLE_DIR = "/drone-composite-details-datatables"
+COMPOSITE_MISSION_DETAILS_MAP_DIR = "/drone-composite-details-maps"
+COMPOSITE_ITD_MAP_DIR = "/composite-itd-maps"
 
 # nolint end
