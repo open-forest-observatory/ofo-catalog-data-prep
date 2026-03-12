@@ -1431,6 +1431,9 @@ make_composite_details_datatable = function(composite_summary_foc,
                        )
                      ))
 
+  dt$sizingPolicy$browser$padding = 0
+  dt$sizingPolicy$browser$fill = FALSE
+
   # Save widget
   composite_details_datatable_filename = paste0(composite_id, ".html")
   save_widget_html(dt,
