@@ -223,7 +223,7 @@ extract_dates_times = function(metadata) {
 # Uses terrain data from AWS via elevatr package.
 # Formula: score = max(0, 100 - 2 * std_AGL)
 # A score of 100 means perfectly consistent AGL; lower scores indicate more variation.
-extract_flight_terrain_correlation = function(metadata) {
+extract_gps_terrain_follow_fidelity = function(metadata) {
   # Define the AOI as a polygon
   aoi = sf::st_convex_hull(sf::st_union(metadata)) |> sf::st_as_sf()
 
@@ -247,6 +247,75 @@ extract_flight_terrain_correlation = function(metadata) {
   fidelity_score = max(0, 100 - 2 * std_agl) |> round(0)
 
   return(fidelity_score)
+}
+
+
+# Compute photogrammetry-derived altitude metrics from pre-computed AGL values.
+# Uses altitude_agl (or photogrammetry_altitude_agl) and camera_aligned (or photogrammetry_camera_aligned)
+# columns from photogrammetry output.
+extract_photogrammetry_altitude_metrics = function(metadata) {
+  # Resolve column name variants for altitude_agl
+  if ("altitude_agl" %in% names(metadata)) {
+    agl_col = "altitude_agl"
+  } else if ("photogrammetry_altitude_agl" %in% names(metadata)) {
+    agl_col = "photogrammetry_altitude_agl"
+  } else {
+    warning("No altitude_agl or photogrammetry_altitude_agl column found; returning NAs")
+    return(data.frame(
+      photogrammetry_altitude_agl_median_derived = NA_real_,
+      photogrammetry_altitude_agl_mean_derived = NA_real_,
+      photogrammetry_terrain_fidelity_derived = NA_real_
+    ))
+  }
+
+  # Resolve column name variants for camera_aligned
+  if ("camera_aligned" %in% names(metadata)) {
+    aligned_col = "camera_aligned"
+  } else if ("photogrammetry_camera_aligned" %in% names(metadata)) {
+    aligned_col = "photogrammetry_camera_aligned"
+  } else {
+    warning("No camera_aligned or photogrammetry_camera_aligned column found; returning NAs")
+    return(data.frame(
+      photogrammetry_altitude_agl_median_derived = NA_real_,
+      photogrammetry_altitude_agl_mean_derived = NA_real_,
+      photogrammetry_terrain_fidelity_derived = NA_real_
+    ))
+  }
+
+  agl_values = as.numeric(metadata[[agl_col]])
+  aligned_values = metadata[[aligned_col]]
+
+  # Handle TEXT "True"/"False" and logical TRUE/FALSE
+  aligned_bool = aligned_values == TRUE | tolower(as.character(aligned_values)) == "true"
+
+  # Filter to aligned images with non-NA AGL
+  keep = aligned_bool & !is.na(agl_values)
+  agl = agl_values[keep]
+
+  if (length(agl) < 5) {
+    warning("Fewer than 5 images with camera_aligned=True and non-NA altitude_agl; returning NAs")
+    return(data.frame(
+      photogrammetry_altitude_agl_median_derived = NA_real_,
+      photogrammetry_altitude_agl_mean_derived = NA_real_,
+      photogrammetry_terrain_fidelity_derived = NA_real_
+    ))
+  }
+
+  # Compute median and mean AGL
+  agl_median = median(agl) |> round(2)
+  agl_mean = mean(agl) |> round(2)
+
+  # Compute terrain fidelity from photogrammetry AGL: trim to middle 80%, then score
+  agl_lwr = quantile(agl, 0.1)
+  agl_upr = quantile(agl, 0.9)
+  agl_core = agl[agl > agl_lwr & agl < agl_upr]
+  fidelity = max(0, 100 - 2 * sd(agl_core)) |> round(0)
+
+  return(data.frame(
+    photogrammetry_altitude_agl_median_derived = agl_median,
+    photogrammetry_altitude_agl_mean_derived = agl_mean,
+    photogrammetry_terrain_fidelity_derived = fidelity
+  ))
 }
 
 
@@ -564,7 +633,7 @@ extract_file_format_summary <- function(metadata) {
 # than min_contig_areain m^2 (could be multiple clumps). It will always include the largest clump, even if
 # it is smaller than min_contig_area.
 #' @export
-extract_imagery_dataset_metadata = function(metadata, mission_polygon, dataset_id) {
+extract_imagery_dataset_metadata = function(metadata, mission_polygon, dataset_id, use_new_fidelity_col = FALSE, include_photogrammetry_altitude = FALSE) {
   # Print which dataset is being processed
   message("Processing dataset ", dataset_id, "...")
 
@@ -583,7 +652,7 @@ extract_imagery_dataset_metadata = function(metadata, mission_polygon, dataset_i
 
   # Extract/compute metadata attributes
   flight_speed_derived = extract_flight_speed(metadata)
-  flight_terrain_correlation_derived = extract_flight_terrain_correlation(metadata)
+  terrain_fidelity_score = extract_gps_terrain_follow_fidelity(metadata)
   camera_pitch = extract_camera_pitch_summary(metadata)
   dates_times = extract_dates_times(metadata)
   centroid_internal = extract_mission_centroid_sf(metadata)
@@ -599,9 +668,15 @@ extract_imagery_dataset_metadata = function(metadata, mission_polygon, dataset_i
   resolution_and_aspect_ratio = extract_resolution_and_aspect_ratio_summary(metadata)
   file_format_derived = extract_file_format_summary(metadata)
 
+  if (use_new_fidelity_col) {
+    terrain_fidelity_df = data.frame(gps_terrain_fidelity_derived = terrain_fidelity_score)
+  } else {
+    terrain_fidelity_df = data.frame(flight_terrain_correlation_derived = terrain_fidelity_score)
+  }
+
   dataset_metadata = data.frame(
     flight_speed_derived,
-    flight_terrain_correlation_derived,
+    terrain_fidelity_df,
     camera_pitch, # this is a multi-column dataframe; preserving its column names
     dates_times,
     centroid_lonlat, # this is a multi-column dataframe; preserving its column names
@@ -616,6 +691,12 @@ extract_imagery_dataset_metadata = function(metadata, mission_polygon, dataset_i
     resolution_and_aspect_ratio,
     file_format_derived
   )
+
+  # Optionally compute photogrammetry-derived altitude metrics from pre-computed AGL values
+  if (include_photogrammetry_altitude) {
+    photogrammetry_altitude = extract_photogrammetry_altitude_metrics(metadata)
+    dataset_metadata = data.frame(dataset_metadata, photogrammetry_altitude)
+  }
 
   return(dataset_metadata)
 }
