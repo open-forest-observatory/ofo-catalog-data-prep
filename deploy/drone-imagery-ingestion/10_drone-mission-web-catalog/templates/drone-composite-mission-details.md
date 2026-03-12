@@ -115,7 +115,7 @@ Access the raw drone images via the constituent missions:
 - [Mission {* mission_id_a *}]({* individual_mission_page_path_a *}) (higher altitude, nadir camera pitch)
 - [Mission {* mission_id_b *}]({* individual_mission_page_path_b *}) (lower altitude, oblique camera pitch)
 
-Note that mission composites may use a subset of the images from the each of the constituent missions (focusing on the area where the two missions overlap). {% if image_metadata_exists -%} The images that are retained from each consituent mission are indicated in the [image metadata file]({* image_metadata_url *}).{% endif -%}
+Note that mission composites may use a subset of the images from the each of the constituent missions (focusing on the area where the two missions overlap). {% if image_metadata_exists -%} The images that are retained from each consituent mission are indicated in the [image metadata file]({* image_metadata_url *}).{% endif %}
 
 
 ## Mission attributes
