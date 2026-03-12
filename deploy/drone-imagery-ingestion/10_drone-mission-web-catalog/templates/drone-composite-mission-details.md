@@ -163,9 +163,14 @@ Preview in development.
 
 <br>
 
-{% if footprint_exists or cameras_exists or log_exists -%}
+{% if image_metadata_exists or footprint_exists or cameras_exists or log_exists -%}
 
 ## Other data
+
+{% if image_metadata_exists -%}
+[Composite mission image metadata]({* image_metadata_url *})
+
+{% endif -%}
 
 {% if footprint_exists -%}
 [Composite mission geospatial footprint]({* footprint_url *})

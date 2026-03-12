@@ -635,6 +635,11 @@ compute_s3_product_urls = function(dataset_id, s3_file_listing_foc, data_server_
   images_zip_exists = image_zip_path %in% s3_file_listing_foc$filepath
   images_zip_url = paste(data_server_base_url, image_zip_path, sep = "/") |> strip_double_slashes()
 
+  # Image metadata
+  image_metadata_path = file.path(dataset_id, "metadata-images", paste0(dataset_id, "_image-metadata.gpkg"))
+  image_metadata_exists = image_metadata_path %in% s3_file_listing_foc$filepath
+  image_metadata_url = paste(data_server_base_url, image_metadata_path, sep = "/") |> strip_double_slashes()
+
   # Mission footprint
   footprint_path = file.path(dataset_id, "metadata-mission", paste0(dataset_id, "_mission-metadata.gpkg"))
   footprint_exists = footprint_path %in% s3_file_listing_foc$filepath
@@ -677,6 +682,8 @@ compute_s3_product_urls = function(dataset_id, s3_file_listing_foc, data_server_
     images_example_url_full = images_example_url_full,
     images_zip_exists = images_zip_exists,
     images_zip_url = images_zip_url,
+    image_metadata_exists = image_metadata_exists,
+    image_metadata_url = image_metadata_url,
     footprint_exists = footprint_exists,
     footprint_url = footprint_url,
     cameras_exists = cameras_exists,
@@ -742,6 +749,8 @@ render_dataset_details_page = function(
     images_example_url_full = product_urls$images_example_url_full
     images_zip_exists = product_urls$images_zip_exists
     images_zip_url = product_urls$images_zip_url
+    image_metadata_exists = product_urls$image_metadata_exists
+    image_metadata_url = product_urls$image_metadata_url
     footprint_exists = product_urls$footprint_exists
     footprint_url = product_urls$footprint_url
     cameras_exists = product_urls$cameras_exists
@@ -774,6 +783,8 @@ render_dataset_details_page = function(
     images_example_url_full = NULL
     images_zip_exists = FALSE
     images_zip_url = NULL
+    image_metadata_exists = FALSE
+    image_metadata_url = NULL
     footprint_exists = FALSE
     footprint_url = NULL
     cameras_exists = FALSE
@@ -815,6 +826,8 @@ render_dataset_details_page = function(
     images_example_url_full = images_example_url_full,
     images_zip_exists = images_zip_exists,
     images_zip_url = images_zip_url,
+    image_metadata_exists = image_metadata_exists,
+    image_metadata_url = image_metadata_url,
     footprint_exists = footprint_exists,
     footprint_url = footprint_url,
     cameras_exists = cameras_exists,
