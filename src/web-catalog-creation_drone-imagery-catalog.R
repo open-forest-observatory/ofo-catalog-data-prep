@@ -1473,8 +1473,8 @@ render_composite_details_page = function(
   mission_id_b = composite_summary_foc$mission_id[2]
 
   # Build individual mission page paths
-  individual_mission_page_path_a = paste0(MISSION_DETAILS_PAGE_DIR, mission_id_a, "/")
-  individual_mission_page_path_b = paste0(MISSION_DETAILS_PAGE_DIR, mission_id_b, "/")
+  individual_mission_page_path_a = paste0("/", MISSION_DETAILS_PAGE_DIR, mission_id_a, "/")
+  individual_mission_page_path_b = paste0("/", MISSION_DETAILS_PAGE_DIR, mission_id_b, "/")
 
   # Call generic function with composite-specific parameters
   render_dataset_details_page(
