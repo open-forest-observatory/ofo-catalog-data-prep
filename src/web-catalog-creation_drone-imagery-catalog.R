@@ -1601,8 +1601,8 @@ make_composite_details_page = function(composite_id_foc,
   current_index = which(all_composite_ids == composite_id_foc)
   next_index = ifelse(current_index == length(all_composite_ids), 1, current_index + 1)
   previous_index = ifelse(current_index == 1, length(all_composite_ids), current_index - 1)
-  next_dataset_page_path = paste0(composite_details_page_dir, all_composite_ids[next_index], "/")
-  previous_dataset_page_path = paste0(composite_details_page_dir, all_composite_ids[previous_index], "/")
+  next_dataset_page_path = paste0("/", composite_details_page_dir, all_composite_ids[next_index], "/")
+  previous_dataset_page_path = paste0("/", composite_details_page_dir, all_composite_ids[previous_index], "/")
 
   # Render composite details page
   render_composite_details_page(
