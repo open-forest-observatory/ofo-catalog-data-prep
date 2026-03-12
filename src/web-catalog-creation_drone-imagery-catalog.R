@@ -1252,7 +1252,7 @@ make_composite_details_map = function(composite_summary_foc,
       m = m |>
         addPolylines(data = path,
                      color = mission_colors(mission_id_i),
-                     weight = 2,
+                     weight = 1,
                      opacity = 0.7,
                      group = group_name)
     }
