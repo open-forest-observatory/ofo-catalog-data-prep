@@ -22,31 +22,31 @@ copy_raw_imagery_to_upload_staging_dir = function(mission_id_foc, use_post_curat
 
   # MISSION FOOTPRINTS
 
-  # Hardlink all files from the publishable mission footprints dir to the unified publishable tree
+  # Symlink all files from the publishable mission footprints dir to the unified publishable tree
   # First make the directories
   infile = file.path(mission_metadata_path, paste0(mission_id_foc, "_mission-metadata.gpkg"))
   outfile = file.path(UPLOAD_STAGING_DIR_PATH, mission_id_foc, "metadata-mission", paste0(mission_id_foc, "_mission-metadata.gpkg"))
   outdir = dirname(outfile)
   dir.create(outdir, recursive = TRUE)
-
-  file.link(infile, outfile)
+  
+  file.symlink(infile, outfile)
 
 
   # MISSION POINTS
 
-  # Hardlink all files from the publishable mission points dir to the unified publishable tree
+  # Symlink all files from the publishable mission points dir to the unified publishable tree
   # First make the directories
   infile = file.path(image_metadata_path, paste0(mission_id_foc, "_image-metadata.gpkg"))
   outfile = file.path(UPLOAD_STAGING_DIR_PATH, mission_id_foc, "metadata-images", paste0(mission_id_foc, "_image-metadata.gpkg"))
   outdir = dirname(outfile)
   dir.create(outdir, recursive = TRUE)
 
-  file.link(infile, outfile)
+  file.symlink(infile, outfile)
 
 
   # IMAGES
 
-  # Hardlink all files from the publishable images dir to the unified publishable tree
+  # Symlink all files from the publishable images dir to the unified publishable tree
   # First make the directories
   infiles = list.files(file.path(IMAGERY_ZIP_AND_EXAMPLES_PATH, mission_id_foc), full.names = FALSE, recursive = TRUE)
   infiles_full = file.path(IMAGERY_ZIP_AND_EXAMPLES_PATH, mission_id_foc, infiles)
@@ -55,7 +55,7 @@ copy_raw_imagery_to_upload_staging_dir = function(mission_id_foc, use_post_curat
 
   walk(outdirs, dir.create, recursive = TRUE)
 
-  file.link(infiles_full, outfiles)
+  file.symlink(infiles_full, outfiles)
 
   return(TRUE)
 

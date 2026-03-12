@@ -55,7 +55,7 @@ results = future_walk(
     output_derived_mission_path = POST_CURATION_DERIVED_METADATA_PER_MISSION_PATH,
     output_derived_sub_mission_path = POST_CURATION_DERIVED_METADATA_PER_SUB_MISSION_PATH,
     output_retained_images_path = POST_CURATION_PARSED_EXIF_FOR_RETAINED_IMAGES_PATH,
-    image_merge_distance = IMAGE_MERGE_DISTANCE
+    image_merge_distance = get_merge_distance_for_mission(.x)
   ),
   .progress = TRUE,
   .options = furrr::furrr_options(seed = TRUE)

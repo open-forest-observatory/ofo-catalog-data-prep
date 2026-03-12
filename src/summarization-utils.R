@@ -9,6 +9,22 @@ source("src/metadata-extraction_imagery_dataset.R")
 source("src/utils.R")
 
 
+#' Get the appropriate image merge distance for a mission
+#'
+#' Checks if the mission is in the NRS project by looking up the pre-generated
+#' NRS_MISSION_IDS list (loaded in constants). Returns IMAGE_MERGE_DISTANCE_NRS_OVERRIDE
+#' for NRS missions, otherwise IMAGE_MERGE_DISTANCE.
+#'
+#' @param mission_id The mission ID
+#' @return The appropriate merge distance value
+get_merge_distance_for_mission = function(mission_id) {
+  if (mission_id %in% NRS_MISSION_IDS) {
+    return(IMAGE_MERGE_DISTANCE_NRS_OVERRIDE)
+  }
+  return(IMAGE_MERGE_DISTANCE)
+}
+
+
 #' Compute mission/sub-mission polygons and identify retained images
 #'
 #' Splits image metadata by the specified column, computes polygons for each group,
