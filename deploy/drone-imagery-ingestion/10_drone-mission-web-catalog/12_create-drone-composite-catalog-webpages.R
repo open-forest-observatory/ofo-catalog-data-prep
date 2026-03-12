@@ -87,5 +87,5 @@ walk(
   composite_itd_map_dir = COMPOSITE_ITD_MAP_DIR,
   composite_details_template_filepath = COMPOSITE_MISSION_DETAILS_TEMPLATE_FILEPATH,
   composite_details_page_dir = COMPOSITE_MISSION_DETAILS_PAGE_DIR,
-  .progress = TRUE,
+  .progress = TRUE
 )
