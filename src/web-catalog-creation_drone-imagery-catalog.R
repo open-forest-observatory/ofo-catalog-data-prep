@@ -122,6 +122,7 @@ make_mission_catalog_datatable = function(mission_summary,
                      "}")
 
   dt = DT::datatable(d,
+                     rownames = FALSE,
                      escape = FALSE,
                      options = list(paging = FALSE, initComplete = format_js))
 
@@ -573,23 +574,21 @@ make_mission_details_datatable = function(mission_summary_foc,
 # Returns a named list of product existence flags and URLs
 compute_s3_product_urls = function(dataset_id, s3_file_listing_foc, data_server_base_url) {
 
-  processed_products = s3_file_listing_foc |> filter(str_detect(filepath, paste0("processed_", PHOTOGRAMMETRY_CONFIG_ID)))
+  processed_folder = paste0("photogrammetry_", PHOTOGRAMMETRY_CONFIG_ID)
+  processed_products = s3_file_listing_foc |> filter(str_detect(filepath, processed_folder))
 
   filepath_parts = str_split(processed_products$filepath, fixed("/"))
   part_3 = purrr::map_chr(filepath_parts, 3)
   itd_folders = part_3[str_which(part_3, "^itd_")] |> unique() |> sort(decreasing = TRUE)
   itd_folder_mostrecent = itd_folders[1]
-  itd_path_mostrecent = file.path(dataset_id, paste0("processed_", PHOTOGRAMMETRY_CONFIG_ID), itd_folder_mostrecent)
+  itd_path_mostrecent = file.path(dataset_id, processed_folder, itd_folder_mostrecent)
   ttops_file_path = file.path(itd_path_mostrecent, paste0(dataset_id, "_treetops.gpkg"))
-
 
   # Check if products exist and if so, get the URLs needed to add them to the page
 
-  processed_folder = paste0("processed_", PHOTOGRAMMETRY_CONFIG_ID)
-
   # Orthomosaic
-  ortho_path_thumb = file.path(dataset_id, processed_folder, "thumbnails", paste0(dataset_id, "_ortho-dsm-mesh.png"))
-  ortho_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_ortho-dsm-mesh.tif"))
+  ortho_path_thumb = file.path(dataset_id, processed_folder, "thumbnails", paste0(dataset_id, "_ortho-dsm-ptcloud.png"))
+  ortho_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_ortho-dsm-ptcloud.tif"))
   ortho_exists = ortho_path_thumb %in% processed_products$filepath
   ortho_url_thumb = paste(data_server_base_url, ortho_path_thumb, sep = "/") |> strip_double_slashes()
   ortho_url_full = paste(data_server_base_url, ortho_path_full, sep = "/") |> strip_double_slashes()
@@ -617,12 +616,12 @@ compute_s3_product_urls = function(dataset_id, s3_file_listing_foc, data_server_
   dtm_url_full = paste(data_server_base_url, dtm_path_full, sep = "/") |> strip_double_slashes()
 
   # Point cloud
-  pc_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_points-copc.laz"))
+  pc_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_points.copc.laz"))
   pc_exists = pc_path_full %in% processed_products$filepath
   pc_url_full = paste(data_server_base_url, pc_path_full, sep = "/") |> strip_double_slashes()
 
   # Mesh model
-  mesh_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_model-georeferenced.ply"))
+  mesh_path_full = file.path(dataset_id, processed_folder, "full", paste0(dataset_id, "_mesh.ply"))
   mesh_exists = mesh_path_full %in% processed_products$filepath
   mesh_url_full = paste(data_server_base_url, mesh_path_full, sep = "/") |> strip_double_slashes()
 
@@ -713,7 +712,11 @@ render_dataset_details_page = function(
     post_curation_datatable_html_path = NA
   ) {
 
-  dataset_id = dataset_summary_foc$dataset_id
+  dataset_id = unique(dataset_summary_foc$dataset_id)
+
+  if(length(dataset_id) != 1) {
+    stop("dataset_summary_foc should have exactly one unique dataset_id. Found: ", paste(dataset_id, collapse = ", "))
+  }
 
   # Compute S3 product URLs if display_data is enabled, otherwise initialize to defaults
   if (display_data) {
@@ -1094,22 +1097,22 @@ make_composite_catalog_datatable = function(composite_summary,
       project_id = collapse_composite_field(project_id, mission_type),
       aircraft_model_name = collapse_composite_field(aircraft_model_name, mission_type)
     ) |>
-    ungroup() #|>
-    # select("ID" = dataset_id_link,
-    #        "Area (ha)" = area_derived,
-    #        "Date" = earliest_date_derived,
-    #        "Altitude (m) (N)" = altitude_agl_nominal,
-    #        "Overlap (N)" = overlap_front_side_nominal,
-    #        "Camera pitch" = camera_pitch_derived,
-    #        "Terrain follow (N)" = terrain_follow,
-    #        "Flight pattern" = flight_pattern,
-    #        "Image count" = image_count_derived,
-    #        "RTK (N)" = rtk_nominal,
-    #        "RTK images (%)" = percent_images_rtk_derived,
-    #        "Contributor dataset name" = contributor_dataset_name,
-    #        "Project" = project_id,
-    #        "Aircraft" = aircraft_model_name) |>
-    # arrange(ID)
+    ungroup() |>
+    select("ID" = dataset_id_link,
+           "Area (ha)" = area_derived,
+           "Date" = earliest_date_derived,
+           "Altitude (m) (N)" = altitude_agl_nominal,
+           "Overlap (N)" = overlap_front_side_nominal,
+           "Camera pitch" = camera_pitch_derived,
+           "Terrain follow (N)" = terrain_follow,
+           "Flight pattern" = flight_pattern,
+           "Image count" = image_count_derived,
+           "RTK (N)" = rtk_nominal,
+           "RTK images (%)" = percent_images_rtk_derived,
+           "Contributor dataset name" = contributor_dataset_name,
+           "Project" = project_id,
+           "Aircraft" = aircraft_model_name) |>
+    arrange(ID)
 
   # Prep formatting code to pass to datatable creation
   format_js = DT::JS("function(settings, json) {",
@@ -1117,6 +1120,7 @@ make_composite_catalog_datatable = function(composite_summary,
                      "}")
 
   dt = DT::datatable(d,
+                     rownames = FALSE,
                      escape = FALSE,
                      options = list(paging = FALSE, initComplete = format_js))
 
@@ -1161,7 +1165,8 @@ make_composite_catalog_map = function(composite_summary,
         "&nbsp;&nbsp;Overlap: ", overlap_front_side_nominal[mission_type == "lo"], "<br>",
         "&nbsp;&nbsp;Pitch: ", camera_pitch_derived[mission_type == "lo"], " deg<br>"
       ),
-      geometry = first(geometry)
+      # Dynamically use the actual geometry column name (could be "geometry" or "geom")
+      !!attr(composite_summary, "sf_column") := first(!!sym(attr(composite_summary, "sf_column")))
     ) |>
     ungroup() |>
     st_as_sf()
@@ -1204,7 +1209,7 @@ make_composite_details_map = function(composite_summary_foc,
 
   # Create flight paths per mission
   flight_paths = composite_points_foc |>
-    arrange(mission_id, time_local_derived) |>
+    arrange(mission_id, datetime_local) |>
     group_by(mission_id) |>
     summarise(do_union = FALSE) |>
     st_cast("LINESTRING")
@@ -1286,61 +1291,68 @@ make_composite_details_datatable = function(composite_summary_foc,
 
   composite_id = unique(composite_summary_foc$composite_id)
 
-  # Ensure higher altitude is first
+  # Ensure higher altitude (HN) is first
   composite_summary_foc = composite_summary_foc |>
-    arrange(desc(altitude_agl_nominal))
+    arrange(mission_type)  # "hn" is higher and comes first alphabetically
 
   mission_id_a = composite_summary_foc$mission_id[1]
   mission_id_b = composite_summary_foc$mission_id[2]
 
-  # Select same attributes as individual mission details datatable
+  # Select same attributes as individual mission details datatable, plus composite-specific columns
   d = composite_summary_foc |>
     sf::st_drop_geometry() |>
-    select(
+    dplyr::select(
       mission_id,
-      area_derived,
+      individual_mission_link,
+      # sub_mission_ids,
       earliest_date_derived,
-      earliest_time_local_derived,
-      latest_time_local_derived,
+      time_range_local_derived,
       altitude_agl_nominal,
-      overlap_front_nominal,
-      overlap_side_nominal,
-      camera_pitch_derived,
       terrain_follow,
+      camera_pitch_derived,
+      smart_oblique_derived,
+      overlap_front_side_nominal,
       flight_pattern,
-      image_count_derived,
-      rtk_nominal,
+      any_of(c(# "altitude_agl_mean_derived", <- I blieve this is just an obsolete placeholder that usess the old name we have deprecated
+              #  "photogrammetry_altitude_agl_median_derived",
+               "photogrammetry_altitude_agl_mean_derived",
+               "photogrammetry_terrain_fidelity_derived")),
+      gps_terrain_fidelity_derived,
       percent_images_rtk_derived,
-      contributor_dataset_name,
-      project_id,
+      flight_speed_derived,
+      exposure_median_derived,
+      exposure_cv_derived,
+      exposure_compensation,
+      white_balance_mode_derived,
+      white_balance_pct_mode_derived,
       aircraft_model_name,
-      camera_make,
-      camera_model_name,
-      focal_length_mm,
-      resolution_x_derived,
-      resolution_y_derived,
-      photogrammetry_platform,
-      photogrammetry_platform_version,
-      photogrammetry_config_id,
-      lat_min_derived,
-      lat_max_derived,
-      lon_min_derived,
-      lon_max_derived,
-      elevation_min_wgs84_derived,
-      elevation_max_wgs84_derived,
-      comment
+      sensor_name,
+      flight_planner_name,
+      base_lat,
+      base_lon,
+      base_alt,
+      base_marked_permanently,
+      area_derived,
+      image_count_derived,
+      image_dimensions_derived,
+      file_size_derived,
+      file_format_derived,
+      project_id,
+      contributor_dataset_name,
+      contributor_names,
+      license
     )
 
   # Pivot to long format for each mission
   d_long_a = d |>
     filter(mission_id == mission_id_a) |>
     select(-mission_id) |>
-    pivot_longer(everything(), names_to = "Attribute", values_to = paste0("Mission ", mission_id_a, " (higher alt)"))
+    pivot_longer(everything(), names_to = "Attribute", values_to = "High nadir mission")
 
   d_long_b = d |>
     filter(mission_id == mission_id_b) |>
     select(-mission_id) |>
-    pivot_longer(everything(), names_to = "Attribute", values_to = paste0("Mission ", mission_id_b, " (lower alt)"))
+    pivot_longer(everything(), names_to = "Attribute", values_to = "Low oblique mission")
 
   # Join on Attribute
   d_combined = d_long_a |>
@@ -1349,39 +1361,50 @@ make_composite_details_datatable = function(composite_summary_foc,
   # Format attribute names for display
   d_combined = d_combined |>
     mutate(Attribute = case_when(
-      Attribute == "area_derived" ~ "Area (ha)",
+      Attribute == "individual_mission_link" ~ "Mission ID",
+      # Attribute == "sub_mission_ids" ~ "Sub-mission IDs",
       Attribute == "earliest_date_derived" ~ "Date",
-      Attribute == "earliest_time_local_derived" ~ "Earliest time (local)",
-      Attribute == "latest_time_local_derived" ~ "Latest time (local)",
-      Attribute == "altitude_agl_nominal" ~ "Altitude (m) (N)",
-      Attribute == "overlap_front_nominal" ~ "Overlap front (N)",
-      Attribute == "overlap_side_nominal" ~ "Overlap side (N)",
-      Attribute == "camera_pitch_derived" ~ "Camera pitch (deg)",
-      Attribute == "terrain_follow" ~ "Terrain follow (N)",
+      Attribute == "time_range_local_derived" ~ "Flight time range (local)",
+      Attribute == "altitude_agl_nominal" ~ "Altitude (nominal) (m)",
+      Attribute == "altitude_agl_mean_derived" ~ "Photogrammetry altitude mean 2 (m)",
+      # Attribute == "photogrammetry_altitude_agl_median_derived" ~ "Photogrammetry altitude median (m)",
+      Attribute == "photogrammetry_altitude_agl_mean_derived" ~ "Photogrammetry altitude mean (m)",
+      Attribute == "photogrammetry_terrain_fidelity_derived" ~ "Photogrammetry terrain fidelity",
       Attribute == "flight_pattern" ~ "Flight pattern",
+      Attribute == "overlap_front_side_nominal" ~ "Overlap (nominal) (front/side)",
+      Attribute == "camera_pitch_derived" ~ "Camera pitch (deg up from nadir)",
+      Attribute == "smart_oblique_derived" ~ "Smart oblique",
+      Attribute == "terrain_follow" ~ "Terrain follow (nominal)",
+      Attribute == "gps_terrain_fidelity_derived" ~ "GPS terrain fidelity",
+      Attribute == "percent_images_rtk_derived" ~ "Percent RTK",
+      Attribute == "flight_speed_derived" ~ "Flight speed (m/s)",
+      Attribute == "exposure_median_derived" ~ "Exposure median (sec)",
+      Attribute == "exposure_cv_derived" ~ "Exposure CV",
+      Attribute == "exposure_compensation" ~ "Exposure compensation (nominal)",
+      Attribute == "white_balance_mode_derived" ~ "White balance mode",
+      Attribute == "white_balance_pct_mode_derived" ~ "White balance percent",
+      Attribute == "aircraft_model_name" ~ "Aircraft model",
+      Attribute == "sensor_name" ~ "Sensor model",
+      Attribute == "flight_planner_name" ~ "Flight planner",
+      Attribute == "base_lat" ~ "Base station latitude",
+      Attribute == "base_lon" ~ "Base station longitude",
+      Attribute == "base_alt" ~ "Base station altitude (m)",
+      Attribute == "base_marked_permanently" ~ "Permanent base marker",
+      Attribute == "area_derived" ~ "Flight footprint area (ha)",
       Attribute == "image_count_derived" ~ "Image count",
-      Attribute == "rtk_nominal" ~ "RTK (N)",
-      Attribute == "percent_images_rtk_derived" ~ "RTK images (%)",
+      Attribute == "image_dimensions_derived" ~ "Image dimensions",
+      Attribute == "file_size_derived" ~ "Dataset size (GB)",
+      Attribute == "file_format_derived" ~ "File format",
+      Attribute == "project_id" ~ "Project ID",
       Attribute == "contributor_dataset_name" ~ "Contributor dataset name",
-      Attribute == "project_id" ~ "Project",
-      Attribute == "aircraft_model_name" ~ "Aircraft",
-      Attribute == "camera_make" ~ "Camera make",
-      Attribute == "camera_model_name" ~ "Camera model",
-      Attribute == "focal_length_mm" ~ "Focal length (mm)",
-      Attribute == "resolution_x_derived" ~ "Resolution X",
-      Attribute == "resolution_y_derived" ~ "Resolution Y",
-      Attribute == "photogrammetry_platform" ~ "Photogrammetry platform",
-      Attribute == "photogrammetry_platform_version" ~ "Photogrammetry version",
-      Attribute == "photogrammetry_config_id" ~ "Photogrammetry config ID",
-      Attribute == "lat_min_derived" ~ "Latitude min",
-      Attribute == "lat_max_derived" ~ "Latitude max",
-      Attribute == "lon_min_derived" ~ "Longitude min",
-      Attribute == "lon_max_derived" ~ "Longitude max",
-      Attribute == "elevation_min_wgs84_derived" ~ "Elevation min (m, WGS84)",
-      Attribute == "elevation_max_wgs84_derived" ~ "Elevation max (m, WGS84)",
-      Attribute == "comment" ~ "Comment",
+      Attribute == "contributor_names" ~ "Creator",
+      Attribute == "license" ~ "License",
       TRUE ~ Attribute
     ))
+
+  # Remove "Attribute" header from first column
+  d_combined = d_combined |>
+    rename(" " = Attribute)
 
   # Create datatable
   format_js = DT::JS("function(settings, json) {",
@@ -1389,6 +1412,7 @@ make_composite_details_datatable = function(composite_summary_foc,
                      "}")
 
   dt = DT::datatable(d_combined,
+                     rownames = FALSE,
                      escape = FALSE,
                      options = list(
                        paging = FALSE,
@@ -1418,7 +1442,6 @@ make_composite_details_datatable = function(composite_summary_foc,
 
 
 # Render composite details page template
-# Render composite details page template
 # This is now a wrapper around render_dataset_details_page
 render_composite_details_page = function(
     template_filepath,
@@ -1437,7 +1460,7 @@ render_composite_details_page = function(
 
   # Get mission IDs (higher altitude first)
   composite_summary_foc = composite_summary_foc |>
-    arrange(desc(altitude_agl_nominal))
+    arrange(mission_type)  # "hn" is higher and comes first alphabetically
   mission_id_a = composite_summary_foc$mission_id[1]
   mission_id_b = composite_summary_foc$mission_id[2]
 
@@ -1491,7 +1514,7 @@ make_composite_details_page = function(composite_id_foc,
   # Filter to focal composite
   composite_summary_foc = composite_summaries |>
     filter(composite_id == composite_id_foc) |>
-    arrange(desc(altitude_agl_nominal))  # Higher altitude first
+    arrange(mission_type)  # "hn" is higher and comes first alphabetically
 
   composite_points_foc = composite_points |>
     filter(composite_id == composite_id_foc)

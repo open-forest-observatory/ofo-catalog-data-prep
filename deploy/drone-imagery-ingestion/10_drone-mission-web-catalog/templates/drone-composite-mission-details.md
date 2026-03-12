@@ -27,9 +27,10 @@ profile: false
 
 This composite mission combines two overlapping drone missions flown at different altitudes:
 
-- [Mission {* mission_id_a *}]({* individual_mission_page_path_a *}) (higher altitude)
-- [Mission {* mission_id_b *}]({* individual_mission_page_path_b *}) (lower altitude)
+- [Mission {* mission_id_a *}]({* individual_mission_page_path_a *}) (higher altitude, nadir camera pitch)
+- [Mission {* mission_id_b *}]({* individual_mission_page_path_b *}) (lower altitude, oblique camera pitch)
 
+<br>
 
 {% if ttops_exists -%}
 
@@ -38,6 +39,9 @@ This composite mission combines two overlapping drone missions flown at differen
 <iframe src="{* itd_map_path *}" frameborder="0" scrolling="yes" seamless="seamless" style="display:block; width:100%; height:75vh; background: rgba(0,0,0,0);" class="tester"></iframe>
 
 [Download tree points]({* ttops_url *})
+
+<br>
+
 {% endif -%}
 
 {% if ortho_exists -%}
@@ -45,6 +49,9 @@ This composite mission combines two overlapping drone missions flown at differen
 ## Orthomosaic
 
 {{< figure src="{* ortho_url_thumb *}" caption="[Download full orthomosaic]({* ortho_url_full *})" >}}
+
+<br>
+
 {% endif -%}
 
 {% if chm_exists -%}
@@ -53,6 +60,8 @@ This composite mission combines two overlapping drone missions flown at differen
 
 {{< figure src="{* chm_url_thumb *}" caption="[Download full CHM]({* chm_url_full *})" >}}
 
+<br>
+
 {% endif -%}
 
 {% if dsm_exists -%}
@@ -60,6 +69,8 @@ This composite mission combines two overlapping drone missions flown at differen
 ## Digital surface model
 
 {{< figure src="{* dsm_url_thumb *}" caption="[Download full DSM]({* dsm_url_full *})" >}}
+
+<br>
 
 {% endif -%}
 
@@ -123,6 +134,8 @@ Preview in development.
         </div>
     </div>
 </div>
+
+<br>
 
 {% endif -%}
 
