@@ -108,48 +108,16 @@ Preview in development.
 
 {% endif -%}
 
-{% if images_example_exists or images_zip_exists -%}
-
 ## Raw drone images
 
-{% if images_example_exists -%}
+Access the raw drone images via the constituent missions:
 
-#### Example images
+- [Mission {* mission_id_a *}]({* individual_mission_page_path_a *}) (higher altitude, nadir camera pitch)
+- [Mission {* mission_id_b *}]({* individual_mission_page_path_b *}) (lower altitude, oblique camera pitch)
 
-<div class="container">
-    <div class="row">
-        <div class="col-sm">
-            {{< figure src="{* images_example_url_thumb *}example_1.JPG" link="{* images_example_url_full *}example_1.JPG" width="90%">}}
-        </div>
-        <div class="col-sm">
-            {{< figure src="{* images_example_url_thumb *}example_2.JPG" link="{* images_example_url_full *}example_2.JPG" width="90%">}}
-        </div>
-    </div>
-    <div class="row">
-        <div class="col-sm">
-            {{< figure src="{* images_example_url_thumb *}example_3.JPG" link="{* images_example_url_full *}example_3.JPG" width="90%">}}
-        </div>
-        <div class="col-sm">
-            {{< figure src="{* images_example_url_thumb *}example_4.JPG" link="{* images_example_url_full *}example_4.JPG" width="90%">}}
-        </div>
-    </div>
-</div>
+Note that mission composites may use a subset of the images from the each of the constituent missions (focusing on the area where the two missions overlap). {% if image_metadata_exists -%} The images that are retained from each consituent mission are indicated in the [image metadata file]({* image_metadata_url *}).{% endif %}
 
 <br>
-
-{% endif -%}
-
-{% if images_zip_exists -%}
-
-#### Full image set
-
-[Download full image set]({* images_zip_url *})
-
-{% endif -%}
-
-<br>
-
-{% endif -%}
 
 ## Mission attributes
 
@@ -163,9 +131,14 @@ Preview in development.
 
 <br>
 
-{% if footprint_exists or cameras_exists or log_exists -%}
+{% if image_metadata_exists or footprint_exists or cameras_exists or log_exists -%}
 
 ## Other data
+
+{% if image_metadata_exists -%}
+[Composite mission image metadata]({* image_metadata_url *})
+
+{% endif -%}
 
 {% if footprint_exists -%}
 [Composite mission geospatial footprint]({* footprint_url *})
