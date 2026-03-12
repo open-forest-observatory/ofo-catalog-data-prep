@@ -117,6 +117,7 @@ Access the raw drone images via the constituent missions:
 
 Note that mission composites may use a subset of the images from the each of the constituent missions (focusing on the area where the two missions overlap). {% if image_metadata_exists -%} The images that are retained from each consituent mission are indicated in the [image metadata file]({* image_metadata_url *}).{% endif %}
 
+<br>
 
 ## Mission attributes
 
