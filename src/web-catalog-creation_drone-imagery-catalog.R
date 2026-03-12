@@ -1219,32 +1219,32 @@ make_composite_details_map = function(composite_summary_foc,
     addProviderTiles(providers$Esri.WorldTopoMap, group = "Topo", options = providerTileOptions(maxZoom = 22)) |>
     addProviderTiles(providers$Esri.WorldImagery, group = "Imagery", options = providerTileOptions(maxZoom = 22))
 
-  # Add polygons for both missions
+  # Add polygons, flight paths, and image points per mission (grouped together for per-mission toggling)
   for (i in 1:nrow(composite_summary_foc)) {
     mission = composite_summary_foc[i, ]
+    mission_id_i = mission$mission_id
+    group_name = as.character(mission_id_i)
+
+    # Footprint
     m = m |>
       addPolygons(data = mission,
-                  fillColor = mission_colors(mission$mission_id),
-                  fillOpacity = 0.2,
-                  color = mission_colors(mission$mission_id),
+                  fillOpacity = 0,
+                  color = mission_colors(mission_id_i),
                   weight = 2,
-                  group = "Mission Footprints",
-                  label = ~mission_id)
-  }
+                  group = group_name)
 
-  # Add flight paths
-  for (i in 1:nrow(flight_paths)) {
-    path = flight_paths[i, ]
-    m = m |>
-      addPolylines(data = path,
-                   color = mission_colors(path$mission_id),
-                   weight = 2,
-                   opacity = 0.7,
-                   group = "Flight Paths")
-  }
+    # Flight path
+    path = flight_paths[flight_paths$mission_id == mission_id_i, ]
+    if (nrow(path) > 0) {
+      m = m |>
+        addPolylines(data = path,
+                     color = mission_colors(mission_id_i),
+                     weight = 2,
+                     opacity = 0.7,
+                     group = group_name)
+    }
 
-  # Add image points
-  for (mission_id_i in mission_ids) {
+    # Image points (visible) + larger invisible markers on top for easier clicking
     points_i = composite_points_foc |> filter(mission_id == mission_id_i)
     m = m |>
       addCircleMarkers(data = points_i,
@@ -1253,7 +1253,12 @@ make_composite_details_map = function(composite_summary_foc,
                        fillOpacity = 0.6,
                        color = mission_colors(mission_id_i),
                        weight = 1,
-                       group = "Image Locations",
+                       group = group_name) |>
+      addCircleMarkers(data = points_i,
+                       radius = 10,
+                       fillOpacity = 0,
+                       stroke = FALSE,
+                       group = group_name,
                        popup = ~image_id)
   }
 
@@ -1265,7 +1270,7 @@ make_composite_details_map = function(composite_summary_foc,
               title = "Mission ID",
               opacity = 1) |>
     addLayersControl(baseGroups = c("Topo", "Imagery"),
-                     overlayGroups = c("Mission Footprints", "Flight Paths", "Image Locations"),
+                     overlayGroups = as.character(mission_ids),
                      options = layersControlOptions(collapsed = FALSE))
 
   # Save widget
