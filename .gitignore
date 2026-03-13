@@ -10,3 +10,5 @@
 .nfs*
 
 dev-plans/
+
+/tmp/
