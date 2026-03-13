@@ -1,5 +1,8 @@
-# Purpose: Get all composite mission polygon and image point metadata from the object store and compile it in
-# a single gpkg each (one for polygon and one for points). Follows the same pattern as 05_get-all-mission-metadata.R.
+# Purpose: Get all composite mission polygon and image point metadata from the object store and
+# compile it in a single gpkg each (one for polygon and one for points). Also save a csv listing all
+# the files in the composites directory in the object store, for use by the catalog preparation
+# scripts (so they only attempt to display the data products that actually exist). Follows the same
+# pattern as 05_get-all-mission-metadata.R.
 
 library(sf)
 library(tidyverse)
