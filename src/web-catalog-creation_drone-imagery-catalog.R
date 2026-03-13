@@ -574,7 +574,7 @@ make_mission_details_datatable = function(mission_summary_foc,
 get_most_recent_itd_folder = function(processed_products) {
   filepath_parts = str_split(processed_products$filepath, fixed("/"))
   part_3 = purrr::map_chr(filepath_parts, 3)
-  itd_folders = part_3[str_which(part_3, "^(itd_|detected_trees_|detected-trees_)")] |> unique() |> sort(decreasing = TRUE)
+  itd_folders = part_3[str_which(part_3, "^(itd_|detected-trees_)")] |> unique() |> sort(decreasing = TRUE)
   itd_folders[1]
 }
 
@@ -585,10 +585,6 @@ compute_s3_product_urls = function(dataset_id, s3_file_listing_foc, data_server_
 
   processed_folder = paste0("photogrammetry_", PHOTOGRAMMETRY_CONFIG_ID)
   processed_products = s3_file_listing_foc |> filter(str_detect(filepath, processed_folder))
-
-  itd_folder_mostrecent = get_most_recent_itd_folder(processed_products)
-  itd_path_mostrecent = file.path(dataset_id, processed_folder, itd_folder_mostrecent)
-  ttops_file_path = file.path(itd_path_mostrecent, paste0(dataset_id, "_treetops.gpkg"))
 
   # Check if products exist and if so, get the URLs needed to add them to the page
 
@@ -662,6 +658,14 @@ compute_s3_product_urls = function(dataset_id, s3_file_listing_foc, data_server_
   log_url = paste(data_server_base_url, log_path, sep = "/") |> strip_double_slashes()
 
   # ITD
+  itd_folder_mostrecent = get_most_recent_itd_folder(processed_products)
+  itd_path_mostrecent = file.path(dataset_id, processed_folder, itd_folder_mostrecent)
+  ttops_file_path_v1 = file.path(itd_path_mostrecent, paste0(dataset_id, "_treetops.gpkg"))
+  ttops_file_path_v2 = file.path(itd_path_mostrecent, paste0(dataset_id, "_detected-tree-tops_classified.gpkg"))
+  ttops_file_path = ttops_file_path_v1
+  if (ttops_file_path_v2 %in% processed_products$filepath) {
+    ttops_file_path = ttops_file_path_v2
+  }
   ttops_exists = ttops_file_path %in% processed_products$filepath
   ttops_url = paste(data_server_base_url, ttops_file_path, sep = "/") |> strip_double_slashes()
 
@@ -1578,16 +1582,37 @@ make_composite_details_page = function(composite_id_foc,
     if (download_result && file.exists(ttops_tempfile)) {
       ttops = st_read(ttops_tempfile, quiet = TRUE)
 
-      # Create ITD map (simplified version without attribute switching)
+      # Project to lon/lat
+      ttops = st_transform(ttops, crs = 4326)
+
+      # Compute height and build popup
+      ttops = ttops |>
+        mutate(height = round(if ("height" %in% names(ttops)) height else Z, 1)) |>
+        mutate(popup = paste0("<b>Height: </b>", height, " m<br>",
+                              "<b>Predicted species: </b> <i>coming soon</i>"))
+
+      # Define color palette
+      pal_height = colorNumeric("viridis", domain = ttops$height)
+
+      # Create ITD map
       m_itd = leaflet() |>
         addProviderTiles(providers$Esri.WorldTopoMap, group = "Topo", options = providerTileOptions(maxZoom = 22)) |>
         addProviderTiles(providers$Esri.WorldImagery, group = "Imagery", options = providerTileOptions(maxZoom = 22)) |>
         addCircleMarkers(data = ttops,
-                         radius = 3,
-                         fillColor = "green",
-                         fillOpacity = 0.6,
-                         color = "darkgreen",
-                         weight = 1) |>
+                         radius = ~height/5,
+                         stroke = FALSE,
+                         fillOpacity = 1,
+                         color = ~pal_height(height),
+                         group = "Height") |>
+        addLegend(pal = pal_height,
+                  values = ttops$height,
+                  title = "Height (m)", opacity = 1) |>
+        # Invisible markers on top for popup
+        addCircleMarkers(data = ttops,
+                         radius = 10,
+                         stroke = FALSE,
+                         fillOpacity = 0,
+                         popup = ~popup) |>
         addLayersControl(baseGroups = c("Topo", "Imagery"),
                          options = layersControlOptions(collapsed = FALSE))
 
