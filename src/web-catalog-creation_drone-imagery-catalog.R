@@ -392,10 +392,14 @@ make_itd_map = function(itd_points,
     st_transform(4326)
 
   # Prepare tree points
+  has_species = "species_prediction" %in% names(itd_points)
+
   itd_points = itd_points |>
     mutate(height = round(if ("Z" %in% names(itd_points)) Z else height, 1)) |>
     mutate(popup = paste0("<b>Height: </b>", height, " m<br>",
-                          "<b>Predicted species: </b> <i>coming soon</i>")) |>
+                          "<b>Predicted species: </b>",
+                          if (has_species) ifelse(is.na(species_prediction), "Unknown", species_prediction)
+                          else "<i>coming soon</i>")) |>
     st_transform(4326)
 
   # Optoinal addl rows for popup
@@ -408,12 +412,12 @@ make_itd_map = function(itd_points,
 
   # Make leaflet map
 
-  # JS to toggle legend visibility with overlay groups
+  # JS to toggle legend visibility with base layer radio buttons
   js_for_legend = function(x) {
     htmlwidgets::onRender(x, "
       function(el, x) {
         var updateLegend = function () {
-          var selectedGroup = document.querySelectorAll('input:checked')[0].nextSibling.innerText.substr(1).replace(/[^a-zA-Z]+/g, '');
+          var selectedGroup = document.querySelectorAll('input[type=radio]:checked')[0].nextSibling.innerText.substr(1).replace(/[^a-zA-Z]+/g, '');
           document.querySelectorAll('.legend').forEach( a => a.hidden=true );
           document.querySelectorAll('.legend').forEach( l => { if (l.classList.contains(selectedGroup)) l.hidden=false; } );
         };
@@ -423,8 +427,11 @@ make_itd_map = function(itd_points,
     )
   }
 
-  # Define color palette
+  # Define color palettes
   pal_height = colorNumeric("viridis", domain = itd_points$height)
+  if (has_species) {
+    pal_species = colorFactor("viridis", domain = itd_points$species_prediction, na.color = "gray")
+  }
 
   m = leaflet() |>
     addPolygons(data = bounds, group = "bounds",
@@ -432,18 +439,43 @@ make_itd_map = function(itd_points,
     addProviderTiles(providers$Esri.WorldTopo, group = "Topo",
                      options = providerTileOptions(minZoom = 1, maxZoom = 20)) |>
     addProviderTiles(providers$Esri.WorldImagery, group = "Imagery",
-                     options = providerTileOptions(minZoom = 1, maxZoom = 20)) |>
-    addLayersControl(overlayGroups = c("Imagery", "Topo"), #  ", Nearby missions"
-                     options = layersControlOptions(collapsed = FALSE)) |>
+                     options = providerTileOptions(minZoom = 1, maxZoom = 20))
+
+  # Layers control: add base groups for color switching if species data is available
+  if (has_species) {
+    m = m |>
+      addLayersControl(baseGroups = c("Species", "Height"),
+                       overlayGroups = c("Imagery", "Topo"),
+                       options = layersControlOptions(collapsed = FALSE))
+  } else {
+    m = m |>
+      addLayersControl(overlayGroups = c("Imagery", "Topo"),
+                       options = layersControlOptions(collapsed = FALSE))
+  }
+
+  # Species-colored layer (if available; listed first so it is the default base layer)
+  if (has_species) {
+    m = m |>
+      addCircleMarkers(data = itd_points,
+                       radius = ~height/5,
+                       stroke = FALSE,
+                       fillOpacity = 1,
+                       color = ~pal_species(species_prediction),
+                       group = "Species") |>
+      addLegend(pal = pal_species,
+                values = itd_points$species_prediction,
+                title = "Predicted species", opacity = 1,
+                na.label = "Unknown",
+                group = "Species",
+                className = "info legend Species")
+  }
+
+  # Height-colored layer
+  m = m |>
     addCircleMarkers(data = itd_points,
-    # # Nearby mission polygons and centroids
-    # addMarkers(data = mission_centroids, popup = ~dataset_id_link, clusterOptions = markerClusterOptions(freezeAtZoom = 16), group = "Nearby missions") |>
-    # addPolygons(data = mission_polygons_for_mission_details_map, popup = ~dataset_id_link, group = "Nearby missions") |>
-    # ITD points
                      radius = ~height/5,
                      stroke = FALSE,
                      fillOpacity = 1,
-                     #  popup = ~popup,
                      color = ~pal_height(height),
                      group = "Height") |>
     addLegend(pal = pal_height,
@@ -459,16 +491,19 @@ make_itd_map = function(itd_points,
                      popup = ~popup,
                      group = "dummyforpopup") |>
     hideGroup("Imagery") |>
-    hideGroup("Topo") |>
-    # hideGroup("Nearby missions") |>
-    js_for_legend()
+    hideGroup("Topo")
+
+  # Legend toggle JS only needed when there are multiple base layers
+  if (has_species) {
+    m = m |> js_for_legend()
+  }
 
   # Grey background
   backg = htmltools::tags$style(".leaflet-container { background: rgba(200,200,200,1) }")
   m = prependContent(m, backg)
 
-  # TEMPORARY: show HTML map
-  print(m)
+  # # TEMPORARY: show HTML map
+  # print(m)
 
   # Save map HTML
   itd_map_filename = paste0(dataset_id, ".html")
