@@ -1591,13 +1591,40 @@ make_composite_details_page = function(composite_id_foc,
         mutate(popup = paste0("<b>Height: </b>", height, " m<br>",
                               "<b>Predicted species: </b> <i>coming soon</i>"))
 
+      # Bounds polygon: intersection of all mission polygons, buffered in by 10 m
+      bounds = composite_summary_foc |>
+        transform_to_local_utm() |>
+        st_buffer(-10)
+      bounds = reduce(st_geometry(bounds), st_intersection) |>
+        st_sfc(crs = st_crs(bounds)) |>
+        st_transform(4326)
+
       # Define color palette
       pal_height = colorNumeric("viridis", domain = ttops$height)
 
+      # JS to toggle legend visibility with overlay groups
+      js_for_legend = function(x) {
+        htmlwidgets::onRender(x, "
+          function(el, x) {
+            var updateLegend = function () {
+              var selectedGroup = document.querySelectorAll('input:checked')[0].nextSibling.innerText.substr(1).replace(/[^a-zA-Z]+/g, '');
+              document.querySelectorAll('.legend').forEach( a => a.hidden=true );
+              document.querySelectorAll('.legend').forEach( l => { if (l.classList.contains(selectedGroup)) l.hidden=false; } );
+            };
+            updateLegend();
+            this.on('baselayerchange', el => updateLegend());
+            }"
+        )
+      }
+
       # Create ITD map
       m_itd = leaflet() |>
+        addPolygons(data = bounds, group = "bounds",
+                    fillOpacity = 0) |>
         addProviderTiles(providers$Esri.WorldTopoMap, group = "Topo", options = providerTileOptions(maxZoom = 22)) |>
         addProviderTiles(providers$Esri.WorldImagery, group = "Imagery", options = providerTileOptions(maxZoom = 22)) |>
+        addLayersControl(overlayGroups = c("Imagery", "Topo"),
+                         options = layersControlOptions(collapsed = FALSE)) |>
         addCircleMarkers(data = ttops,
                          radius = ~height/5,
                          stroke = FALSE,
@@ -1606,15 +1633,23 @@ make_composite_details_page = function(composite_id_foc,
                          group = "Height") |>
         addLegend(pal = pal_height,
                   values = ttops$height,
-                  title = "Height (m)", opacity = 1) |>
+                  title = "Height (m)", opacity = 1,
+                  group = "Height",
+                  className = "info legend Height") |>
         # Invisible markers on top for popup
         addCircleMarkers(data = ttops,
                          radius = 10,
                          stroke = FALSE,
                          fillOpacity = 0,
-                         popup = ~popup) |>
-        addLayersControl(baseGroups = c("Topo", "Imagery"),
-                         options = layersControlOptions(collapsed = FALSE))
+                         popup = ~popup,
+                         group = "dummyforpopup") |>
+        hideGroup("Imagery") |>
+        hideGroup("Topo") |>
+        js_for_legend()
+
+      # Grey background
+      backg = htmltools::tags$style(".leaflet-container { background: rgba(200,200,200,1) }")
+      m_itd = prependContent(m_itd, backg)
 
       itd_map_filename = paste0(composite_id_foc, ".html")
       save_widget_html(m_itd,
