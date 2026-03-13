@@ -376,29 +376,26 @@ make_mission_details_map = function(mission_summary_foc,
 
 
 #### Make mission-level leaflet map of image points and flight path
-make_itd_map = function(mission_summary_foc,
-                                    itd_points_foc,
-                                    mission_polygons_for_mission_details_map,
-                                    mission_centroids,
-                                    website_static_path,
-                                    leaflet_header_files_dir,
-                                    itd_map_dir) {
+make_itd_map = function(itd_points,
+                        bounds_polygons,
+                        dataset_id,
+                        website_static_path,
+                        leaflet_header_files_dir,
+                        itd_map_dir) {
 
-  dataset_id = mission_summary_foc$dataset_id
-
-  #mission_summary_foc is the polygon. Buffer it in by 10 because that's the area if detected trees
-  #that we retained
-
-  mission_summary_foc = mission_summary_foc |>
+  # Compute bounds: buffer in by 10 m (retained tree area), intersect if multiple polygons
+  bounds = bounds_polygons |>
     transform_to_local_utm() |>
-    st_buffer(-10) |>
+    st_buffer(-10)
+  bounds = reduce(st_geometry(bounds), st_intersection) |>
+    st_sfc(crs = st_crs(bounds)) |>
     st_transform(4326)
 
-  itd_points_foc = itd_points_foc |>
-    mutate(height = round(Z, 1)) |>
-    # Create a popup text
-    mutate(popup = paste0("<b>Height: </b>", height, " m<br> 
-                          <b>Predicted species: </b> <i>coming soon</i><br>")) |>
+  # Prepare tree points
+  itd_points = itd_points |>
+    mutate(height = round(if ("Z" %in% names(itd_points)) Z else height, 1)) |>
+    mutate(popup = paste0("<b>Height: </b>", height, " m<br>",
+                          "<b>Predicted species: </b> <i>coming soon</i>")) |>
     st_transform(4326)
 
   # Optoinal addl rows for popup
@@ -411,6 +408,7 @@ make_itd_map = function(mission_summary_foc,
 
   # Make leaflet map
 
+  # JS to toggle legend visibility with overlay groups
   js_for_legend = function(x) {
     htmlwidgets::onRender(x, "
       function(el, x) {
@@ -425,11 +423,11 @@ make_itd_map = function(mission_summary_foc,
     )
   }
 
-  # Define color palettes
-  pal_height = colorNumeric("viridis", domain = itd_points_foc$height)
+  # Define color palette
+  pal_height = colorNumeric("viridis", domain = itd_points$height)
 
   m = leaflet() |>
-    addPolygons(data = mission_summary_foc, group = "bounds",
+    addPolygons(data = bounds, group = "bounds",
                 fillOpacity = 0) |>
     addProviderTiles(providers$Esri.WorldTopo, group = "Topo",
                      options = providerTileOptions(minZoom = 1, maxZoom = 20)) |>
@@ -437,51 +435,48 @@ make_itd_map = function(mission_summary_foc,
                      options = providerTileOptions(minZoom = 1, maxZoom = 20)) |>
     addLayersControl(overlayGroups = c("Imagery", "Topo"), #  ", Nearby missions"
                      options = layersControlOptions(collapsed = FALSE)) |>
+    addCircleMarkers(data = itd_points,
     # # Nearby mission polygons and centroids
     # addMarkers(data = mission_centroids, popup = ~dataset_id_link, clusterOptions = markerClusterOptions(freezeAtZoom = 16), group = "Nearby missions") |>
     # addPolygons(data = mission_polygons_for_mission_details_map, popup = ~dataset_id_link, group = "Nearby missions") |>
     # ITD points
-    addCircleMarkers(data = itd_points_foc,
-                    radius = itd_points_foc$height/5,
-                      stroke = FALSE,
-                      fillOpacity = 1,
-                    #  popup = ~popup,
-                      color = pal_height(itd_points_foc$height),
-                      group = "Height") |>
+                     radius = ~height/5,
+                     stroke = FALSE,
+                     fillOpacity = 1,
+                     #  popup = ~popup,
+                     color = ~pal_height(height),
+                     group = "Height") |>
     addLegend(pal = pal_height,
-              values = itd_points_foc$height,
-              title = "Height", opacity = 1,
+              values = itd_points$height,
+              title = "Height (m)", opacity = 1,
               group = "Height",
               className = "info legend Height") |>
-    # Invisible markers on top of all for popup
-    addCircleMarkers(data = itd_points_foc,
-                    radius = 10,
-                    stroke = FALSE,
-                    fillOpacity = 0,
-                    popup = ~popup,
-                    group = "dummyforpopup") |>
+    # Invisible markers on top for popup
+    addCircleMarkers(data = itd_points,
+                     radius = 10,
+                     stroke = FALSE,
+                     fillOpacity = 0,
+                     popup = ~popup,
+                     group = "dummyforpopup") |>
     hideGroup("Imagery") |>
     hideGroup("Topo") |>
-    hideGroup("Nearby missions") |>
+    # hideGroup("Nearby missions") |>
     js_for_legend()
 
-  # Customize background color (can also use this to make transparent)
-  backg <- htmltools::tags$style(".leaflet-container { background: rgba(200,200,200,1) }")
+  # Grey background
+  backg = htmltools::tags$style(".leaflet-container { background: rgba(200,200,200,1) }")
   m = prependContent(m, backg)
 
-  # -- Save map HTML to website repo
+  # Save map HTML
   itd_map_filename = paste0(dataset_id, ".html")
   save_widget_html(m,
-                    website_static_path = website_static_path,
-                    header_files_dir = leaflet_header_files_dir,
-                    html_dir = itd_map_dir,
-                    html_filename = itd_map_filename)
+                   website_static_path = website_static_path,
+                   header_files_dir = leaflet_header_files_dir,
+                   html_dir = itd_map_dir,
+                   html_filename = itd_map_filename)
 
-  # Record where it was saved to
   map_html_path = paste(itd_map_dir, itd_map_filename, sep = "/")
-
   return(map_html_path)
-
 }
 
 
@@ -983,10 +978,9 @@ make_mission_details_page = function(
         itd_points = st_read(ttops_tempfile, quiet = TRUE)
 
         itd_map_path = make_itd_map(
-          mission_summary_foc = mission_summary_foc,
-          itd_points_foc = itd_points,
-          mission_polygons_for_mission_details_map = mission_summary,
-          mission_centroids = mission_centroids,
+          itd_points = itd_points,
+          bounds_polygons = mission_summary_foc,
+          dataset_id = mission_summary_foc$dataset_id,
           website_static_path = website_static_path,
           leaflet_header_files_dir = leaflet_header_files_dir,
           itd_map_dir = itd_map_dir
@@ -1582,84 +1576,14 @@ make_composite_details_page = function(composite_id_foc,
     if (download_result && file.exists(ttops_tempfile)) {
       ttops = st_read(ttops_tempfile, quiet = TRUE)
 
-      # Project to lon/lat
-      ttops = st_transform(ttops, crs = 4326)
-
-      # Compute height and build popup
-      ttops = ttops |>
-        mutate(height = round(if ("height" %in% names(ttops)) height else Z, 1)) |>
-        mutate(popup = paste0("<b>Height: </b>", height, " m<br>",
-                              "<b>Predicted species: </b> <i>coming soon</i>"))
-
-      # Bounds polygon: intersection of all mission polygons, buffered in by 10 m
-      bounds = composite_summary_foc |>
-        transform_to_local_utm() |>
-        st_buffer(-10)
-      bounds = reduce(st_geometry(bounds), st_intersection) |>
-        st_sfc(crs = st_crs(bounds)) |>
-        st_transform(4326)
-
-      # Define color palette
-      pal_height = colorNumeric("viridis", domain = ttops$height)
-
-      # JS to toggle legend visibility with overlay groups
-      js_for_legend = function(x) {
-        htmlwidgets::onRender(x, "
-          function(el, x) {
-            var updateLegend = function () {
-              var selectedGroup = document.querySelectorAll('input:checked')[0].nextSibling.innerText.substr(1).replace(/[^a-zA-Z]+/g, '');
-              document.querySelectorAll('.legend').forEach( a => a.hidden=true );
-              document.querySelectorAll('.legend').forEach( l => { if (l.classList.contains(selectedGroup)) l.hidden=false; } );
-            };
-            updateLegend();
-            this.on('baselayerchange', el => updateLegend());
-            }"
-        )
-      }
-
-      # Create ITD map
-      m_itd = leaflet() |>
-        addPolygons(data = bounds, group = "bounds",
-                    fillOpacity = 0) |>
-        addProviderTiles(providers$Esri.WorldTopoMap, group = "Topo", options = providerTileOptions(maxZoom = 22)) |>
-        addProviderTiles(providers$Esri.WorldImagery, group = "Imagery", options = providerTileOptions(maxZoom = 22)) |>
-        addLayersControl(overlayGroups = c("Imagery", "Topo"),
-                         options = layersControlOptions(collapsed = FALSE)) |>
-        addCircleMarkers(data = ttops,
-                         radius = ~height/5,
-                         stroke = FALSE,
-                         fillOpacity = 1,
-                         color = ~pal_height(height),
-                         group = "Height") |>
-        addLegend(pal = pal_height,
-                  values = ttops$height,
-                  title = "Height (m)", opacity = 1,
-                  group = "Height",
-                  className = "info legend Height") |>
-        # Invisible markers on top for popup
-        addCircleMarkers(data = ttops,
-                         radius = 10,
-                         stroke = FALSE,
-                         fillOpacity = 0,
-                         popup = ~popup,
-                         group = "dummyforpopup") |>
-        hideGroup("Imagery") |>
-        hideGroup("Topo") |>
-        js_for_legend()
-
-      # Grey background
-      backg = htmltools::tags$style(".leaflet-container { background: rgba(200,200,200,1) }")
-      m_itd = prependContent(m_itd, backg)
-
-      itd_map_filename = paste0(composite_id_foc, ".html")
-      save_widget_html(m_itd,
-                       website_static_path = website_static_path,
-                       header_files_dir = leaflet_header_files_dir,
-                       html_dir = composite_itd_map_dir,
-                       html_filename = itd_map_filename,
-                       delete_folder_first = FALSE)
-
-      itd_map_path = paste(composite_itd_map_dir, itd_map_filename, sep = "/")
+      itd_map_path = make_itd_map(
+        itd_points = ttops,
+        bounds_polygons = composite_summary_foc,
+        dataset_id = composite_id_foc,
+        website_static_path = website_static_path,
+        leaflet_header_files_dir = leaflet_header_files_dir,
+        itd_map_dir = composite_itd_map_dir
+      )
 
       unlink(ttops_tempfile)
     }
