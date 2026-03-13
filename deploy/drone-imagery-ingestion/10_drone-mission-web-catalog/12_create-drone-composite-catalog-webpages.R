@@ -69,6 +69,9 @@ s3_file_listing = read_csv(COMPOSITE_S3_LISTING_FILEPATH)
 composite_summary = composite_polygons_w_summary_data |> dplyr::arrange(composite_id)
 composite_ids = unique(composite_summary$composite_id)
 
+# TEMPORARY: filter to a single composite for testing
+composite_ids = "001051_001050"
+
 # Make composite details pages using sequential walk() to avoid HTML widget staging directory
 # conflicts that can occur with parallel processing
 walk(

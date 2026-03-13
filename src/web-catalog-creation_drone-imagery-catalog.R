@@ -467,6 +467,9 @@ make_itd_map = function(itd_points,
   backg = htmltools::tags$style(".leaflet-container { background: rgba(200,200,200,1) }")
   m = prependContent(m, backg)
 
+  # TEMPORARY: show HTML map
+  print(m)
+
   # Save map HTML
   itd_map_filename = paste0(dataset_id, ".html")
   save_widget_html(m,
