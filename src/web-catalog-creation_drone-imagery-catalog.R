@@ -570,6 +570,15 @@ make_mission_details_datatable = function(mission_summary_foc,
 }
 
 
+# From a filtered file listing, find the most recent ITD/detected-trees folder
+get_most_recent_itd_folder = function(processed_products) {
+  filepath_parts = str_split(processed_products$filepath, fixed("/"))
+  part_3 = purrr::map_chr(filepath_parts, 3)
+  itd_folders = part_3[str_which(part_3, "^(itd_|detected_trees_|detected-trees_)")] |> unique() |> sort(decreasing = TRUE)
+  itd_folders[1]
+}
+
+
 # Compute S3 product URLs for a given dataset (mission or composite)
 # Returns a named list of product existence flags and URLs
 compute_s3_product_urls = function(dataset_id, s3_file_listing_foc, data_server_base_url) {
@@ -577,10 +586,7 @@ compute_s3_product_urls = function(dataset_id, s3_file_listing_foc, data_server_
   processed_folder = paste0("photogrammetry_", PHOTOGRAMMETRY_CONFIG_ID)
   processed_products = s3_file_listing_foc |> filter(str_detect(filepath, processed_folder))
 
-  filepath_parts = str_split(processed_products$filepath, fixed("/"))
-  part_3 = purrr::map_chr(filepath_parts, 3)
-  itd_folders = part_3[str_which(part_3, "^(itd_|detected_trees_|detected-trees_)")] |> unique() |> sort(decreasing = TRUE)
-  itd_folder_mostrecent = itd_folders[1]
+  itd_folder_mostrecent = get_most_recent_itd_folder(processed_products)
   itd_path_mostrecent = file.path(dataset_id, processed_folder, itd_folder_mostrecent)
   ttops_file_path = file.path(itd_path_mostrecent, paste0(dataset_id, "_treetops.gpkg"))
 
@@ -957,44 +963,33 @@ make_mission_details_page = function(
     
     # Make detected tree map, if ITD data exists. For now using the most recent ITD folder if there
     # are multiple.
-    
-    processed_products = s3_file_listing_foc |> filter(str_detect(filepath, paste0("processed_", PHOTOGRAMMETRY_CONFIG_ID)))
+    itd_map_path = NA
+    product_urls = compute_s3_product_urls(mission_id_foc, s3_file_listing_foc, DATA_SERVER_MISSIONS_BASE_URL)
+    if (product_urls$ttops_exists) {
+      ttops_tempfile = tempfile(fileext = ".gpkg")
 
-    filepath_parts = str_split(processed_products$filepath, fixed("/"))
-    part_3 = purrr::map_chr(filepath_parts, 3)
-    itd_folders = part_3[str_which(part_3, "^(itd_|detected_trees_|detected-trees_)")] |> unique() |> sort(decreasing = TRUE)
-    itd_folder_mostrecent = itd_folders[1]
-    itd_path_mostrecent = file.path(mission_id_foc, paste0("processed_", PHOTOGRAMMETRY_CONFIG_ID), itd_folder_mostrecent)
-    ttops_file_path = file.path(itd_path_mostrecent, paste0(mission_id_foc, "_treetops.gpkg"))
-    ttops_exists = ttops_file_path %in% processed_products$filepath
+      download_result = tryCatch({
+        download.file(product_urls$ttops_url, ttops_tempfile, quiet = TRUE, method = "wget")
+        TRUE
+      }, error = function(e) {
+        FALSE
+      })
 
-    # TODO: We could streamline the above. For example, we could just check if any path with the
-    # file name above exists, and if so, sort them and keep the alphabetically last (which should be
-    # the most recent).
+      if (download_result && file.exists(ttops_tempfile)) {
+        itd_points = st_read(ttops_tempfile, quiet = TRUE)
 
-    if (ttops_exists) {
-      ttops_url = paste(DATA_SERVER_MISSIONS_BASE_URL, ttops_file_path, sep = "/") |> strip_double_slashes()
+        itd_map_path = make_itd_map(
+          mission_summary_foc = mission_summary_foc,
+          itd_points_foc = itd_points,
+          mission_polygons_for_mission_details_map = mission_summary,
+          mission_centroids = mission_centroids,
+          website_static_path = website_static_path,
+          leaflet_header_files_dir = leaflet_header_files_dir,
+          itd_map_dir = itd_map_dir
+        )
 
-      # Download ttops from S3
-      remote_file = paste0(RCLONE_REMOTE, ":", REMOTE_MISSIONS_DIR, ttops_file_path)
-      temp_ttops_file = tempfile(paste0("ttops", mission_id_foc), fileext = ".gpkg")
-      command = paste("rclone copyto", remote_file, temp_ttops_file, "--progress --transfers 32 --checkers 32 --stats 1s --retries 5 --retries-sleep=15s --s3-upload-cutoff 100Mi --s3-chunk-size 100Mi --s3-upload-concurrency 16 --multi-thread-streams 2", sep = " ")
-      system(command)
-
-      itd_points = st_read(temp_ttops_file)
-
-      # Make ITD map
-      itd_map_path = make_itd_map(
-        mission_summary_foc = mission_summary_foc,
-        itd_points_foc = itd_points,
-        mission_polygons_for_mission_details_map = mission_summary,
-        mission_centroids = mission_centroids,
-        website_static_path = website_static_path,
-        leaflet_header_files_dir = leaflet_header_files_dir,
-        itd_map_dir = itd_map_dir
-      )
-    } else {
-      itd_map_path = NA
+        unlink(ttops_tempfile)
+      }
     }
 
 
