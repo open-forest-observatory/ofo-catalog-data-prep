@@ -579,7 +579,7 @@ compute_s3_product_urls = function(dataset_id, s3_file_listing_foc, data_server_
 
   filepath_parts = str_split(processed_products$filepath, fixed("/"))
   part_3 = purrr::map_chr(filepath_parts, 3)
-  itd_folders = part_3[str_which(part_3, "^itd_")] |> unique() |> sort(decreasing = TRUE)
+  itd_folders = part_3[str_which(part_3, "^(itd_|detected_trees_|detected-trees_)")] |> unique() |> sort(decreasing = TRUE)
   itd_folder_mostrecent = itd_folders[1]
   itd_path_mostrecent = file.path(dataset_id, processed_folder, itd_folder_mostrecent)
   ttops_file_path = file.path(itd_path_mostrecent, paste0(dataset_id, "_treetops.gpkg"))
@@ -962,7 +962,7 @@ make_mission_details_page = function(
 
     filepath_parts = str_split(processed_products$filepath, fixed("/"))
     part_3 = purrr::map_chr(filepath_parts, 3)
-    itd_folders = part_3[str_which(part_3, "^itd_")] |> unique() |> sort(decreasing = TRUE)
+    itd_folders = part_3[str_which(part_3, "^(itd_|detected_trees_|detected-trees_)")] |> unique() |> sort(decreasing = TRUE)
     itd_folder_mostrecent = itd_folders[1]
     itd_path_mostrecent = file.path(mission_id_foc, paste0("processed_", PHOTOGRAMMETRY_CONFIG_ID), itd_folder_mostrecent)
     ttops_file_path = file.path(itd_path_mostrecent, paste0(mission_id_foc, "_treetops.gpkg"))
