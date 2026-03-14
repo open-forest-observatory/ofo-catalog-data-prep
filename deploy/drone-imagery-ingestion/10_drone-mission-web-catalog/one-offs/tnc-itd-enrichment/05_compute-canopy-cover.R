@@ -9,7 +9,7 @@ library(terra)
 DELIVERABLES_DIR = "/ofo-share/project-data/tnc-yuba-deliverables"
 INDIVIDUAL_POLYGONS_FILEPATH = file.path(DELIVERABLES_DIR, "individual-missions/overall/individual-drone-plot-summaries.gpkg")
 CHM_DIR = file.path(DELIVERABLES_DIR, "individual-missions/canopy-height-models")
-CANOPY_COVER_RASTER_DIR = file.path(DELIVERABLES_DIR, "canopy-cover-rasters")
+CANOPY_COVER_RASTER_DIR = file.path(DELIVERABLES_DIR, "individual-missions/canopy-cover-rasters")
 
 CANOPY_HEIGHT_THRESHOLD = 5  # meters
 
@@ -38,14 +38,20 @@ compute_canopy_cover_raster = function(chm_path, output_path) {
   # Create binary canopy raster (1 = canopy, 0 = not canopy)
   canopy_binary = chm > CANOPY_HEIGHT_THRESHOLD
 
+  # Resample to 1 m resolution for more efficient processing
+  res_change_fact = 1 / res(chm)[1]
+  if (res_change_fact > 1) {
+    canopy_binary = aggregate(canopy_binary, fact = round(res_change_fact), fun = "mean", na.rm = TRUE)
+  }
+
   # Determine window size in pixels for a 100 m square
-  res_m = res(chm)[1]
-  window_size = round(100 / res_m)
+  res_m = res(canopy_binary)[1]
+  window_size = round(25 / res_m)
   # Ensure odd window size for symmetric focal window
   if (window_size %% 2 == 0) window_size = window_size + 1
 
   # Focal mean of binary raster = proportion canopy cover
-  canopy_cover_raster = focal(canopy_binary, w = window_size, fun = "mean", na.rm = TRUE)
+  canopy_cover_raster = focal(canopy_binary, w = window_size, fun = "mean")
 
   writeRaster(canopy_cover_raster, output_path, overwrite = TRUE)
 }
@@ -83,6 +89,8 @@ for (i in seq_along(chm_files)) {
     if (length(row_idx) == 1) {
       nadir_missions$canopy_cover[row_idx] = stats$canopy_cover
       nadir_missions$canopy_height[row_idx] = stats$canopy_height
+    } else {
+      cat("    WARNING: Expected 1 matching mission in GPKG for", mission_id, "but found", length(row_idx), "\n")
     }
   }
 
