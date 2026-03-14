@@ -18,7 +18,7 @@ The scripts in this folder are for adding additional detail to the photogrammetr
     - [same drone-plot-summaries.gpkg file]
     - [attributes named 'canopy_cover' and 'canopy_height']
   - Compute a raster for each nadir mission, based on the CHM, that depicts canopy cover in a 100 m square (moving window pixel by pixel)
-    - [save to /ofo-share/project-data/tnc-yuba-deliverables/canopy-cover-rasters/]
+    - [save to /ofo-share/project-data/tnc-yuba-deliverables/individual-missions/canopy-cover-rasters/]
 - ITD data
   - Download all *composite* ITD data and compile it into a single gpkg
     - [save to (deliverables-dir)/composite-missions/all-detected-trees.gpkg]
