@@ -7,7 +7,7 @@ library(sf)
 library(terra)
 
 DELIVERABLES_DIR = "/ofo-share/project-data/tnc-yuba-deliverables"
-INDIVIDUAL_POLYGONS_FILEPATH = file.path(DELIVERABLES_DIR, "drone-plot-summaries/individual-missions/overall/individual-drone-plot-summaries.gpkg")
+INDIVIDUAL_POLYGONS_FILEPATH = file.path(DELIVERABLES_DIR, "individual-missions/overall/individual-drone-plot-summaries.gpkg")
 CHM_DIR = file.path(DELIVERABLES_DIR, "individual-missions/canopy-height-models")
 CANOPY_COVER_RASTER_DIR = file.path(DELIVERABLES_DIR, "canopy-cover-rasters")
 

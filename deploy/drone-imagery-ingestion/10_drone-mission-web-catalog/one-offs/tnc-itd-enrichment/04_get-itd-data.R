@@ -6,7 +6,7 @@ library(sf)
 DELIVERABLES_DIR = "/ofo-share/project-data/tnc-yuba-deliverables"
 TMP_DIR = file.path(DELIVERABLES_DIR, "tmp")
 COMPOSITES_S3_LISTING_FILEPATH = file.path(TMP_DIR, "s3-file-listing-composites.csv")
-ALL_DETECTED_TREES_FILEPATH = file.path(DELIVERABLES_DIR, "drone-plot-summaries/composite-missions/overall/all-detected-trees.gpkg")
+ALL_DETECTED_TREES_FILEPATH = file.path(DELIVERABLES_DIR, "composite-missions/overall/all-detected-trees.gpkg")
 
 dir.create(dirname(ALL_DETECTED_TREES_FILEPATH), recursive = TRUE, showWarnings = FALSE)
 

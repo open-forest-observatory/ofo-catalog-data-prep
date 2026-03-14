@@ -10,8 +10,8 @@ TMP_DIR = file.path(DELIVERABLES_DIR, "tmp")
 MISSIONS_S3_LISTING_FILEPATH = file.path(TMP_DIR, "s3-file-listing-missions.csv")
 COMPOSITES_S3_LISTING_FILEPATH = file.path(TMP_DIR, "s3-file-listing-composites.csv")
 
-COMPOSITE_POLYGONS_DIR = file.path(DELIVERABLES_DIR, "drone-plot-summaries/composite-missions/overall")
-INDIVIDUAL_POLYGONS_DIR = file.path(DELIVERABLES_DIR, "drone-plot-summaries/individual-missions/overall")
+COMPOSITE_POLYGONS_DIR = file.path(DELIVERABLES_DIR, "composite-missions/overall")
+INDIVIDUAL_POLYGONS_DIR = file.path(DELIVERABLES_DIR, "individual-missions/overall")
 COMPOSITE_POLYGONS_FILEPATH = file.path(COMPOSITE_POLYGONS_DIR, "composite-drone-plot-summaries.gpkg")
 INDIVIDUAL_POLYGONS_FILEPATH = file.path(INDIVIDUAL_POLYGONS_DIR, "individual-drone-plot-summaries.gpkg")
 
