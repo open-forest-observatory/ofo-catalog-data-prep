@@ -376,29 +376,30 @@ make_mission_details_map = function(mission_summary_foc,
 
 
 #### Make mission-level leaflet map of image points and flight path
-make_itd_map = function(mission_summary_foc,
-                                    itd_points_foc,
-                                    mission_polygons_for_mission_details_map,
-                                    mission_centroids,
-                                    website_static_path,
-                                    leaflet_header_files_dir,
-                                    itd_map_dir) {
+make_itd_map = function(itd_points,
+                        bounds_polygons,
+                        dataset_id,
+                        website_static_path,
+                        leaflet_header_files_dir,
+                        itd_map_dir) {
 
-  dataset_id = mission_summary_foc$dataset_id
-
-  #mission_summary_foc is the polygon. Buffer it in by 10 because that's the area if detected trees
-  #that we retained
-
-  mission_summary_foc = mission_summary_foc |>
+  # Compute bounds: buffer in by 10 m (retained tree area), intersect if multiple polygons
+  bounds = bounds_polygons |>
     transform_to_local_utm() |>
-    st_buffer(-10) |>
+    st_buffer(-10)
+  bounds = reduce(st_geometry(bounds), st_intersection) |>
+    st_sfc(crs = st_crs(bounds)) |>
     st_transform(4326)
 
-  itd_points_foc = itd_points_foc |>
-    mutate(height = round(Z, 1)) |>
-    # Create a popup text
-    mutate(popup = paste0("<b>Height: </b>", height, " m<br> 
-                          <b>Predicted species: </b> <i>coming soon</i><br>")) |>
+  # Prepare tree points
+  has_species = "species_prediction" %in% names(itd_points)
+
+  itd_points = itd_points |>
+    mutate(height = round(if ("Z" %in% names(itd_points)) Z else height, 1)) |>
+    mutate(popup = paste0("<b>Height: </b>", height, " m<br>",
+                          "<b>Predicted species: </b>",
+                          if (has_species) ifelse(is.na(species_prediction), "Unknown", species_prediction)
+                          else "<i>coming soon</i>")) |>
     st_transform(4326)
 
   # Optoinal addl rows for popup
@@ -411,11 +412,12 @@ make_itd_map = function(mission_summary_foc,
 
   # Make leaflet map
 
+  # JS to toggle legend visibility with base layer radio buttons
   js_for_legend = function(x) {
     htmlwidgets::onRender(x, "
       function(el, x) {
         var updateLegend = function () {
-          var selectedGroup = document.querySelectorAll('input:checked')[0].nextSibling.innerText.substr(1).replace(/[^a-zA-Z]+/g, '');
+          var selectedGroup = document.querySelectorAll('input[type=radio]:checked')[0].nextSibling.innerText.substr(1).replace(/[^a-zA-Z]+/g, '');
           document.querySelectorAll('.legend').forEach( a => a.hidden=true );
           document.querySelectorAll('.legend').forEach( l => { if (l.classList.contains(selectedGroup)) l.hidden=false; } );
         };
@@ -426,62 +428,93 @@ make_itd_map = function(mission_summary_foc,
   }
 
   # Define color palettes
-  pal_height = colorNumeric("viridis", domain = itd_points_foc$height)
+  pal_height = colorNumeric("viridis", domain = itd_points$height)
+  if (has_species) {
+    pal_species = colorFactor("viridis", domain = itd_points$species_prediction, na.color = "gray")
+  }
 
   m = leaflet() |>
-    addPolygons(data = mission_summary_foc, group = "bounds",
+    addPolygons(data = bounds, group = "bounds",
                 fillOpacity = 0) |>
     addProviderTiles(providers$Esri.WorldTopo, group = "Topo",
                      options = providerTileOptions(minZoom = 1, maxZoom = 20)) |>
     addProviderTiles(providers$Esri.WorldImagery, group = "Imagery",
-                     options = providerTileOptions(minZoom = 1, maxZoom = 20)) |>
-    addLayersControl(overlayGroups = c("Imagery", "Topo"), #  ", Nearby missions"
-                     options = layersControlOptions(collapsed = FALSE)) |>
-    # # Nearby mission polygons and centroids
-    # addMarkers(data = mission_centroids, popup = ~dataset_id_link, clusterOptions = markerClusterOptions(freezeAtZoom = 16), group = "Nearby missions") |>
-    # addPolygons(data = mission_polygons_for_mission_details_map, popup = ~dataset_id_link, group = "Nearby missions") |>
-    # ITD points
-    addCircleMarkers(data = itd_points_foc,
-                    radius = itd_points_foc$height/5,
-                      stroke = FALSE,
-                      fillOpacity = 1,
-                    #  popup = ~popup,
-                      color = pal_height(itd_points_foc$height),
-                      group = "Height") |>
+                     options = providerTileOptions(minZoom = 1, maxZoom = 20))
+
+  # Layers control: add base groups for color switching if species data is available
+  if (has_species) {
+    m = m |>
+      addLayersControl(baseGroups = c("Species", "Height"),
+                       overlayGroups = c("Imagery", "Topo"),
+                       options = layersControlOptions(collapsed = FALSE))
+  } else {
+    m = m |>
+      addLayersControl(overlayGroups = c("Imagery", "Topo"),
+                       options = layersControlOptions(collapsed = FALSE))
+  }
+
+  # Species-colored layer (if available; listed first so it is the default base layer)
+  if (has_species) {
+    m = m |>
+      addCircleMarkers(data = itd_points,
+                       radius = ~height/5,
+                       stroke = FALSE,
+                       fillOpacity = 1,
+                       color = ~pal_species(species_prediction),
+                       group = "Species") |>
+      addLegend(pal = pal_species,
+                values = itd_points$species_prediction,
+                title = "Predicted species", opacity = 1,
+                na.label = "Unknown",
+                group = "Species",
+                className = "info legend Species")
+  }
+
+  # Height-colored layer
+  m = m |>
+    addCircleMarkers(data = itd_points,
+                     radius = ~height/5,
+                     stroke = FALSE,
+                     fillOpacity = 1,
+                     color = ~pal_height(height),
+                     group = "Height") |>
     addLegend(pal = pal_height,
-              values = itd_points_foc$height,
-              title = "Height", opacity = 1,
+              values = itd_points$height,
+              title = "Height (m)", opacity = 1,
               group = "Height",
               className = "info legend Height") |>
-    # Invisible markers on top of all for popup
-    addCircleMarkers(data = itd_points_foc,
-                    radius = 10,
-                    stroke = FALSE,
-                    fillOpacity = 0,
-                    popup = ~popup,
-                    group = "dummyforpopup") |>
+    # Invisible markers on top for popup
+    addCircleMarkers(data = itd_points,
+                     radius = 10,
+                     stroke = FALSE,
+                     fillOpacity = 0,
+                     popup = ~popup,
+                     group = "dummyforpopup") |>
     hideGroup("Imagery") |>
-    hideGroup("Topo") |>
-    hideGroup("Nearby missions") |>
-    js_for_legend()
+    hideGroup("Topo")
 
-  # Customize background color (can also use this to make transparent)
-  backg <- htmltools::tags$style(".leaflet-container { background: rgba(200,200,200,1) }")
+  # Legend toggle JS only needed when there are multiple base layers
+  if (has_species) {
+    m = m |> js_for_legend()
+  }
+
+  # Grey background
+  backg = htmltools::tags$style(".leaflet-container { background: rgba(200,200,200,1) }")
   m = prependContent(m, backg)
 
-  # -- Save map HTML to website repo
+  # # TEMPORARY: show HTML map
+  # print(m)
+
+  # Save map HTML
   itd_map_filename = paste0(dataset_id, ".html")
   save_widget_html(m,
-                    website_static_path = website_static_path,
-                    header_files_dir = leaflet_header_files_dir,
-                    html_dir = itd_map_dir,
-                    html_filename = itd_map_filename)
+                   website_static_path = website_static_path,
+                   header_files_dir = leaflet_header_files_dir,
+                   html_dir = itd_map_dir,
+                   html_filename = itd_map_filename)
 
-  # Record where it was saved to
   map_html_path = paste(itd_map_dir, itd_map_filename, sep = "/")
-
   return(map_html_path)
-
 }
 
 
@@ -570,19 +603,21 @@ make_mission_details_datatable = function(mission_summary_foc,
 }
 
 
+# From a filtered file listing, find the most recent ITD/detected-trees folder
+get_most_recent_itd_folder = function(processed_products) {
+  filepath_parts = str_split(processed_products$filepath, fixed("/"))
+  part_3 = purrr::map_chr(filepath_parts, 3)
+  itd_folders = part_3[str_which(part_3, "^(itd_|detected-trees_)")] |> unique() |> sort(decreasing = TRUE)
+  itd_folders[1]
+}
+
+
 # Compute S3 product URLs for a given dataset (mission or composite)
 # Returns a named list of product existence flags and URLs
 compute_s3_product_urls = function(dataset_id, s3_file_listing_foc, data_server_base_url) {
 
   processed_folder = paste0("photogrammetry_", PHOTOGRAMMETRY_CONFIG_ID)
   processed_products = s3_file_listing_foc |> filter(str_detect(filepath, processed_folder))
-
-  filepath_parts = str_split(processed_products$filepath, fixed("/"))
-  part_3 = purrr::map_chr(filepath_parts, 3)
-  itd_folders = part_3[str_which(part_3, "^itd_")] |> unique() |> sort(decreasing = TRUE)
-  itd_folder_mostrecent = itd_folders[1]
-  itd_path_mostrecent = file.path(dataset_id, processed_folder, itd_folder_mostrecent)
-  ttops_file_path = file.path(itd_path_mostrecent, paste0(dataset_id, "_treetops.gpkg"))
 
   # Check if products exist and if so, get the URLs needed to add them to the page
 
@@ -656,6 +691,14 @@ compute_s3_product_urls = function(dataset_id, s3_file_listing_foc, data_server_
   log_url = paste(data_server_base_url, log_path, sep = "/") |> strip_double_slashes()
 
   # ITD
+  itd_folder_mostrecent = get_most_recent_itd_folder(processed_products)
+  itd_path_mostrecent = file.path(dataset_id, processed_folder, itd_folder_mostrecent)
+  ttops_file_path_v1 = file.path(itd_path_mostrecent, paste0(dataset_id, "_treetops.gpkg"))
+  ttops_file_path_v2 = file.path(itd_path_mostrecent, paste0(dataset_id, "_detected-tree-tops_classified.gpkg"))
+  ttops_file_path = ttops_file_path_v1
+  if (ttops_file_path_v2 %in% processed_products$filepath) {
+    ttops_file_path = ttops_file_path_v2
+  }
   ttops_exists = ttops_file_path %in% processed_products$filepath
   ttops_url = paste(data_server_base_url, ttops_file_path, sep = "/") |> strip_double_slashes()
 
@@ -957,44 +1000,32 @@ make_mission_details_page = function(
     
     # Make detected tree map, if ITD data exists. For now using the most recent ITD folder if there
     # are multiple.
-    
-    processed_products = s3_file_listing_foc |> filter(str_detect(filepath, paste0("processed_", PHOTOGRAMMETRY_CONFIG_ID)))
+    itd_map_path = NA
+    product_urls = compute_s3_product_urls(mission_id_foc, s3_file_listing_foc, DATA_SERVER_MISSIONS_BASE_URL)
+    if (product_urls$ttops_exists) {
+      ttops_tempfile = tempfile(fileext = ".gpkg")
 
-    filepath_parts = str_split(processed_products$filepath, fixed("/"))
-    part_3 = purrr::map_chr(filepath_parts, 3)
-    itd_folders = part_3[str_which(part_3, "^itd_")] |> unique() |> sort(decreasing = TRUE)
-    itd_folder_mostrecent = itd_folders[1]
-    itd_path_mostrecent = file.path(mission_id_foc, paste0("processed_", PHOTOGRAMMETRY_CONFIG_ID), itd_folder_mostrecent)
-    ttops_file_path = file.path(itd_path_mostrecent, paste0(mission_id_foc, "_treetops.gpkg"))
-    ttops_exists = ttops_file_path %in% processed_products$filepath
+      download_result = tryCatch({
+        download.file(product_urls$ttops_url, ttops_tempfile, quiet = TRUE, method = "wget")
+        TRUE
+      }, error = function(e) {
+        FALSE
+      })
 
-    # TODO: We could streamline the above. For example, we could just check if any path with the
-    # file name above exists, and if so, sort them and keep the alphabetically last (which should be
-    # the most recent).
+      if (download_result && file.exists(ttops_tempfile)) {
+        itd_points = st_read(ttops_tempfile, quiet = TRUE)
 
-    if (ttops_exists) {
-      ttops_url = paste(DATA_SERVER_MISSIONS_BASE_URL, ttops_file_path, sep = "/") |> strip_double_slashes()
+        itd_map_path = make_itd_map(
+          itd_points = itd_points,
+          bounds_polygons = mission_summary_foc,
+          dataset_id = mission_summary_foc$dataset_id,
+          website_static_path = website_static_path,
+          leaflet_header_files_dir = leaflet_header_files_dir,
+          itd_map_dir = itd_map_dir
+        )
 
-      # Download ttops from S3
-      remote_file = paste0(RCLONE_REMOTE, ":", REMOTE_MISSIONS_DIR, ttops_file_path)
-      temp_ttops_file = tempfile(paste0("ttops", mission_id_foc), fileext = ".gpkg")
-      command = paste("rclone copyto", remote_file, temp_ttops_file, "--progress --transfers 32 --checkers 32 --stats 1s --retries 5 --retries-sleep=15s --s3-upload-cutoff 100Mi --s3-chunk-size 100Mi --s3-upload-concurrency 16 --multi-thread-streams 2", sep = " ")
-      system(command)
-
-      itd_points = st_read(temp_ttops_file)
-
-      # Make ITD map
-      itd_map_path = make_itd_map(
-        mission_summary_foc = mission_summary_foc,
-        itd_points_foc = itd_points,
-        mission_polygons_for_mission_details_map = mission_summary,
-        mission_centroids = mission_centroids,
-        website_static_path = website_static_path,
-        leaflet_header_files_dir = leaflet_header_files_dir,
-        itd_map_dir = itd_map_dir
-      )
-    } else {
-      itd_map_path = NA
+        unlink(ttops_tempfile)
+      }
     }
 
 
@@ -1583,28 +1614,14 @@ make_composite_details_page = function(composite_id_foc,
     if (download_result && file.exists(ttops_tempfile)) {
       ttops = st_read(ttops_tempfile, quiet = TRUE)
 
-      # Create ITD map (simplified version without attribute switching)
-      m_itd = leaflet() |>
-        addProviderTiles(providers$Esri.WorldTopoMap, group = "Topo", options = providerTileOptions(maxZoom = 22)) |>
-        addProviderTiles(providers$Esri.WorldImagery, group = "Imagery", options = providerTileOptions(maxZoom = 22)) |>
-        addCircleMarkers(data = ttops,
-                         radius = 3,
-                         fillColor = "green",
-                         fillOpacity = 0.6,
-                         color = "darkgreen",
-                         weight = 1) |>
-        addLayersControl(baseGroups = c("Topo", "Imagery"),
-                         options = layersControlOptions(collapsed = FALSE))
-
-      itd_map_filename = paste0(composite_id_foc, ".html")
-      save_widget_html(m_itd,
-                       website_static_path = website_static_path,
-                       header_files_dir = leaflet_header_files_dir,
-                       html_dir = composite_itd_map_dir,
-                       html_filename = itd_map_filename,
-                       delete_folder_first = FALSE)
-
-      itd_map_path = paste(composite_itd_map_dir, itd_map_filename, sep = "/")
+      itd_map_path = make_itd_map(
+        itd_points = ttops,
+        bounds_polygons = composite_summary_foc,
+        dataset_id = composite_id_foc,
+        website_static_path = website_static_path,
+        leaflet_header_files_dir = leaflet_header_files_dir,
+        itd_map_dir = composite_itd_map_dir
+      )
 
       unlink(ttops_tempfile)
     }
