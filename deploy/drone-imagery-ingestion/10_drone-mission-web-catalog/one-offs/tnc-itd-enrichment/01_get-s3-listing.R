@@ -19,6 +19,9 @@ command = paste("rclone lsf", remote_dir, "-R --files-only")
 listing = system(command, intern = TRUE)
 listing_df = tibble(filepath = listing)
 
+# Exclude loose files at the root level (not inside a mission subdirectory)
+listing_df = listing_df |> filter(str_detect(filepath, "/"))
+
 filepath_parts = str_split(listing_df$filepath, "/")
 listing_df$mission_id = map_chr(filepath_parts, 1)
 
@@ -33,6 +36,9 @@ remote_dir = paste0(RCLONE_REMOTE, ":", REMOTE_COMPOSITES_DIR)
 command = paste("rclone lsf", remote_dir, "-R --files-only")
 listing = system(command, intern = TRUE)
 listing_df = tibble(filepath = listing)
+
+# Exclude loose files at the root level (not inside a composite subdirectory)
+listing_df = listing_df |> filter(str_detect(filepath, "/"))
 
 filepath_parts = str_split(listing_df$filepath, "/")
 listing_df$composite_id = map_chr(filepath_parts, 1)
