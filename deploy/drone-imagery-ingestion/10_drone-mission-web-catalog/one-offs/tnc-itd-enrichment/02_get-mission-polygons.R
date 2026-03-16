@@ -74,11 +74,15 @@ download_and_intersect_composite = function(composite_id, filepath) {
 composite_polygons = map2(
   composite_polygon_files$composite_id,
   composite_polygon_files$filepath,
-  possibly(download_and_intersect_composite, otherwise = NULL)
+  download_and_intersect_composite
 )
 
 composite_polygons = compact(composite_polygons)
 composite_polygons = bind_rows(composite_polygons)
+
+# Remove empty features
+composite_polygons = composite_polygons |>
+  filter(!st_is_empty(geometry))
 
 st_write(composite_polygons, COMPOSITE_POLYGONS_FILEPATH, delete_dsn = TRUE)
 cat("Wrote", nrow(composite_polygons), "composite polygons to", COMPOSITE_POLYGONS_FILEPATH, "\n")
@@ -102,7 +106,7 @@ download_mission_polygon = function(filepath) {
 
 mission_polygons = map(
   mission_polygon_files$filepath,
-  possibly(download_mission_polygon, otherwise = NULL)
+  download_mission_polygon
 )
 
 mission_polygons = compact(mission_polygons)
@@ -125,6 +129,14 @@ mission_polygons = mission_polygons |>
   )
 
 cat("Filtered to", nrow(mission_polygons), "nadir missions\n")
+
+# Remove empty features
+mission_polygons = mission_polygons |>
+  filter(!st_is_empty(geom))
+
+# Keep only mission_id (and geom) cols
+mission_polygons = mission_polygons |>
+  select(mission_id)
 
 st_write(mission_polygons, INDIVIDUAL_POLYGONS_FILEPATH, delete_dsn = TRUE)
 cat("Wrote nadir mission polygons to", INDIVIDUAL_POLYGONS_FILEPATH, "\n")

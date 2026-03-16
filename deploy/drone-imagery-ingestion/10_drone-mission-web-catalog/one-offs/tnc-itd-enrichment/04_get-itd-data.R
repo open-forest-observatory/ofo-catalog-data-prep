@@ -8,6 +8,12 @@ TMP_DIR = file.path(DELIVERABLES_DIR, "tmp")
 COMPOSITES_S3_LISTING_FILEPATH = file.path(TMP_DIR, "s3-file-listing-composites.csv")
 ALL_DETECTED_TREES_FILEPATH = file.path(DELIVERABLES_DIR, "composite-missions/overall/all-detected-trees.gpkg")
 
+# Overriding the default constants for bandaid fix to be able to specify two different
+# photogrammetry config IDs (composites vs individuals)
+COMPOSITE_PHOTOGRAMMETRY_CONFIG_ID = "01"
+INDIVIDUAL_PHOTOGRAMMETRY_CONFIG_ID = "03"
+
+
 dir.create(dirname(ALL_DETECTED_TREES_FILEPATH), recursive = TRUE, showWarnings = FALSE)
 
 
@@ -59,8 +65,8 @@ find_ttops_filepath = function(composite_id) {
   if (is.na(itd_folder)) return(NULL)
 
   # Prefer v2 (classified) over v1
-  ttops_v2 = file.path(composite_id, paste0("photogrammetry_", PHOTOGRAMMETRY_CONFIG_ID), itd_folder, paste0(composite_id, "_detected-tree-tops_classified.gpkg"))
-  ttops_v1 = file.path(composite_id, paste0("photogrammetry_", PHOTOGRAMMETRY_CONFIG_ID), itd_folder, paste0(composite_id, "_treetops.gpkg"))
+  ttops_v2 = file.path(composite_id, paste0("photogrammetry_", COMPOSITE_PHOTOGRAMMETRY_CONFIG_ID), itd_folder, paste0(composite_id, "_detected-tree-tops_classified.gpkg"))
+  ttops_v1 = file.path(composite_id, paste0("photogrammetry_", COMPOSITE_PHOTOGRAMMETRY_CONFIG_ID), itd_folder, paste0(composite_id, "_treetops.gpkg"))
 
   if (ttops_v2 %in% composite_files$filepath) return(ttops_v2)
   if (ttops_v1 %in% composite_files$filepath) return(ttops_v1)
