@@ -6,7 +6,7 @@ library(tidyverse)
 
 source("deploy/drone-imagery-ingestion/00_set-constants.R")
 
-mission_metadata = st_read(MISSION_METADATA_FILEPATH)
+mission_metadata = st_read(POST_CURATION_MISSION_METADATA_FILEPATH) # Changed this from MISSION_METADATA_FILEPATH
 
 missions_to_withhold = read_csv(MISSIONS_TO_WITHHOLD_FILEPATH)$mission_id
 
@@ -16,4 +16,4 @@ mission_metadata = mission_metadata |>
   ) |>
   select(everything()) # to get geom back at the end
 
-st_write(mission_metadata, MISSION_METADATA_FILEPATH, delete_dsn = TRUE)
+st_write(mission_metadata, POST_CURATION_MISSION_METADATA_FILEPATH, delete_dsn = TRUE) # Changed this from MISSION_METADATA_FILEPATH
