@@ -83,47 +83,48 @@ detect_ttops_and_crowns = function(chm_file_foc) {
   # Buffer in by 10 m
   chm_poly_buff = buffer(chm_poly, width = -10)
 
-  # Delineate crowns: silva
-  crowns_silva = lidR::silva2016(chm_smooth, ttops, max_cr_factor = 0.24, exclusion = 0.1)()
-  crowns_silva <- as.polygons(rast(crowns_silva))
-  crowns_silva <- st_as_sf(crowns_silva)
-  crowns_silva <- st_cast(crowns_silva, "MULTIPOLYGON")
-  crowns_silva <- st_cast(crowns_silva, "POLYGON")
-  crowns_silva <- st_remove_holes(crowns_silva)
-  crowns_silva <- st_make_valid(crowns_silva)
-  crowns_silva <- smooth(crowns_silva, method = "ksmooth", smoothness = 3)
-  crowns_silva <- st_simplify(crowns_silva, preserveTopology = TRUE, dTolerance = 0.1)
+  # NOTE: Crown delineation is currently excluded due to long compute time, but the code is left here for reference and potential future use.
+  # # Delineate crowns: silva
+  # crowns_silva = lidR::silva2016(chm_smooth, ttops, max_cr_factor = 0.24, exclusion = 0.1)()
+  # crowns_silva <- as.polygons(rast(crowns_silva))
+  # crowns_silva <- st_as_sf(crowns_silva)
+  # crowns_silva <- st_cast(crowns_silva, "MULTIPOLYGON")
+  # crowns_silva <- st_cast(crowns_silva, "POLYGON")
+  # crowns_silva <- st_remove_holes(crowns_silva)
+  # crowns_silva <- st_make_valid(crowns_silva)
+  # # Consider omitting due to long compute time: crowns_silva <- smooth(crowns_silva, method = "ksmooth", smoothness = 3)
+  # crowns_silva <- st_simplify(crowns_silva, preserveTopology = TRUE, dTolerance = 0.1)
 
-  crowns_watershed = lidR::watershed(chm_smooth, th_tree = 2, tol = 0, ext = 1)()
-  crowns_watershed <- as.polygons(rast(crowns_watershed))
-  crowns_watershed <- st_as_sf(crowns_watershed)
-  crowns_watershed <- st_cast(crowns_watershed, "MULTIPOLYGON")
-  crowns_watershed <- st_cast(crowns_watershed, "POLYGON")
-  crowns_watershed <- st_remove_holes(crowns_watershed)
-  crowns_watershed <- st_make_valid(crowns_watershed)
-  crowns_watershed <- smooth(crowns_watershed, method = "ksmooth", smoothness = 3)
-  crowns_watershed <- st_simplify(crowns_watershed, preserveTopology = TRUE, dTolerance = 0.1)
+  # crowns_watershed = lidR::watershed(chm_smooth, th_tree = 2, tol = 0, ext = 1)()
+  # crowns_watershed <- as.polygons(rast(crowns_watershed))
+  # crowns_watershed <- st_as_sf(crowns_watershed)
+  # crowns_watershed <- st_cast(crowns_watershed, "MULTIPOLYGON")
+  # crowns_watershed <- st_cast(crowns_watershed, "POLYGON")
+  # crowns_watershed <- st_remove_holes(crowns_watershed)
+  # crowns_watershed <- st_make_valid(crowns_watershed)
+  # crowns_watershed <- smooth(crowns_watershed, method = "ksmooth", smoothness = 3)
+  # crowns_watershed <- st_simplify(crowns_watershed, preserveTopology = TRUE, dTolerance = 0.1)
 
   # Crop the ttops
   ttops = st_intersection(ttops, chm_poly_buff |> st_as_sf())
 
-  # Assign crowns the treetop height and remove those that have no treetops in them
-  crowns_silva = st_join(crowns_silva, ttops)
-  crowns_silva = crowns_silva[, -1]
-  crowns_silva = crowns_silva[!is.na(crowns_silva$Z),]
+  # # Assign crowns the treetop height and remove those that have no treetops in them
+  # crowns_silva = st_join(crowns_silva, ttops)
+  # crowns_silva = crowns_silva[, -1]
+  # crowns_silva = crowns_silva[!is.na(crowns_silva$Z),]
 
-  crowns_watershed = st_join(crowns_watershed, ttops)
-  crowns_watershed = crowns_watershed[, -1]
-  crowns_watershed = crowns_watershed[!is.na(crowns_watershed$Z),]
+  # crowns_watershed = st_join(crowns_watershed, ttops)
+  # crowns_watershed = crowns_watershed[, -1]
+  # crowns_watershed = crowns_watershed[!is.na(crowns_watershed$Z),]
 
   # Write predicted treetops and crowns to the mission temp folder for uploading
   ttops_tempfile = file.path(temp_folder, paste0(mission_id, "_treetops.gpkg"))
-  crowns_watershed_tempfile = file.path(temp_folder, paste0(mission_id, "_crowns-watershed.gpkg"))
-  crowns_silva_tempfile = file.path(temp_folder, paste0(mission_id, "_crowns-silva.gpkg"))
+  # crowns_watershed_tempfile = file.path(temp_folder, paste0(mission_id, "_crowns-watershed.gpkg"))
+  # crowns_silva_tempfile = file.path(temp_folder, paste0(mission_id, "_crowns-silva.gpkg"))
 
   st_write(ttops, ttops_tempfile, delete_dsn = TRUE)
-  st_write(crowns_watershed, crowns_watershed_tempfile, delete_dsn = TRUE)
-  st_write(crowns_silva, crowns_silva_tempfile, delete_dsn = TRUE)
+  # st_write(crowns_watershed, crowns_watershed_tempfile, delete_dsn = TRUE)
+  # st_write(crowns_silva, crowns_silva_tempfile, delete_dsn = TRUE)
 
   # Remove the downloaded CHM before uploading (so it doesn't get uploaded with results)
   file.remove(temp_chm_file)
