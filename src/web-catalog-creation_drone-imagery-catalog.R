@@ -924,7 +924,7 @@ render_mission_details_page = function(
 
   # Determine if this is an oblique mission for the template
   oblique = abs(as.numeric(mission_summary_foc$camera_pitch_derived)) > 10
-  withhold_from_training = isTRUE(mission_summary_foc$withhold_from_training)
+  withhold_from_training = mission_summary_foc$withhold_from_training %in% c(TRUE, "TRUE")
 
   # Call generic function with mission-specific parameters
   render_dataset_details_page(
@@ -982,7 +982,7 @@ make_mission_details_page = function(
 
     # TODO: Instead of the above, could pull from S3 or the database directly on the fly.
 
-    # Make details map and datatable
+    # Make details map and datatable (map is for camera locations)
     mission_details_map_path = make_mission_details_map(
       mission_summary_foc = mission_summary_foc,
       mission_points_foc = mission_points_foc,
@@ -1003,7 +1003,7 @@ make_mission_details_page = function(
     # Make detected tree map, if ITD data exists and the mission is forest-focused. For now using the
     # most recent ITD folder if there are multiple.
     itd_map_path = NA
-    forest_focused = isTRUE(mission_summary_foc$forest_focused)
+    forest_focused = mission_summary_foc$forest_focused %in% c(TRUE, "TRUE")
     product_urls = compute_s3_product_urls(mission_id_foc, s3_file_listing_foc, DATA_SERVER_MISSIONS_BASE_URL)
     if (product_urls$ttops_exists && forest_focused) {
       ttops_tempfile = tempfile(fileext = ".gpkg")
@@ -1545,7 +1545,7 @@ render_composite_details_page = function(
       individual_mission_page_path_b = individual_mission_page_path_b,
       composite_details_map_path = composite_details_map_path,
       composite_details_datatable_path = composite_details_datatable_path,
-      withhold_from_training = any(composite_summary_foc$withhold_from_training %in% TRUE)
+      withhold_from_training = any(composite_summary_foc$withhold_from_training %in% c(TRUE, "TRUE"))
     )
   )
 }
@@ -1601,7 +1601,7 @@ make_composite_details_page = function(composite_id_foc,
 
   # Check for ITD data and create ITD map if exists and all constituent missions are forest-focused
   itd_map_path = NA
-  forest_focused = all(composite_summary_foc$forest_focused %in% TRUE)
+  forest_focused = all(composite_summary_foc$forest_focused %in% c(TRUE, "TRUE"))
   product_urls = compute_s3_product_urls(composite_id_foc, s3_file_listing_foc, DATA_SERVER_COMPOSITES_BASE_URL)
   if (product_urls$ttops_exists && forest_focused) {
     # Download ITD data
