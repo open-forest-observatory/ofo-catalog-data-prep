@@ -34,6 +34,39 @@ composite_polygons = st_read(COMPOSITE_POLYGONS_FILEPATH, quiet = TRUE)
 # Expected: adds a 'dbh' column (in cm) to all_trees based on the height column.
 #
 #
+
+library(cloud2trees)
+
+# Process each plot separately because the function derives the allometry for the local area of the
+# plot
+
+plots = unique(all_trees$composite_id)
+
+for (plot in plots) {
+
+  all_trees_foc = all_trees |> filter(composite_id == plot)
+  if (nrow(all_trees_foc) == 0) {
+    next
+  }
+  
+  cat("Estimating DBH for plot", plot, "with", nrow(all_trees_foc), "trees\n")
+
+  all_trees_foc_conformed = all_trees_foc |>
+    select(treeID = unique_ID, tree_height_m = height, species_prediction, live_dead_prediction)
+
+  res = trees_dbh(all_trees_foc_conformed)
+  all_trees_foc$dbh = res$fia_est_dbh_cm
+
+  ## TODO: Start building a list of all_trees_foc and then outside the loop call bind_rows() to combine them. 
+
+
+}
+
+
+
+
+
+
 #
 #
 #
@@ -42,6 +75,12 @@ composite_polygons = st_read(COMPOSITE_POLYGONS_FILEPATH, quiet = TRUE)
 #
 #
 #
+
+
+
+
+
+
 
 # Compute basal area (sq m) from DBH (cm) for each tree
 all_trees$basal_area_sqm = pi * (all_trees$dbh / 100 / 2)^2
