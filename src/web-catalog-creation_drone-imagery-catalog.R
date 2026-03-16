@@ -112,6 +112,7 @@ make_mission_catalog_datatable = function(mission_summary,
            "Contributor dataset name" = contributor_dataset_name,
            "Project" = project_id,
            "Aircraft" = aircraft_model_name,
+           "Withhold from training" = withhold_from_training,
            dataset_id) |>
     arrange(dataset_id) |>
     select(-dataset_id)
@@ -923,6 +924,7 @@ render_mission_details_page = function(
 
   # Determine if this is an oblique mission for the template
   oblique = abs(as.numeric(mission_summary_foc$camera_pitch_derived)) > 10
+  withhold_from_training = isTRUE(mission_summary_foc$withhold_from_training)
 
   # Call generic function with mission-specific parameters
   render_dataset_details_page(
@@ -938,7 +940,7 @@ render_mission_details_page = function(
     website_repo_content_path = website_repo_content_path,
     details_page_dir = mission_details_page_dir,
     display_data = display_data,
-    additional_jinjar_vars = list(oblique = oblique),
+    additional_jinjar_vars = list(oblique = oblique, withhold_from_training = withhold_from_training),
     has_post_curation_data = has_post_curation_data,
     post_curation_map_html_path = post_curation_map_html_path,
     post_curation_datatable_html_path = post_curation_datatable_html_path
@@ -998,11 +1000,12 @@ make_mission_details_page = function(
       mission_details_datatable_dir = mission_details_datatable_dir
     )
     
-    # Make detected tree map, if ITD data exists. For now using the most recent ITD folder if there
-    # are multiple.
+    # Make detected tree map, if ITD data exists and the mission is forest-focused. For now using the
+    # most recent ITD folder if there are multiple.
     itd_map_path = NA
+    forest_focused = isTRUE(mission_summary_foc$forest_focused)
     product_urls = compute_s3_product_urls(mission_id_foc, s3_file_listing_foc, DATA_SERVER_MISSIONS_BASE_URL)
-    if (product_urls$ttops_exists) {
+    if (product_urls$ttops_exists && forest_focused) {
       ttops_tempfile = tempfile(fileext = ".gpkg")
 
       download_result = tryCatch({
@@ -1541,7 +1544,8 @@ render_composite_details_page = function(
       individual_mission_page_path_a = individual_mission_page_path_a,
       individual_mission_page_path_b = individual_mission_page_path_b,
       composite_details_map_path = composite_details_map_path,
-      composite_details_datatable_path = composite_details_datatable_path
+      composite_details_datatable_path = composite_details_datatable_path,
+      withhold_from_training = any(composite_summary_foc$withhold_from_training %in% TRUE)
     )
   )
 }
@@ -1595,10 +1599,11 @@ make_composite_details_page = function(composite_id_foc,
     composite_details_datatable_dir = composite_details_datatable_dir
   )
 
-  # Check for ITD data and create ITD map if exists
+  # Check for ITD data and create ITD map if exists and all constituent missions are forest-focused
   itd_map_path = NA
+  forest_focused = all(composite_summary_foc$forest_focused %in% TRUE)
   product_urls = compute_s3_product_urls(composite_id_foc, s3_file_listing_foc, DATA_SERVER_COMPOSITES_BASE_URL)
-  if (product_urls$ttops_exists) {
+  if (product_urls$ttops_exists && forest_focused) {
     # Download ITD data
     itd_path_mostrecent = product_urls$itd_path_mostrecent
     ttops_url = product_urls$ttops_url
