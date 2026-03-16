@@ -23,6 +23,11 @@ profile: false
 
 <p style="line-height: 125%; text-align:center;"><b>This page is in beta.</b> The drone data web catalog is under active development and will continue to improve. Feel free to <a href="/about/#contact-us">contact us</a> with feedback!</p>
 
+{% if withhold_from_training -%}
+<p style="color: red; line-height: 125%; text-align:center;"><b>DATASET WITHHELD FROM ML TRAINING.</b> We have designated a stratified subset of approximately 20% of OFO datasets to be excluded from training ML models that are intended for use by the forest mapping/ML community. This is a withheld plot. For developing ML models intended for broad use, this plot is reserved for use as test data for model evaluation and intercomparison.</p>
+
+{% endif -%}
+
 {% if oblique -%}
 <p style="color: red; line-height: 125%; text-align:center;">Note: This dataset was collected using an oblique camera pitch and is intended to complement a co-located mission that was flown using a nadir camera. Any processed data products on this page were produced from the oblique dataset only and are not expected to be of high quality.</p>
 

@@ -55,7 +55,7 @@ mission_polygons = future_map(mission_polygon_files, st_read)
 mission_polygons = future_map(mission_polygons, force_all_cols_to_character)
 mission_polygons = bind_rows(mission_polygons)
 
-st_write(mission_polygons, MISSION_METADATA_FILEPATH, delete_dsn = TRUE)
+st_write(mission_polygons, POST_CURATION_MISSION_METADATA_FILEPATH, delete_dsn = TRUE) # Changed this from MISSION_METADATA_FILEPATH
 
 unlink(tempdir, recursive = TRUE, force = TRUE)
 
@@ -85,8 +85,8 @@ mission_points = future_map(mission_points, force_all_cols_to_character)
 mission_points = bind_rows(mission_points)
 
 # TODO: TEMPORARY: Override image_id to be the same as the image filename (sans extension)
-mission_points$image_id = tools::file_path_sans_ext(basename(mission_points$image_path_ofo))
+# mission_points$image_id = tools::file_path_sans_ext(basename(mission_points$image_path_ofo))
 
-st_write(mission_points, IMAGE_METADATA_FILEPATH, delete_dsn = TRUE)
+st_write(mission_points, POST_CURATION_IMAGE_METADATA_FILEPATH, delete_dsn = TRUE) # Changed this from IMAGE_METADATA_FILEPATH
 
 unlink(tempdir, recursive = TRUE, force = TRUE)
