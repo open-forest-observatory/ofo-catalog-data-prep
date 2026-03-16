@@ -48,14 +48,18 @@ detect_ttops_and_crowns = function(chm_file_foc) {
   chm_identifier = tools::file_path_sans_ext(basename(chm_file_foc))
   # Get the mission ID from the filename (the first 6 characters)
   mission_id = str_sub(basename(chm_file_foc), 1, 6)
-  # Get the photogrammetry processing run ID from the filename
-  photogrammetry_run_id = str_match(chm_file_foc, "/processed_(\\d{2})")[,2]
-  # Construct the output directory path within the object store bucket: where to upload the results
-  output_directory = paste0(REMOTE_MISSIONS_DIR, "/", mission_id, "/processed_", photogrammetry_run_id, "/", ITD_FOLDER)
+  # Derive the output directory from the CHM path: replace "full/<filename>" with the ITD folder
+  chm_parent_dir = dirname(dirname(chm_file_foc))  # e.g. "000001/photogrammetry_03"
+  output_directory = paste0(REMOTE_MISSIONS_DIR, chm_parent_dir, "/", ITD_FOLDER)
 
-  # Download the CHM from JS2 Object Store and load
+  # Create a mission-specific temp folder for all temp files (CHM download + ITD outputs)
+  random_number = sample(1:1000000, 1) |> str_pad(width = 6, pad = "0", side = "left")
+  temp_folder = file.path(TEMPDIR, paste0("itd_", mission_id, "_", random_number))
+  dir.create(temp_folder, recursive = TRUE, showWarnings = FALSE)
+
+  # Download the CHM from S3 to the temp folder
   remote_file = paste0(RCLONE_REMOTE, ":", REMOTE_MISSIONS_DIR, chm_file_foc)
-  temp_chm_file = tempfile(chm_identifier, fileext = ".tif")
+  temp_chm_file = file.path(temp_folder, basename(chm_file_foc))
   command = paste("rclone copyto", remote_file, temp_chm_file, "--progress --transfers 32 --checkers 32 --stats 1s --retries 5 --retries-sleep=15s --s3-upload-cutoff 100Mi --s3-chunk-size 100Mi --s3-upload-concurrency 16 --multi-thread-streams 2", sep = " ")
   system(command)
   chm = terra::rast(temp_chm_file)
@@ -112,11 +116,7 @@ detect_ttops_and_crowns = function(chm_file_foc) {
   crowns_watershed = crowns_watershed[, -1]
   crowns_watershed = crowns_watershed[!is.na(crowns_watershed$Z),]
 
-  # Write predicted treetops and crowns to a temp folder for uploading
-  random_number = sample(1:1000000, 1) |> str_pad(width = 6, pad = "0", side = "left")
-  temp_folder = file.path(TEMPDIR, paste0("itdtemp_", random_number))
-  dir.create(temp_folder, recursive = TRUE, showWarnings = FALSE)
-
+  # Write predicted treetops and crowns to the mission temp folder for uploading
   ttops_tempfile = file.path(temp_folder, paste0(mission_id, "_treetops.gpkg"))
   crowns_watershed_tempfile = file.path(temp_folder, paste0(mission_id, "_crowns-watershed.gpkg"))
   crowns_silva_tempfile = file.path(temp_folder, paste0(mission_id, "_crowns-silva.gpkg"))
@@ -125,15 +125,16 @@ detect_ttops_and_crowns = function(chm_file_foc) {
   st_write(crowns_watershed, crowns_watershed_tempfile, delete_dsn = TRUE)
   st_write(crowns_silva, crowns_silva_tempfile, delete_dsn = TRUE)
 
-  # Upload the results to the Object Store
-  # Construct data transfer command line call
+  # Remove the downloaded CHM before uploading (so it doesn't get uploaded with results)
+  file.remove(temp_chm_file)
+
+  # Upload the results to S3
   remote_dir = paste0(RCLONE_REMOTE, ":", output_directory)
   command = paste("rclone copy", temp_folder, remote_dir, "--progress --transfers 32 --checkers 32 --stats 1s --retries 5 --retries-sleep=15s --s3-upload-cutoff 100Mi --s3-chunk-size 100Mi --s3-upload-concurrency 16", sep = " ")
   result = system(command)
 
-
+  # Clean up all temp files for this mission
   gc()
-  file.remove(ttops_tempfile, crowns_watershed_tempfile, crowns_silva_tempfile, temp_chm_file)
   unlink(temp_folder, recursive = TRUE)
 }
 

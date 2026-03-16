@@ -19,7 +19,7 @@ get_objectstore_missions_w_chms = function() {
 
   # Filter for missions with CHms
   file_ending_options_regex = paste(EXPECTED_FILE_SUFFIXES_FULL, collapse = "|")
-  searchstring = paste0("^[0-9]{6}/processed_", PHOTOGRAMMETRY_CONFIG_ID ,"/full/[0-9]{6}(", file_ending_options_regex, ")$")
+  searchstring = paste0("^[0-9]{6}/photogrammetry_", PHOTOGRAMMETRY_CONFIG_ID ,"/full/[0-9]{6}(", file_ending_options_regex, ")$")
   chm_filepaths = listing[grepl(searchstring, listing)]
 
   return(chm_filepaths)
