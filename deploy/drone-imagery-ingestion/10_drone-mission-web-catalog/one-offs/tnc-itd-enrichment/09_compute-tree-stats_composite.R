@@ -16,7 +16,7 @@ HEATMAPS_LARGE_TREES_DIR = file.path(DELIVERABLES_DIR, "composite-missions/heatm
 
 LARGE_TREE_DBH_THRESHOLD = 30  # cm
 HEATMAP_RESOLUTION = 10  # meters
-HEATMAP_WINDOW_SIZE = 100  # meters (1 ha square)
+HEATMAP_WINDOW_SIZE = 50  # meters (1 ha square)
 
 dir.create(HEATMAPS_PINE_DIR, recursive = TRUE, showWarnings = FALSE)
 dir.create(HEATMAPS_LARGE_TREES_DIR, recursive = TRUE, showWarnings = FALSE)
@@ -40,9 +40,7 @@ all_trees$is_large = all_trees$dbh > LARGE_TREE_DBH_THRESHOLD
 
 # --- Compute per-composite summary statistics ---
 
-compute_composite_stats = function(composite_id, footprint) {
-  trees = all_trees |> filter(composite_id == !!composite_id)
-
+compute_composite_stats = function(trees, footprint) {
   if (nrow(trees) == 0) {
     return(tibble(
       tree_density_per_ha = NA_real_, tree_density_per_acre = NA_real_,
@@ -85,21 +83,18 @@ compute_composite_stats = function(composite_id, footprint) {
 
 cat("Computing per-composite summary statistics...\n")
 
-stats_list = map(seq_len(nrow(footprints)), function(i) {
-  cat("  Processing", footprints$composite_id[i], "(", i, "/", nrow(footprints), ")\n")
-  tryCatch(
-    compute_composite_stats(footprints$composite_id[i], footprints[i, ]),
-    error = function(e) {
-      cat("    WARNING: Failed:", conditionMessage(e), "\n")
-      tibble(
-        tree_density_per_ha = NA_real_, tree_density_per_acre = NA_real_,
-        basal_area_sqm_per_ha = NA_real_, basal_area_sqft_per_acre = NA_real_,
-        large_tree_density_per_ha = NA_real_, large_tree_density_per_acre = NA_real_,
-        proportion_pine = NA_real_
-      )
-    }
-  )
-})
+trees_split = split(all_trees, all_trees$composite_id)
+footprints_split = split(footprints, footprints$composite_id)
+
+# Align trees to footprints order, using empty sf for missing composites
+trees_split = trees_split[names(footprints_split)]
+empty_tree_sf = st_sf(composite_id = character(0), geometry = st_sfc(), crs = st_crs(footprints))
+trees_split[sapply(trees_split, is.null)] = list(empty_tree_sf)
+
+# Ensure they're aligned
+all(names(trees_split) == names(footprints_split))
+
+stats_list = map2(trees_split, footprints_split, compute_composite_stats, .progress = TRUE)
 
 stats_df = bind_rows(stats_list)
 footprints = bind_cols(footprints, stats_df)
@@ -116,36 +111,29 @@ cat("Generating heatmap rasters...\n")
 all_trees$pine_ba = ifelse(all_trees$is_pine & !is.na(all_trees$is_pine), all_trees$basal_area_sqm, 0)
 
 # Project trees and footprint to UTM for a given composite
-prepare_utm = function(composite_id, footprint) {
-  trees = all_trees |> filter(composite_id == !!composite_id)
-  if (nrow(trees) == 0) return(NULL)
-
-  utm_zone = floor((st_coordinates(st_centroid(footprint))[1] + 180) / 6) + 1
-  utm_crs = st_crs(paste0("+proj=utm +zone=", utm_zone, " +datum=WGS84"))
-
-  list(
-    trees = st_transform(trees, utm_crs),
-    footprint = st_transform(footprint, utm_crs),
-    crs = utm_crs
-  )
+prepare_utm = function(x) {
+  centroid = st_coordinates(st_centroid(x))
+  utm_zone = floor((centroid[1] + 180) / 6) + 1
+  epsg = 32600 + utm_zone + ifelse(centroid[2] < 0, 100, 0)
+  st_transform(x, epsg)
 }
 
 # Create a coarse (1 ha = 100 m) raster template from a UTM footprint
-make_coarse_template = function(footprint_utm, utm_crs) {
-  bbox = st_bbox(footprint_utm)
+make_coarse_template = function(footprint) {
+  bbox = st_bbox(footprint)
   rast(
     xmin = bbox["xmin"], xmax = bbox["xmax"],
     ymin = bbox["ymin"], ymax = bbox["ymax"],
     resolution = HEATMAP_WINDOW_SIZE,
-    crs = st_crs(utm_crs)$wkt
+    crs = st_crs(footprint)$wkt
   )
 }
 
 # Pine proportion heatmap (by basal area): sum pine BA / sum total BA per 1 ha cell,
 # then disaggregate to 10 m with bilinear interpolation
-generate_pine_heatmap = function(utm_data, output_path) {
-  trees_vect = vect(utm_data$trees)
-  template = make_coarse_template(utm_data$footprint, utm_data$crs)
+generate_pine_heatmap = function(trees, footprint, output_path) {
+  trees_vect = vect(trees)
+  template = make_coarse_template(footprint)
 
   pine_ba = rasterize(trees_vect, template, field = "pine_ba", fun = "sum")
   total_ba = rasterize(trees_vect, template, field = "basal_area_sqm", fun = "sum")
@@ -155,55 +143,54 @@ generate_pine_heatmap = function(utm_data, output_path) {
   factor = HEATMAP_WINDOW_SIZE / HEATMAP_RESOLUTION
   result = disagg(proportion, fact = factor, method = "bilinear")
 
-  result = mask(result, vect(utm_data$footprint))
+  result = mask(result, vect(footprint))
   writeRaster(result, output_path, overwrite = TRUE)
 }
 
 # Large tree density heatmap: count large trees per 1 ha cell (= trees/ha),
 # then disaggregate to 10 m with bilinear interpolation
-generate_large_tree_heatmap = function(utm_data, output_path) {
-  large_trees = utm_data$trees |> filter(is_large)
-  if (nrow(large_trees) == 0) {
-    # Write an empty raster
-    template = make_coarse_template(utm_data$footprint, utm_data$crs)
-    factor = HEATMAP_WINDOW_SIZE / HEATMAP_RESOLUTION
-    result = disagg(template, fact = factor)
-    result = mask(result, vect(utm_data$footprint))
-    writeRaster(result, output_path, overwrite = TRUE)
-    return()
-  }
-
-  template = make_coarse_template(utm_data$footprint, utm_data$crs)
+generate_large_tree_heatmap = function(trees, footprint, output_path) {
+  large_trees = trees |> filter(is_large)
   large_trees_vect = vect(large_trees)
+  template = make_coarse_template(footprint)
+
   count_rast = rasterize(large_trees_vect, template, fun = "length")
 
   # Each cell is 1 ha (100m x 100m), so count = density per ha
   factor = HEATMAP_WINDOW_SIZE / HEATMAP_RESOLUTION
   result = disagg(count_rast, fact = factor, method = "bilinear")
 
-  result = mask(result, vect(utm_data$footprint))
+  result = mask(result, vect(footprint))
   writeRaster(result, output_path, overwrite = TRUE)
 }
 
-for (i in seq_len(nrow(footprints))) {
-  cid = footprints$composite_id[i]
-  cat("  Heatmaps for", cid, "(", i, "/", nrow(footprints), ")\n")
+composite_ids = unique(footprints$composite_id)
 
-  tryCatch({
-    utm_data = prepare_utm(cid, footprints[i, ])
-    if (is.null(utm_data)) {
-      cat("    No trees, skipping\n")
-      next
-    }
+for (i in seq_len(length(composite_ids))) {
+  cid = composite_ids[i]
 
-    pine_path = file.path(HEATMAPS_PINE_DIR, paste0(cid, "_pine-proportion.tif"))
-    generate_pine_heatmap(utm_data, pine_path)
+  cat("  Heatmaps for", cid, "(", i, "/", length(composite_ids), ")\n")
 
-    large_path = file.path(HEATMAPS_LARGE_TREES_DIR, paste0(cid, "_large-tree-density.tif"))
-    generate_large_tree_heatmap(utm_data, large_path)
-  }, error = function(e) {
-    cat("    WARNING: Failed:", conditionMessage(e), "\n")
-  })
+  footprint = footprints |> filter(composite_id == cid)
+  trees = all_trees |> filter(composite_id == cid)
+
+  if (nrow(trees) == 0) {
+    cat("    No trees, skipping\n")
+    next
+  }
+
+  if (st_is_longlat(footprint)) {
+    footprint = prepare_utm(footprint)
+  }
+
+  trees = st_transform(trees, st_crs(footprint))
+
+  pine_path = file.path(HEATMAPS_PINE_DIR, paste0(cid, "_pine-proportion.tif"))
+  generate_pine_heatmap(trees, footprint, pine_path)
+
+  large_path = file.path(HEATMAPS_LARGE_TREES_DIR, paste0(cid, "_large-tree-density.tif"))
+  generate_large_tree_heatmap(trees, footprint, large_path)
+
 }
 
 cat("Done generating heatmaps\n")
