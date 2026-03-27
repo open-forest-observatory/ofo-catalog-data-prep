@@ -4,6 +4,7 @@
 source("deploy/drone-imagery-ingestion/00_set-constants.R")
 library(sf)
 library(cloud2trees)
+library(furrr)
 
 DELIVERABLES_DIR = "/ofo-share/project-data/tnc-yuba-deliverables"
 ALL_DETECTED_TREES_FILEPATH = file.path(DELIVERABLES_DIR, "composite-missions/overall/all-detected-trees.gpkg")
@@ -30,11 +31,16 @@ add_dbh = function(all_trees_foc) {
   all_trees_foc_conformed = all_trees_foc |>
     select(treeID = unique_ID, tree_height_m = height, species_prediction, live_dead_prediction)
 
-  res = trees_dbh(all_trees_foc_conformed)
+  res = cloud2trees::trees_dbh(all_trees_foc_conformed)
   all_trees_foc$dbh = res$fia_est_dbh_cm
 
   all_trees_foc
 }
+
+plan(multisession, workers = availableCores()/4)
+res = future_map(all_trees_by_plot, add_dbh, .progress = TRUE, .options = furrr_options(seed = TRUE, scheduling = Inf))
+
+
 
 
 # --- Save updated detected trees with DBH ---
