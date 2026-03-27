@@ -8,7 +8,8 @@ library(terra)
 
 DELIVERABLES_DIR = "/ofo-share/project-data/tnc-yuba-deliverables"
 COMPOSITE_POLYGONS_FILEPATH = file.path(DELIVERABLES_DIR, "composite-missions/overall/composite-drone-plot-summaries.gpkg")
-ALL_DETECTED_TREES_FILEPATH = file.path(DELIVERABLES_DIR, "composite-missions/overall/all-detected-trees.gpkg")
+ALL_DETECTED_TREES_WITH_DBH_FILEPATH = file.path(DELIVERABLES_DIR, "composite-missions/overall/all-detected-trees-with-dbh.gpkg")
+
 HEATMAPS_PINE_DIR = file.path(DELIVERABLES_DIR, "composite-missions/heatmaps-pine-proportion")
 HEATMAPS_LARGE_TREES_DIR = file.path(DELIVERABLES_DIR, "composite-missions/heatmaps-large-trees")
 
