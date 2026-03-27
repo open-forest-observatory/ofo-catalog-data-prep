@@ -7,6 +7,7 @@ DELIVERABLES_DIR = "/ofo-share/project-data/tnc-yuba-deliverables"
 TMP_DIR = file.path(DELIVERABLES_DIR, "tmp")
 COMPOSITES_S3_LISTING_FILEPATH = file.path(TMP_DIR, "s3-file-listing-composites.csv")
 ALL_DETECTED_TREES_FILEPATH = file.path(DELIVERABLES_DIR, "composite-missions/overall/all-detected-trees.gpkg")
+ALL_DETECTED_CROWNS_FILEPATH = file.path(DELIVERABLES_DIR, "composite-missions/overall/all-detected-tree-crowns.gpkg")
 
 # Overriding the default constants for bandaid fix to be able to specify two different
 # photogrammetry config IDs (composites vs individuals)
@@ -77,7 +78,28 @@ ttops_filepaths = map(composite_ids, find_ttops_filepath)
 names(ttops_filepaths) = composite_ids
 ttops_filepaths = compact(ttops_filepaths)
 
-cat("Found ITD data for", length(ttops_filepaths), "of", length(composite_ids), "composites\n")
+cat("Found ITD treetop data for", length(ttops_filepaths), "of", length(composite_ids), "composites\n")
+
+
+# For each composite, find the most recent crowns file
+find_crowns_filepath = function(composite_id) {
+  composite_files = composites_listing |>
+    filter(composite_id == !!composite_id)
+
+  itd_folder = get_most_recent_itd_folder(composite_files$filepath)
+  if (is.na(itd_folder)) return(NULL)
+
+  crowns_path = file.path(composite_id, paste0("photogrammetry_", COMPOSITE_PHOTOGRAMMETRY_CONFIG_ID), itd_folder, paste0(composite_id, "_detected-tree-crowns_classified.gpkg"))
+
+  if (crowns_path %in% composite_files$filepath) return(crowns_path)
+  return(NULL)
+}
+
+crowns_filepaths = map(composite_ids, find_crowns_filepath)
+names(crowns_filepaths) = composite_ids
+crowns_filepaths = compact(crowns_filepaths)
+
+cat("Found ITD crown data for", length(crowns_filepaths), "of", length(composite_ids), "composites\n")
 
 
 # --- Download and compile ---
@@ -103,3 +125,28 @@ cat("Downloaded", nrow(all_trees), "detected trees from", length(ttops_filepaths
 
 st_write(all_trees, ALL_DETECTED_TREES_FILEPATH, delete_dsn = TRUE)
 cat("Wrote all detected trees to", ALL_DETECTED_TREES_FILEPATH, "\n")
+
+
+# --- Download and compile crowns ---
+
+download_crowns = function(composite_id, filepath) {
+  url = sanitize_url(paste0(DATA_SERVER_COMPOSITES_BASE_URL, filepath))
+  sf = sf_from_url(url)
+  sf$composite_id = composite_id
+  sf
+}
+
+all_crowns = map2(
+  names(crowns_filepaths),
+  unlist(crowns_filepaths),
+  possibly(download_crowns, otherwise = NULL)
+)
+
+all_crowns = compact(all_crowns)
+all_crowns = map(all_crowns, force_all_cols_to_character)
+all_crowns = bind_rows(all_crowns)
+
+cat("Downloaded", nrow(all_crowns), "detected tree crowns from", length(crowns_filepaths), "composites\n")
+
+st_write(all_crowns, ALL_DETECTED_CROWNS_FILEPATH, delete_dsn = TRUE)
+cat("Wrote all detected tree crowns to", ALL_DETECTED_CROWNS_FILEPATH, "\n")
