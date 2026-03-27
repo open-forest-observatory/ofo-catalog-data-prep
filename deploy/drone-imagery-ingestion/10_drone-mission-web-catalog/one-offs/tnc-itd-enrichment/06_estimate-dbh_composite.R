@@ -49,10 +49,13 @@ all_trees_by_plot = split(all_trees, all_trees$composite_id)
 # --- Estimate DBH using cloud2trees ---
 
 add_dbh = function(all_trees_foc) {
+  # Re-establish sf geometry attribute after parallel serialization
+  all_trees_foc = sf::st_as_sf(all_trees_foc)
   cat("Estimating DBH for plot with", nrow(all_trees_foc), "trees\n")
 
   all_trees_foc_conformed = all_trees_foc |>
-    dplyr::select(treeID = unique_ID, tree_height_m = height, species_prediction, live_dead_prediction)
+    dplyr::select(treeID = unique_ID, tree_height_m = height, species_prediction, live_dead_prediction) |>
+    sf::st_as_sf()
 
   res = cloud2trees::trees_dbh(all_trees_foc_conformed)
   all_trees_foc$dbh = res$fia_est_dbh_cm
@@ -60,9 +63,9 @@ add_dbh = function(all_trees_foc) {
   all_trees_foc
 }
 
-# plan(multisession, workers = availableCores()/8)
-# res = future_map(all_trees_by_plot, add_dbh, .progress = TRUE, .options = furrr_options(seed = TRUE, scheduling = Inf))
-res = map(all_trees_by_plot, add_dbh, .progress = TRUE)
+plan(multisession, workers = availableCores()/4)
+res = future_map(all_trees_by_plot, add_dbh, .progress = TRUE, .options = furrr_options(seed = TRUE, scheduling = Inf))
+# res = map(all_trees_by_plot, add_dbh, .progress = TRUE)
 
 # Combine results
 all_trees_with_dbh = bind_rows(res)
