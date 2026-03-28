@@ -118,47 +118,50 @@ prepare_utm = function(x) {
   st_transform(x, epsg)
 }
 
-# Create a coarse (1 ha = 100 m) raster template from a UTM footprint
-make_coarse_template = function(footprint) {
+# Create a raster template at heatmap resolution from a UTM footprint
+make_template = function(footprint) {
   bbox = st_bbox(footprint)
   rast(
     xmin = bbox["xmin"], xmax = bbox["xmax"],
     ymin = bbox["ymin"], ymax = bbox["ymax"],
-    resolution = HEATMAP_WINDOW_SIZE,
+    resolution = HEATMAP_RESOLUTION,
     crs = st_crs(footprint)$wkt
   )
 }
 
-# Pine proportion heatmap (by basal area): sum pine BA / sum total BA per 1 ha cell,
-# then disaggregate to 10 m with bilinear interpolation
+# Pine proportion heatmap (by basal area): compute proportion at fine resolution,
+# then smooth with a moving window mean
 generate_pine_heatmap = function(trees, footprint, output_path) {
   trees_vect = vect(trees)
-  template = make_coarse_template(footprint)
+  template = make_template(footprint)
 
   pine_ba = rasterize(trees_vect, template, field = "pine_ba", fun = "sum")
   total_ba = rasterize(trees_vect, template, field = "basal_area_sqm", fun = "sum")
   proportion = pine_ba / total_ba
 
-  # Disaggregate from 100 m to 10 m with bilinear smoothing
-  factor = HEATMAP_WINDOW_SIZE / HEATMAP_RESOLUTION
-  result = disagg(proportion, fact = factor, method = "bilinear")
+  # Smooth with a moving window mean
+  window_cells = round(HEATMAP_WINDOW_SIZE / HEATMAP_RESOLUTION)
+  result = focal(proportion, w = window_cells, fun = "mean", na.rm = TRUE)
 
   result = mask(result, vect(footprint))
   writeRaster(result, output_path, overwrite = TRUE)
 }
 
-# Large tree density heatmap: count large trees per 1 ha cell (= trees/ha),
-# then disaggregate to 10 m with bilinear interpolation
+# Large tree density heatmap: count large trees at fine resolution,
+# then smooth with a moving window mean
 generate_large_tree_heatmap = function(trees, footprint, output_path) {
   large_trees = trees |> filter(is_large)
   large_trees_vect = vect(large_trees)
-  template = make_coarse_template(footprint)
+  template = make_template(footprint)
 
   count_rast = rasterize(large_trees_vect, template, fun = "length")
+  # Set cells within footprint but with no trees to 0 (not NA)
+  footprint_rast = rasterize(vect(footprint), template)
+  count_rast[!is.na(footprint_rast) & is.na(count_rast)] = 0
 
-  # Each cell is 1 ha (100m x 100m), so count = density per ha
-  factor = HEATMAP_WINDOW_SIZE / HEATMAP_RESOLUTION
-  result = disagg(count_rast, fact = factor, method = "bilinear")
+  # Smooth with a moving window mean
+  window_cells = round(HEATMAP_WINDOW_SIZE / HEATMAP_RESOLUTION)
+  result = focal(count_rast, w = window_cells, fun = "mean", na.rm = TRUE)
 
   result = mask(result, vect(footprint))
   writeRaster(result, output_path, overwrite = TRUE)
