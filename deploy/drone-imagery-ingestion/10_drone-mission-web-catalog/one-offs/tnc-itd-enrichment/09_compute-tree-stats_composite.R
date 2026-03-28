@@ -14,7 +14,7 @@ FOOTPRINTS_WITH_STATS_FILEPATH = file.path(DELIVERABLES_DIR, "composite-missions
 HEATMAPS_PINE_DIR = file.path(DELIVERABLES_DIR, "composite-missions/heatmaps-pine-proportion")
 HEATMAPS_LARGE_TREES_DIR = file.path(DELIVERABLES_DIR, "composite-missions/heatmaps-large-trees")
 
-LARGE_TREE_DBH_THRESHOLD = 30  # cm
+LARGE_TREE_DBH_THRESHOLD = 30*2.54  # cm, representing 30 inch DBH
 HEATMAP_RESOLUTION = 10  # meters
 HEATMAP_WINDOW_SIZE = 50  # meters (1 ha square)
 
@@ -26,6 +26,13 @@ dir.create(HEATMAPS_LARGE_TREES_DIR, recursive = TRUE, showWarnings = FALSE)
 
 all_trees = st_read(ALL_DETECTED_TREES_FILEPATH, quiet = TRUE)
 footprints = st_read(FOOTPRINTS_FILEPATH, quiet = TRUE)
+
+
+# --- Filter out dead trees ---
+
+all_trees = all_trees |>
+  filter(live_dead_prediction == "Live")
+
 
 
 # --- Derived columns ---
@@ -151,6 +158,15 @@ generate_pine_heatmap = function(trees, footprint, output_path) {
 # then smooth with a moving window mean
 generate_large_tree_heatmap = function(trees, footprint, output_path) {
   large_trees = trees |> filter(is_large)
+
+  if (nrow(large_trees) == 0) {
+    # If no large trees, create an empty raster with 0 values
+    template = make_template(footprint)
+    empty_rast = setValues(template, 0)
+    writeRaster(empty_rast, output_path, overwrite = TRUE)
+    return()
+  }
+
   large_trees_vect = vect(large_trees)
   template = make_template(footprint)
 
