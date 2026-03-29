@@ -115,6 +115,11 @@ analysis_ready_trees = dplyr::bind_rows(filtered_trees_list)
 analysis_ready_crowns = dplyr::bind_rows(filtered_crowns_list)
 analysis_ready_footprints = dplyr::bind_rows(footprints_list)
 
+# Temporary fixup until re-run upstream: make numeric cols numeric again
+analysis_ready_trees = analysis_ready_trees |>
+  mutate(across(c(height, ends_with("_frac_matching_mode"), ends_with("_n_preds")), as.numeric))
+
+
 cat("\nFinal counts:\n")
 cat("  Trees:", nrow(analysis_ready_trees), "\n")
 cat("  Crowns:", nrow(analysis_ready_crowns), "\n")
