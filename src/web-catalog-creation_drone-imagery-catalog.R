@@ -394,13 +394,44 @@ make_itd_map = function(itd_points,
 
   # Prepare tree points
   has_species = "species_prediction" %in% names(itd_points)
+  has_live_dead = "live_dead_prediction" %in% names(itd_points)
+
+  # Compute confidence levels before building popups
+  has_species_conf = has_species &
+    all(c("species_prediction_frac_matching_mode", "species_prediction_n_preds") %in% names(itd_points))
+  has_status_conf = has_live_dead &
+    all(c("live_dead_prediction_frac_matching_mode", "live_dead_prediction_n_preds") %in% names(itd_points))
+
+  if (has_species_conf) {
+    itd_points = itd_points |>
+      mutate(species_confidence = compute_confidence_level(
+        species_prediction_frac_matching_mode, species_prediction_n_preds))
+  }
+  if (has_status_conf) {
+    itd_points = itd_points |>
+      mutate(status_confidence = compute_confidence_level(
+        live_dead_prediction_frac_matching_mode, live_dead_prediction_n_preds))
+  }
 
   itd_points = itd_points |>
     mutate(height = round(if ("Z" %in% names(itd_points)) Z else height, 1)) |>
-    mutate(popup = paste0("<b>Height: </b>", height, " m<br>",
-                          "<b>Predicted species: </b>",
-                          if (has_species) ifelse(is.na(species_prediction), "Unknown", species_prediction)
-                          else "<i>coming soon</i>")) |>
+    mutate(popup = paste0(
+      "<b>Height: </b>", height, " m<br>",
+      "<b>Predicted species: </b>",
+      if (has_species) ifelse(is.na(species_prediction), "Unknown", species_prediction)
+      else "<i>coming soon</i>",
+      if (has_species_conf)
+        ifelse(is.na(species_confidence), "",
+               paste0(" (", species_confidence, " confidence)"))
+      else "", "<br>",
+      "<b>Status: </b>",
+      if (has_live_dead) ifelse(is.na(live_dead_prediction), "Unknown", live_dead_prediction)
+      else "<i>coming soon</i>",
+      if (has_status_conf)
+        ifelse(is.na(status_confidence), "",
+               paste0(" (", status_confidence, " confidence)"))
+      else ""
+    )) |>
     st_transform(4326)
 
   # Optoinal addl rows for popup
@@ -433,6 +464,15 @@ make_itd_map = function(itd_points,
   if (has_species) {
     pal_species = colorFactor("viridis", domain = itd_points$species_prediction, na.color = "gray")
   }
+  if (has_live_dead) {
+    pal_status = colorFactor(c("green", "sienna"), levels = c("Live", "Dead"), na.color = "gray")
+  }
+
+  # Build base groups list dynamically
+  base_groups = c()
+  if (has_species) base_groups = c(base_groups, "Species")
+  if (has_live_dead) base_groups = c(base_groups, "Status")
+  base_groups = c(base_groups, "Height")
 
   m = leaflet() |>
     addPolygons(data = bounds, group = "bounds",
@@ -442,10 +482,10 @@ make_itd_map = function(itd_points,
     addProviderTiles(providers$Esri.WorldImagery, group = "Imagery",
                      options = providerTileOptions(minZoom = 1, maxZoom = 20))
 
-  # Layers control: add base groups for color switching if species data is available
-  if (has_species) {
+  # Layers control: add base groups for color switching if multiple layers available
+  if (length(base_groups) > 1) {
     m = m |>
-      addLayersControl(baseGroups = c("Species", "Height"),
+      addLayersControl(baseGroups = base_groups,
                        overlayGroups = c("Imagery", "Topo"),
                        options = layersControlOptions(collapsed = FALSE))
   } else {
@@ -462,6 +502,7 @@ make_itd_map = function(itd_points,
                        stroke = FALSE,
                        fillOpacity = 1,
                        color = ~pal_species(species_prediction),
+                       popup = ~popup,
                        group = "Species") |>
       addLegend(pal = pal_species,
                 values = itd_points$species_prediction,
@@ -471,6 +512,23 @@ make_itd_map = function(itd_points,
                 className = "info legend Species")
   }
 
+  # Status-colored layer (if available)
+  if (has_live_dead) {
+    m = m |>
+      addCircleMarkers(data = itd_points,
+                       radius = ~height/5,
+                       stroke = FALSE,
+                       fillOpacity = 1,
+                       color = ~pal_status(live_dead_prediction),
+                       popup = ~popup,
+                       group = "Status") |>
+      addLegend(title = "Status", opacity = 1,
+                group = "Status",
+                className = "info legend Status",
+                labels = c("Live", "Dead"),
+                colors = c("green", "sienna"))
+  }
+
   # Height-colored layer
   m = m |>
     addCircleMarkers(data = itd_points,
@@ -478,15 +536,16 @@ make_itd_map = function(itd_points,
                      stroke = FALSE,
                      fillOpacity = 1,
                      color = ~pal_height(height),
+                     popup = ~popup,
                      group = "Height") |>
     addLegend(pal = pal_height,
               values = itd_points$height,
               title = "Height (m)", opacity = 1,
               group = "Height",
               className = "info legend Height") |>
-    # Invisible markers on top for popup
+    # Invisible markers with minimum radius to ensure small trees are clickable
     addCircleMarkers(data = itd_points,
-                     radius = 10,
+                     radius = ~pmax(height/5, 5),
                      stroke = FALSE,
                      fillOpacity = 0,
                      popup = ~popup,
@@ -495,7 +554,7 @@ make_itd_map = function(itd_points,
     hideGroup("Topo")
 
   # Legend toggle JS only needed when there are multiple base layers
-  if (has_species) {
+  if (length(base_groups) > 1) {
     m = m |> js_for_legend()
   }
 
@@ -1602,7 +1661,11 @@ make_composite_details_page = function(composite_id_foc,
   # Check for ITD data and create ITD map if exists and all constituent missions are forest-focused
   itd_map_path = NA
   forest_focused = all(composite_summary_foc$forest_focused %in% c(TRUE, "TRUE"))
-  product_urls = compute_s3_product_urls(composite_id_foc, s3_file_listing_foc, DATA_SERVER_COMPOSITES_BASE_URL)
+  product_urls = compute_s3_product_urls(
+    dataset_id = composite_id_foc,
+    s3_file_listing_foc = s3_file_listing_foc,
+    data_server_base_url = DATA_SERVER_COMPOSITES_BASE_URL
+  )
   if (product_urls$ttops_exists && forest_focused) {
     # Download ITD data
     itd_path_mostrecent = product_urls$itd_path_mostrecent
