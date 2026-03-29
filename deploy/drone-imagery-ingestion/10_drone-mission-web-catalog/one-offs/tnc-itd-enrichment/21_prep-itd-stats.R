@@ -13,6 +13,10 @@ ground_trees = st_read("/ofo-share/project-data/tnc-yuba-deliverables/ground-ref
 # inches, probalby should be 35.2 inches, which is 89.408, so make this correction
 ground_trees[ground_trees$plot_id == "0108" & ground_trees$dbh == 894.08, "dbh"] = 89.408
 
+# Plot 42 tree with DBH 82.296 also appears erroneous because its height is very short for that
+# diameter and there are no defects recorded, so remove it
+ground_trees = ground_trees |> filter(!(plot_id == "0042" & dbh == 82.296))
+
 
 yuba_missions = yuba_missions_list |>
   filter(group == "yuba") |>
