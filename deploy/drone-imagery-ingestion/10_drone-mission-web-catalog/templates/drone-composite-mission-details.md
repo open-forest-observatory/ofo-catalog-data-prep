@@ -93,7 +93,7 @@ This composite mission combines two overlapping drone missions flown at differen
 
 ## Point cloud
 
-Preview in development. For now, you can paste [this url]({* pc_url_full *}) into a point cloud viewer like [Eptium](https://viewer.copc.io/).
+View in [interactive point cloud viewer](https://viewer.copc.io/?copc={* pc_url_full *}). 
 
 [Download full point cloud]({* pc_url_full *})
 

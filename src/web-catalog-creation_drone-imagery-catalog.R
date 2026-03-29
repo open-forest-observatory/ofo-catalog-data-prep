@@ -417,14 +417,14 @@ make_itd_map = function(itd_points,
     mutate(height = round(if ("Z" %in% names(itd_points)) Z else height, 1)) |>
     mutate(popup = paste0(
       "<b>Height: </b>", height, " m<br>",
-      "<b>Predicted species: </b>",
+      "<b>Species prediction: </b>",
       if (has_species) ifelse(is.na(species_prediction), "Unknown", species_prediction)
       else "<i>coming soon</i>",
       if (has_species_conf)
         ifelse(is.na(species_confidence), "",
                paste0(" (", species_confidence, " confidence)"))
       else "", "<br>",
-      "<b>Status: </b>",
+      "<b>Status prediction: </b>",
       if (has_live_dead) ifelse(is.na(live_dead_prediction), "Unknown", live_dead_prediction)
       else "<i>coming soon</i>",
       if (has_status_conf)
@@ -465,7 +465,7 @@ make_itd_map = function(itd_points,
     pal_species = colorFactor("viridis", domain = itd_points$species_prediction, na.color = "gray")
   }
   if (has_live_dead) {
-    pal_status = colorFactor(c("green", "sienna"), levels = c("Live", "Dead"), na.color = "gray")
+    pal_status = colorFactor(c("#228B22", "#8B3E2F"), levels = c("Live", "Dead"), na.color = "gray")
   }
 
   # Build base groups list dynamically
@@ -522,11 +522,12 @@ make_itd_map = function(itd_points,
                        color = ~pal_status(live_dead_prediction),
                        popup = ~popup,
                        group = "Status") |>
-      addLegend(title = "Status", opacity = 1,
+      addLegend(pal = pal_status,
+                values = itd_points$live_dead_prediction,
+                title = "Status", opacity = 1,
+                na.label = "Unknown",
                 group = "Status",
-                className = "info legend Status",
-                labels = c("Live", "Dead"),
-                colors = c("green", "sienna"))
+                className = "info legend Status")
   }
 
   # Height-colored layer
