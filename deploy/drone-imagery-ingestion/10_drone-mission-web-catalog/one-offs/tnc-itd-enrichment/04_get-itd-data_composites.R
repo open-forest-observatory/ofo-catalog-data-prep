@@ -121,6 +121,11 @@ all_trees = compact(all_trees)
 all_trees = map(all_trees, force_all_cols_to_character)
 all_trees = bind_rows(all_trees)
 
+# Make numeric cols numeric again
+all_trees = all_trees |>
+  mutate(across(c(height, ends_with("_frac_matching_mode"), ends_with("_n_preds")), as.numeric))
+
+
 cat("Downloaded", nrow(all_trees), "detected trees from", length(ttops_filepaths), "composites\n")
 
 st_write(all_trees, ALL_DETECTED_TREES_FILEPATH, delete_dsn = TRUE)
