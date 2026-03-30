@@ -179,6 +179,10 @@ generate_large_tree_heatmap = function(trees, footprint, output_path) {
   window_cells = round(HEATMAP_WINDOW_SIZE / HEATMAP_RESOLUTION)
   result = focal(count_rast, w = window_cells, fun = "mean", na.rm = TRUE)
 
+  # Convert from trees per grid cell to trees per hectare
+  cell_area_ha = (HEATMAP_RESOLUTION^2) / 10000
+  result = result / cell_area_ha
+
   result = mask(result, vect(footprint))
   writeRaster(result, output_path, overwrite = TRUE)
 }
