@@ -1,4 +1,5 @@
 # Read in the already-generated ITD stats CSV, filter to focal Yuba plots, and summarize/visualize
+# TODO: Clarify the difference between the two stats data frames saved
 
 library(tidyverse)
 library(sf)
@@ -253,4 +254,11 @@ dev.off()
 # Save comparison table
 write_csv(stats_comparison, "/ofo-share/project-data/tnc-yuba-deliverables/tables/itd_ground_vs_drone_comparison.csv")
 
+# Get the mean F score, precision, and recall
+mean_scores = tibble(
+  mean_F1 = mean(stats_comparison$F1, na.rm = TRUE),
+  mean_precision = mean(stats_comparison$precision, na.rm = TRUE),
+  mean_recall = mean(stats_comparison$recall, na.rm = TRUE)
+)
+mean_scores
 

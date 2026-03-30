@@ -5,11 +5,13 @@ library(tidyverse)
 library(ceramic)
 library(tidyterra)
 library(rnaturalearth)
+library(patchwork)
 
 DELIVERABLES_DIR = "/ofo-share/project-data/tnc-yuba-deliverables"
 
 YUBA_BOUNDARY_FILEPATH   = file.path(DELIVERABLES_DIR, "raw-input/north_yuba_area.kml")
 FOOTPRINTS_FILEPATH      = file.path(DELIVERABLES_DIR, "composite-missions/footprint-boundaries-delivery/composite-drone-plot-summaries_yuba.gpkg")
+DETECTED_TREE_SUMMARY_FILEPATH  = file.path(DELIVERABLES_DIR, "composite-missions/footprint-boundaries-delivery/composite-drone-detected-tree-stats_yuba.gpkg")
 NADIR_MISSIONS_FILEPATH  = file.path(DELIVERABLES_DIR, "composite-missions/footprint-boundaries-delivery/individual-drone-plot-summaries_yuba.gpkg")
 GROUND_PLOTS_FILEPATH    = file.path(DELIVERABLES_DIR, "ground-reference-delivery/ofo_ground-reference_plots_yuba.gpkg")
 
@@ -123,3 +125,54 @@ total_nadir_area_ha = sum(st_area(nadir_missions)) / 10000
 average_nadir_area_ha = mean(st_area(nadir_missions)) / 10000
 cat("Total area covered by nadir missions:", round(total_nadir_area_ha, 2), "ha\n")
 cat("Average area covered per nadir mission:", round(average_nadir_area_ha, 2), "ha\n")
+
+
+## ------------
+
+detected_tree_summary = st_read(DETECTED_TREE_SUMMARY_FILEPATH)
+
+HISTOGRAMS_FILEPATH = file.path(FIGURES_DIR, "histograms_forest-structure.png")
+
+p_ba = ggplot(detected_tree_summary, aes(x = basal_area_sqm_per_ha)) +
+  geom_histogram(binwidth = 5, fill = "#2c7bb6", color = "white") +
+  labs(
+    title = "Basal area",
+    x = "Basal area (sq m / ha)",
+    y = "Number of missions"
+  ) +
+  theme_bw(22)
+
+p_ltd = ggplot(detected_tree_summary, aes(x = large_tree_density_per_ha)) +
+  geom_histogram(binwidth = 5, fill = "#2c7bb6", color = "white") +
+  labs(
+    title = "Large tree density",
+    x = "Large tree density (trees / ha)",
+    y = "Number of missions"
+  ) +
+  theme_bw(22)
+
+p_pp = ggplot(detected_tree_summary, aes(x = proportion_pine * 100)) +
+  geom_histogram(binwidth = 5, fill = "#2c7bb6", color = "white") +
+  labs(
+    title = "Pine proportion",
+    x = "Pine proportion (%)",
+    y = "Number of missions"
+  ) +
+  theme_bw(22)
+
+p_cc = ggplot(footprints, aes(x = canopy_cover * 100)) +
+  geom_histogram(binwidth = 5, fill = "#2c7bb6", color = "white") +
+  labs(
+    title = "Canopy cover",
+    x = "Canopy cover (%)",
+    y = "Number of missions"
+  ) +
+  theme_bw(22)
+
+p_combined = (p_ba | p_ltd) / (p_pp | p_cc)
+
+png(filename = HISTOGRAMS_FILEPATH, width = 20, height = 10, units = "in", res = 200)
+print(p_combined)
+dev.off()
+
+cat("Saved forest structure histograms to", HISTOGRAMS_FILEPATH, "\n")
