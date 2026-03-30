@@ -177,7 +177,7 @@ PHOTOGRAMMETRY_POSTPROCESSED_SUBDIR = "07_photogrammetry-outputs-postprocessed"
 
 # The photogrammetry base config file in BASE_METASHAPE_CONFIG_SUBPATH should have the following ID
 # as its filename (with a .yml extension)
-PHOTOGRAMMETRY_CONFIG_ID = "03"
+PHOTOGRAMMETRY_CONFIG_ID = "01"
 
 # The number of chunks to break the photogrammetry processing into (one chunk for each instance)
 N_CHUNKS_PHOTOGRAMMETRY = 24

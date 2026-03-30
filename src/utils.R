@@ -13,6 +13,21 @@ drop_units_if_present = function(x) {
   }
 }
 
+# Compute a confidence level (Low, Medium, High) from the fraction of predictions matching the
+# mode and the number of predictions. Logic:
+#   - <= 3 preds: always Low
+#   - > 3 preds: frac cutoffs at 0.55/0.85 but High becomes Medium, Medium becomes Low
+#   - > 7 preds: frac cutoffs at 0.55/0.85 map directly to Low/Medium/High
+compute_confidence_level = function(frac, n_preds) {
+  dplyr::case_when(
+    is.na(frac) | is.na(n_preds) ~ NA_character_,
+    n_preds <= 3              ~ "low",
+    n_preds > 3 & frac < 0.55  ~ "low",
+    n_preds > 3 & frac < 0.85  ~ ifelse(n_preds > 7, "medium", "low"),
+    n_preds > 3 & frac >= 0.85 ~ ifelse(n_preds > 7, "high", "medium")
+  )
+}
+
 ### **** UTILS from below this line were copied from the ofo-r repo ****
 
 # Reproject a sf object into the CRS representing its local UTM zone
