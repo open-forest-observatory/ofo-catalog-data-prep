@@ -185,8 +185,30 @@ summarize_trees_by_plot = function(trees_clean) {
     # if no trees with DBH measured, set BA to NA instead of 0
     mutate(ba_tot = ifelse(ba_tot == 0, NA, ba_tot))
 
+  # For plots where no tree has either a DBH or a height measurement, there is no size to compute
+  # species proportions from, so for the purpose of determining the top species only (not for any
+  # reported plot- or tree-level attribute), treat every tree in such a plot as 20 m tall, which
+  # makes the species proportions effectively proportions by tree count
+  trees_for_top_species = trees_clean |>
+    group_by(plot_id) |>
+    mutate(no_size_measured = all(is.na(dbh)) & all(is.na(height))) |>
+    ungroup() |>
+    mutate(height = ifelse(no_size_measured, 20, height),
+           size = ifelse(no_size_measured, 20, size)) |>
+    select(-no_size_measured)
+
+  # Plot-level totals matching the (possibly substituted) tree sizes above
+  tree_summ_for_top_species = trees_for_top_species |>
+    group_by(plot_id) |>
+    summarize(n_trees = n(),
+              ba_tot = sum(ba, na.rm = TRUE),
+              ht_tot = sum(height, na.rm = TRUE),
+              size_tot = sum(size, na.rm = TRUE)) |>
+    # if no trees with DBH measured, set BA to NA instead of 0
+    mutate(ba_tot = ifelse(ba_tot == 0, NA, ba_tot))
+
   # Add summarized plot-level tree data to tree-level table to enable computing proportions
-  trees_w_summ = left_join(tree_summ, trees_clean, by = "plot_id") |>
+  trees_w_summ = left_join(tree_summ_for_top_species, trees_for_top_species, by = "plot_id") |>
     rename(n_trees_plot = n_trees,
            ba_plot = ba_tot,
            ht_plot = ht_tot,
@@ -362,6 +384,17 @@ prep_trees_for_stem_map = function(trees, plot_summary) {
   trees_map = trees |>
     left_join(plot_summary, by = "plot_id")
 
+  # For plots where no tree has either a DBH or a height measurement, there is no size to scale the
+  # map point sizes by, so give every tree in such a plot a nominal size of 20 (which renders them
+  # all at the same mid-range point size). This is used only for point rendering; the DBH and
+  # height displayed in the popup and the data tables are left as-is (missing).
+  trees_map = trees_map |>
+    group_by(plot_id) |>
+    mutate(no_size_measured = all(is.na(dbh)) & all(is.na(height))) |>
+    ungroup() |>
+    mutate(size = ifelse(no_size_measured, 20, size)) |>
+    select(-no_size_measured)
+
   return(trees_map)
 
 }
@@ -369,10 +402,12 @@ prep_trees_for_stem_map = function(trees, plot_summary) {
 # Scale tree point sizes so they look nice on the leaflet map
 rescale_size = function(x, min_size = 5, max_size = 20) {
 
-  # If there's only one tree, the math below won't work, so just return the mean of the min and max
-  # disaplay sizes
-  if(length(x) == 1) {
-    return(mean(c(min_size, max_size)))
+  # If there's only one tree, or all the trees are the same size (including the case where no tree
+  # sizes were measured), the math below won't work, so just return the mean of the min and max
+  # display sizes
+  if(length(x) == 1 || all(is.na(x)) ||
+     isTRUE(all.equal(min(x, na.rm = TRUE), max(x, na.rm = TRUE)))) {
+    return(rep(mean(c(min_size, max_size)), length(x)))
   }
 
   x = (x - min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))
