@@ -1,5 +1,5 @@
-# Purpose: For all CHMs within a specified mission ID range, detect treetops and save results to a
-# file.
+# Purpose: For each focal-area polygon (one per CHM mission), crop the corresponding CHM to that
+# focal area, detect treetops, and save the results to a file.
 
 library(tidyverse)
 library(sf)
@@ -7,12 +7,19 @@ library(lidR)
 library(terra)
 library(nngeo)
 library(smoothr)
+library(furrr)
 
 ## Set constants
 # source("deploy/drone-imagery-ingestion/00_set-constants.R")
 
-CHM_FOLDER = "/home/derek/repo-data-local/calfire2027-proposal-prep/chms"
-ITD_FOLDER = "/home/derek/repo-data-local/calfire2027-proposal-prep/itd"
+CHM_FOLDER = "/ofo-share/scratch/derek/calfire-2027-proposal-prep/chms"
+ITD_FOLDER = "/ofo-share/scratch/derek/calfire-2027-proposal-prep/itd"
+FOCAL_AREAS_FILE = "/ofo-share/scratch/derek/calfire-2027-proposal-prep/focal-areas/focal-areas-calfireprop.gpkg"
+
+# Distance (m) to buffer the focal-area polygon outward before cropping the CHM, so tree detection
+# has real CHM context beyond the focal boundary (avoiding edge artifacts). Detected treetops are
+# clipped back to the unbuffered focal polygon.
+FOCAL_BUFFER = 10
 
 ## Functions
 
@@ -54,17 +61,29 @@ LMF_C = 0
 LMF_DIAM_MIN = 0.5
 LMF_DIAM_MAX = 100
 
-# For debugging
-chm_file_foc = chm_paths[1]
+# Detect treetops within a single focal-area polygon, using the CHM for that polygon's mission ID.
+# `mission_id` is the integer mission ID; `focal_areas` is the full sf of focal-area polygons.
+detect_ttops_and_crowns = function(mission_id, focal_areas) {
 
-detect_ttops_and_crowns = function(chm_file_foc) {
+  # CHM filenames use a zero-padded 6-digit mission ID
+  mission_id_padded = sprintf("%06d", mission_id)
+  chm_file_foc = file.path(CHM_FOLDER, paste0(mission_id_padded, "_chm-mesh.tif"))
 
-  chm_identifier = tools::file_path_sans_ext(basename(chm_file_foc))
-  # Get the mission ID from the filename (the first 6 characters)
-  mission_id = str_sub(basename(chm_file_foc), 1, 6)
+  if (!file.exists(chm_file_foc)) {
+    warning("No CHM found for mission ", mission_id_padded, " at ", chm_file_foc, "; skipping.")
+    return(invisible(NULL))
+  }
+
+  # The focal-area polygon for this mission
+  focal = focal_areas[focal_areas$mission_id == mission_id, ]
 
   chm = terra::rast(chm_file_foc)
 
+  # Reproject the focal polygon to the CHM's CRS, then crop and mask the CHM to the focal area
+  # (buffered outward so detection has context beyond the focal boundary)
+  focal = st_transform(focal, terra::crs(chm))
+  focal_buff = st_buffer(focal, FOCAL_BUFFER)
+  chm = terra::crop(chm, terra::vect(focal_buff), mask = TRUE)
 
   # Prep the CHM
   chm_smooth = resample_and_smooth_chm(chm, CHM_RES, CHM_SMOOTH_WIDTH)
@@ -75,29 +94,22 @@ detect_ttops_and_crowns = function(chm_file_foc) {
   # Extract tree height from the non-smoothed CHM
   ttops$Z = extract(chm, ttops)[,2]
 
-  # For removing edge trees:
-  # Get the bounds of the CHM
-  chm_non_na = chm
-  chm_non_na[!is.na(chm)] = 1
-  chm_poly = as.polygons(chm_non_na, values = FALSE)
-
-  # Buffer in by 10 m
-  chm_poly_buff = buffer(chm_poly, width = -10)
-
   # NOTE: Crown delineation is currently excluded due to long compute time, but the code is left here for reference and potential future use.
-  # Delineate crowns: silva
-  crowns_silva = lidR::silva2016(chm_smooth, ttops, max_cr_factor = 0.24, exclusion = 0.1)()
-  crowns_silva <- as.polygons(rast(crowns_silva))
+  # # Delineate crowns: silva
+  crowns_silva = lidR::silva2016(chm_smooth, ttops, max_cr_factor = 0.24, exclusion = 0.2)()
+  crowns_silva <- as.polygons(crowns_silva)
   crowns_silva <- st_as_sf(crowns_silva)
+  # crowns_silva <- st_simplify(crowns_silva, preserveTopology = TRUE, dTolerance = 0.1)
   crowns_silva <- st_cast(crowns_silva, "MULTIPOLYGON")
   crowns_silva <- st_cast(crowns_silva, "POLYGON")
   crowns_silva <- st_remove_holes(crowns_silva)
   crowns_silva <- st_make_valid(crowns_silva)
-  # Consider omitting due to long compute time: crowns_silva <- smooth(crowns_silva, method = "ksmooth", smoothness = 3)
-  # crowns_silva <- st_simplify(crowns_silva, preserveTopology = TRUE, dTolerance = 0.1)
+  crowns_silva <- smooth(crowns_silva, method = "ksmooth", smoothness = 3)
+  crowns_silva <- st_simplify(crowns_silva, preserveTopology = TRUE, dTolerance = 0.1)
 
+  # Delineate crowns: watershed
   crowns_watershed = lidR::watershed(chm_smooth, th_tree = 2, tol = 0, ext = 1)()
-  crowns_watershed <- as.polygons(rast(crowns_watershed))
+  crowns_watershed <- as.polygons(crowns_watershed)
   crowns_watershed <- st_as_sf(crowns_watershed)
   crowns_watershed <- st_cast(crowns_watershed, "MULTIPOLYGON")
   crowns_watershed <- st_cast(crowns_watershed, "POLYGON")
@@ -106,43 +118,33 @@ detect_ttops_and_crowns = function(chm_file_foc) {
   crowns_watershed <- smooth(crowns_watershed, method = "ksmooth", smoothness = 3)
   crowns_watershed <- st_simplify(crowns_watershed, preserveTopology = TRUE, dTolerance = 0.1)
 
-  # Crop the ttops
-  ttops = st_intersection(ttops, chm_poly_buff |> st_as_sf())
+  # Clip the treetops and crowns to the (unbuffered) focal-area polygon
+  ttops = st_intersection(ttops, focal)
+  crowns_silva = st_intersection(crowns_silva, focal)
+  crowns_watershed = st_intersection(crowns_watershed, focal)
 
-  # # Assign crowns the treetop height and remove those that have no treetops in them
-  # crowns_silva = st_join(crowns_silva, ttops)
-  # crowns_silva = crowns_silva[, -1]
-  # crowns_silva = crowns_silva[!is.na(crowns_silva$Z),]
-
-  # crowns_watershed = st_join(crowns_watershed, ttops)
-  # crowns_watershed = crowns_watershed[, -1]
-  # crowns_watershed = crowns_watershed[!is.na(crowns_watershed$Z),]
-
-  # Write predicted treetops and crowns to the mission temp folder for uploading
-  ttops_outfile = file.path(ITD_FOLDER, paste0(mission_id, "_treetops.gpkg"))
-  # crowns_watershed_tempfile = file.path(temp_folder, paste0(mission_id, "_crowns-watershed.gpkg"))
-  # crowns_silva_tempfile = file.path(temp_folder, paste0(mission_id, "_crowns-silva.gpkg"))
+  # Write predicted treetops and crowns to the ITD folder
+  if (!dir.exists(ITD_FOLDER)) dir.create(ITD_FOLDER, recursive = TRUE)
+  ttops_outfile = file.path(ITD_FOLDER, paste0(mission_id_padded, "_treetops.gpkg"))
+  crowns_silva_outfile = file.path(ITD_FOLDER, paste0(mission_id_padded, "_crowns-silva.gpkg"))
+  crowns_watershed_outfile = file.path(ITD_FOLDER, paste0(mission_id_padded, "_crowns-watershed.gpkg"))
 
   st_write(ttops, ttops_outfile, delete_dsn = TRUE)
-  # st_write(crowns_watershed, crowns_watershed_tempfile, delete_dsn = TRUE)
-  # st_write(crowns_silva, crowns_silva_tempfile, delete_dsn = TRUE)
+  st_write(crowns_silva, crowns_silva_outfile, delete_dsn = TRUE)
+  st_write(crowns_watershed, crowns_watershed_outfile, delete_dsn = TRUE)
 
   gc()
 }
 
 
-chm_paths = c(
-  "000047_chm-mesh.tif",
-  "000073_chm-mesh.tif",
-  "000404_chm-mesh.tif",
-  "001171_chm-mesh.tif",
-  "001406_chm-mesh.tif",
-  "001468_chm-mesh.tif"
+# Read the focal-area polygons (one per CHM mission, identified by the mission_id field)
+focal_areas = st_read(FOCAL_AREAS_FILE, quiet = TRUE)
+
+# Process each focal area / mission
+future_walk(
+  focal_areas$mission_id,
+  detect_ttops_and_crowns,
+  focal_areas = focal_areas,
+  .progress = TRUE,
+  .options = furrr_options(scheduling = Inf)
 )
-
-chm_paths = file.path(CHM_FOLDER, chm_paths)
-
-chm_paths = chm_paths[1]
-
-# Process each CHM
-future_walk(chm_paths, detect_ttops_and_crowns, .progress = TRUE, .options = furrr_options(scheduling = Inf))
