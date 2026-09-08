@@ -11,16 +11,17 @@ library(DT)
 library(jinjar)
 
 source(file.path("src", "web-catalog-creation_ground-ref-data.R"))
+source(file.path("src", "web-catalog-creation_shared-functions.R"))
 
-PLOT_BOUNDARIES_PATH = "~/Documents/repo-data-local/ofo-catalog-data-prep/field-plot-boundaries"
+PLOT_BOUNDARIES_PATH = "/ofo-share/project-data/TEMP_catalog-data-prep/field-plot-boundaries/field-plot-boundaries"
 GOOGLE_SHEET_ID = "1GjDseDCR1BX_EIkJAni7rk2zvK6nHmZz1nOFBd1d6k4"
 
 BASE_OFO_URL = "https://openforestobservatory.org/"
 #BASE_OFO_URL = "http://localhost:1313/"
-WEBSITE_REPO_PATH = "~/repos/ofo-website-3/"
+WEBSITE_REPO_PATH = "/ofo-share/repos/derek/ofo-catalog-data-prep/ofo-website-3/"
 
 # Path to the plot details template page within theis repo
-PLOT_DETAILS_TEMPLATE_FILEPATH = fs::path(file.path("sandbox", "ground-ref-data", "templates", "ground-ref-plot-details.md"))
+PLOT_DETAILS_TEMPLATE_FILEPATH = fs::path(file.path("deploy", "ground-ref-data", "templates", "ground-ref-plot-details.md"))
 
 # Path to plot details dir relative to the 'content' dir in the website repo. No leading slash but
 # trailing slash
@@ -36,6 +37,7 @@ PLOT_CATALOG_MAP_DIR = "/ground-plot-catalog-map/"
 PLOT_CATALOG_MAP_FILENAME = "ground-plot-catalog-map.html"
 PLOT_DETAILS_DATATABLE_DIR = "/ground-plot-details-datatables"
 PLOT_DETAILS_MAP_DIR = "/ground-plot-details-maps"
+ITD_MAP_DIR = "/itd-maps"
 
 WEBSITE_STATIC_PATH = file.path(WEBSITE_REPO_PATH, "static", "")
 WEBSITE_CONTENT_PATH = file.path(WEBSITE_REPO_PATH, "content", "")
@@ -114,6 +116,7 @@ reset_detail_dirs(WEBSITE_STATIC_PATH,
                        WEBSITE_CONTENT_PATH,
                        PLOT_DETAILS_PAGE_DIR,
                        PLOT_DETAILS_MAP_DIR,
+                       ITD_MAP_DIR,
                        PLOT_DETAILS_DATATABLE_DIR)
 
 trees_vis = prep_trees_for_stem_map(trees_for_plot_summary, plot_summary)
