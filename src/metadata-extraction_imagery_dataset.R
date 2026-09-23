@@ -190,8 +190,8 @@ extract_dates_times = function(metadata) {
   single_date = length(unique(lubridate::as_date(datetime))) == 1
 
   # Compute earliest and latest dates
-  earliest_datetime_obj = min(datetime)
-  latest_datetime_obj = max(datetime)
+  earliest_datetime_obj = min(datetime, na.rm = TRUE)
+  latest_datetime_obj = max(datetime, na.rm = TRUE)
 
   # Compute different string representations
   earliest_datetime = earliest_datetime_obj |> format("%Y-%m-%d %H:%M:%S")
