@@ -214,11 +214,19 @@ make_mission_details_map = function(mission_summary_foc,
     # Create a column "hours elapsed since mission start" for legend coloring
     mutate(time_secs = as.numeric(datetime_local))
 
-  initial_time = min(mission_points_foc$time_secs)
+
+
+
+  initial_time = min(mission_points_foc$time_secs, na.rm = TRUE)
 
   mission_points_foc = mission_points_foc |>
-    mutate(hours_elapsed = (time_secs - initial_time)/60/60) |>
+    mutate(hours_elapsed = (time_secs - initial_time) / 60 / 60)
+
+  # Fix situation where the datetime_local is NA (unsure why, corrupted? TODO should fix upstream?).
+  mission_points_foc[is.na(mission_points_foc$hours_elapsed), "hours_elapsed"] = 0
+
     # Create a popup text
+  mission_points_foc = mission_points_foc |>
     mutate(popup = paste0("<b>Image ID: </b>", image_id, "<br>"))
 
   # Optoinal addl rows for popup

@@ -335,6 +335,7 @@ extract_imagery_perimage_metadata = function(exif, platform_name, plot_flightpat
     "Phantom 4 Pro v2.0",
     "Phantom 4 Advanced",
     "Mavic 3 Multispectral",
+    "Mavic 3 Enterprise",
     "Phantom 4 RTK",
     "Phantom 4 Standard",
     "Matrice 210 RTK",

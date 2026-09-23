@@ -28,10 +28,10 @@ source("src/web-catalog-creation_drone-imagery-catalog.R")
 # ============================================================================
 
 cat("Loading mission metadata...\n")
-mission_polygons_w_metadata = st_read(MISSION_METADATA_FILEPATH, quiet = TRUE)
+mission_polygons_w_metadata = st_read(FULL_METADATA_PER_MISSION_COMBINED_FILEPATH, quiet = TRUE)
 
 cat("Loading primary image metadata...\n")
-primary_image_points = st_read(IMAGE_METADATA_FILEPATH, quiet = TRUE)
+primary_image_points = st_read(FULL_METADATA_PER_IMAGE_COMBINED_FILEPATH, quiet = TRUE)
 
 # Load post-curation metadata if available (for side-by-side comparison on curation pages)
 post_curation_mission_metadata = NULL
@@ -65,6 +65,8 @@ secondary_image_points = NULL
 if (nzchar(SECONDARY_IMAGE_METADATA_FILEPATH) && file.exists(SECONDARY_IMAGE_METADATA_FILEPATH)) {
   cat("Loading secondary image metadata...\n")
   secondary_image_points = st_read(SECONDARY_IMAGE_METADATA_FILEPATH, quiet = TRUE)
+} else {
+  cat("No secondary image metadata found at:", SECONDARY_IMAGE_METADATA_FILEPATH, "\n")
 }
 
 # Load override list if specified (not empty string and file exists)
@@ -163,6 +165,11 @@ cat(sprintf("Processing %d missions\n", length(mission_ids)))
 # ============================================================================
 
 cat("Creating mission catalog map and datatable...\n")
+
+# Populate a "withhold from training" column but set it to FALSE for all missions since it doesn't
+# matter for curation and this allows us to re-used the same function as for the public catalog
+mission_summary$withhold_from_training = FALSE
+
 
 # Make HTML datatable of mission catalog
 dt = make_mission_catalog_datatable(
@@ -326,7 +333,7 @@ if (!dir.exists(mission_details_content_dir)) {
 }
 
 # Set up parallel processing
-plan(multisession, workers = parallel::detectCores()*2)
+plan(multisession, workers = min(c(parallel::detectCores() * 2, 120)))
 
 # Process missions in parallel with progress reporting
 future_walk(
