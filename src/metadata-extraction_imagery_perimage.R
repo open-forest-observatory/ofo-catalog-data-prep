@@ -181,7 +181,8 @@ extract_pitch_roll_yaw = function(exif,
     "Phantom 4 Standard",
     "Matrice 210 RTK",
     "Matrice 100",
-    "Matrice 300"
+    "Matrice 300",
+    "Mavic 3 Enterprise",
   )
 
   camera_pitch = dplyr::case_when(

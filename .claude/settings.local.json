@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//ofo-share/project-data/tnc-yuba-deliverables/tmp/**)"
+    ]
+  }
+}
