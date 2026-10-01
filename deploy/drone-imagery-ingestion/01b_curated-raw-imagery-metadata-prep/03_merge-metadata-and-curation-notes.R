@@ -247,7 +247,7 @@ merge_metadata_for_mission = function(mission_foc) {
 # Run for all missions
 # ============================================================================
 
-future::plan(multisession(workers = future::availableCores() * 3))
+future::plan(multisession(workers = min(c(future::availableCores() * 2), 120)))
 results = future_map_lgl(missions_to_process, merge_metadata_for_mission, .progress = TRUE)
 
 cat(sprintf("\nMerged metadata for %d missions successfully\n", sum(results)))

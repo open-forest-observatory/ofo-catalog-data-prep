@@ -342,7 +342,7 @@ filter_and_save_mission = function(mission_id_foc) {
 }
 
 # Process all missions in parallel
-future::plan(multisession(workers = future::availableCores()*3))
+future::plan(multisession(workers = min(c(future::availableCores() * 3), 120)))
 results = future_map_lgl(all_missions_to_process, filter_and_save_mission, .progress = TRUE)
 
 cat(sprintf("\nFiltered %d missions successfully\n", sum(results)))

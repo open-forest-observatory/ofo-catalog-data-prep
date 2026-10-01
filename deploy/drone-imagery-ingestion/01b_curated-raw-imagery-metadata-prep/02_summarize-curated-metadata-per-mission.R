@@ -46,7 +46,7 @@ create_dir(POST_CURATION_DERIVED_METADATA_PER_SUB_MISSION_PATH)
 # This script further filters based on polygon retention (images outside computed polygons
 # are excluded), reading from intermediate and writing final doubly-filtered images.
 
-future::plan(multisession(workers = future::availableCores() * 3))
+future::plan(multisession(workers = min(c(future::availableCores() * 3), 120)))
 results = future_walk(
   missions_to_process,
   ~ summarize_mission_exif(
