@@ -15,20 +15,22 @@ force_all_cols_to_character = function(df) {
 }
 
 
-
 # ---- Processing
 
-# Query the object store for a file listing
+# Query the object store for a file listing (assumes rclone remote already configured on this
+# machine; may require running this script from command line using `Rscript`, or setting env vars
+# within R session for S3 credentials, e.g. `Sys.setenv(RCLONE_S3_ACCESS_KEY_ID = "your_access_key)
+Sys.setenv
 remote_dir = paste0(RCLONE_REMOTE, ":", REMOTE_MISSIONS_DIR)
-command = paste("rclone lsf", remote_dir, "-R --files-only", sep = " ")
-listing = system(command, intern = TRUE)
-listing_df = tibble(filepath = listing)
+# command = paste("rclone lsf", remote_dir, "-R --files-only", sep = " ")
+# listing = system(command, intern = TRUE)
+# listing_df = tibble(filepath = listing)
 
-filepath_parts = str_split(listing_df$filepath, "/")
-listing_df$mission_id = map_chr(filepath_parts, 1)
+# filepath_parts = str_split(listing_df$filepath, "/")
+# listing_df$mission_id = map_chr(filepath_parts, 1)
 
 
-write_csv(listing_df, S3_LISTING_FILEPATH)
+# write_csv(listing_df, S3_LISTING_FILEPATH)
 
 
 
@@ -60,8 +62,7 @@ st_write(mission_polygons, POST_CURATION_MISSION_METADATA_FILEPATH, delete_dsn =
 unlink(tempdir, recursive = TRUE, force = TRUE)
 
 
-
-# And now for mission points
+# And now for mission points (image metadata)
 tempdir = file.path(TEMPDIR, "mission-points")
 unlink(tempdir, recursive = TRUE, force = TRUE)
 dir.create(tempdir, recursive = TRUE, showWarnings = FALSE)
