@@ -33,14 +33,18 @@ mission_polygons_w_metadata = st_read(FULL_METADATA_PER_MISSION_COMBINED_FILEPAT
 cat("Loading primary image metadata...\n")
 primary_image_points = st_read(FULL_METADATA_PER_IMAGE_COMBINED_FILEPATH, quiet = TRUE)
 
-# Load post-curation metadata if available (for side-by-side comparison on curation pages)
+# Load post-curation metadata if available (for side-by-side comparison on curation pages).
+# Reads the combined LOCAL post-curation files written by the 01c merge scripts (run 01b, then 01c,
+# then this script), mirroring how the pre-curation data above comes from the 01a merge scripts. Not
+# read from the object-store-derived POST_CURATION_*_METADATA_FILEPATH, since missions under curation
+# review generally haven't been uploaded yet.
 post_curation_mission_metadata = NULL
 post_curation_image_points = NULL
 missions_with_post_curation_data = character(0)
 
-if (file.exists(POST_CURATION_MISSION_METADATA_FILEPATH)) {
+if (file.exists(POST_CURATION_FULL_METADATA_PER_MISSION_COMBINED_FILEPATH)) {
   cat("Loading post-curation mission metadata...\n")
-  post_curation_mission_metadata = st_read(POST_CURATION_MISSION_METADATA_FILEPATH, quiet = TRUE)
+  post_curation_mission_metadata = st_read(POST_CURATION_FULL_METADATA_PER_MISSION_COMBINED_FILEPATH, quiet = TRUE)
   # Compile post-curation metadata the same way as pre-curation (sets dataset_id = mission_id, etc.)
   post_curation_mission_metadata = compile_mission_summary_data(
     mission_level_metadata = post_curation_mission_metadata,
@@ -50,14 +54,14 @@ if (file.exists(POST_CURATION_MISSION_METADATA_FILEPATH)) {
   missions_with_post_curation_data = unique(post_curation_mission_metadata$mission_id)
   cat(sprintf("  Found post-curation data for %d missions\n", length(missions_with_post_curation_data)))
 } else {
-  cat("No post-curation mission metadata found at:", POST_CURATION_MISSION_METADATA_FILEPATH, "\n")
+  cat("No post-curation mission metadata found at:", POST_CURATION_FULL_METADATA_PER_MISSION_COMBINED_FILEPATH, "\n")
 }
 
-if (file.exists(POST_CURATION_IMAGE_METADATA_FILEPATH)) {
+if (file.exists(POST_CURATION_FULL_METADATA_PER_IMAGE_COMBINED_FILEPATH)) {
   cat("Loading post-curation image metadata...\n")
-  post_curation_image_points = st_read(POST_CURATION_IMAGE_METADATA_FILEPATH, quiet = TRUE)
+  post_curation_image_points = st_read(POST_CURATION_FULL_METADATA_PER_IMAGE_COMBINED_FILEPATH, quiet = TRUE)
 } else {
-  cat("No post-curation image metadata found at:", POST_CURATION_IMAGE_METADATA_FILEPATH, "\n")
+  cat("No post-curation image metadata found at:", POST_CURATION_FULL_METADATA_PER_IMAGE_COMBINED_FILEPATH, "\n")
 }
 
 # Load secondary image metadata if specified (not empty string and file exists)
