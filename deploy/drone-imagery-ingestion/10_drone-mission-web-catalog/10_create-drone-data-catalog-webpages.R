@@ -69,7 +69,8 @@ s3_file_listing = read_csv(S3_LISTING_FILEPATH)
 mission_summary = mission_polygons_w_summary_data |> dplyr::arrange(mission_id)
 mission_ids = mission_summary$mission_id
 
-# Make mission details pages. Was unable to parallelize this -- possibly because of a conflict with
+# Make mission details pages. Was unable to parallelize this -- couldn't figure out the memory leak
+# -- possibly also because of a conflict with
 # creating HTML widgets in parallel (saw an error about a widget staging directory that was
 # missing). It seems that it might work to set a temp dir separately for each process using the
 # mission ID which should prevent conflicts. Like so:
@@ -80,7 +81,10 @@ mission_ids = mission_summary$mission_id
   # Sys.setenv(TMPDIR = temp_dir)
 
 
-walk(
+# Set up parallel processing
+plan(sequential)
+
+future_walk(
   mission_ids,
   make_mission_details_page,
   all_mission_ids = mission_ids,
@@ -95,7 +99,8 @@ walk(
   mission_details_map_dir = MISSION_DETAILS_MAP_DIR,
   itd_map_dir = ITD_MAP_DIR,
   mission_details_template_filepath = MISSION_DETAILS_TEMPLATE_FILEPATH,
-  mission_details_page_dir = MISSION_DETAILS_PAGE_DIR
+  mission_details_page_dir = MISSION_DETAILS_PAGE_DIR,
+  .progress = TRUE
 )
 
 

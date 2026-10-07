@@ -1097,6 +1097,8 @@ make_mission_details_page = function(
 
         unlink(ttops_tempfile)
       }
+
+      gc()
     }
 
 
