@@ -19,22 +19,24 @@ force_all_cols_to_character = function(df) {
 
 # Query the object store for a file listing (assumes rclone remote already configured on this
 # machine; may require running this script from command line using `Rscript`, or setting env vars
-# within R session for S3 credentials, e.g. `Sys.setenv(RCLONE_S3_ACCESS_KEY_ID = "your_access_key)
-Sys.setenv
+# within R session for S3 credentials, e.g. `Sys.setenv(RCLONE_S3_ACCESS_KEY_ID = "your_access_key")`).
+# The listing is used by the web catalog to determine which data products exist for each mission.
 remote_dir = paste0(RCLONE_REMOTE, ":", REMOTE_MISSIONS_DIR)
-# command = paste("rclone lsf", remote_dir, "-R --files-only", sep = " ")
-# listing = system(command, intern = TRUE)
-# listing_df = tibble(filepath = listing)
+command = paste("rclone lsf", remote_dir, "-R --files-only", sep = " ")
+listing = system(command, intern = TRUE)
+# Don't overwrite the existing listing with an empty/partial one if rclone failed
+if (!is.null(attr(listing, "status")) || length(listing) == 0) {
+  stop("rclone listing of ", remote_dir, " failed or returned no files")
+}
+listing_df = tibble(filepath = listing)
 
-# filepath_parts = str_split(listing_df$filepath, "/")
-# listing_df$mission_id = map_chr(filepath_parts, 1)
+filepath_parts = str_split(listing_df$filepath, "/")
+listing_df$mission_id = map_chr(filepath_parts, 1)
+
+write_csv(listing_df, S3_LISTING_FILEPATH)
 
 
-# write_csv(listing_df, S3_LISTING_FILEPATH)
-
-
-
-# But don't use the file listing now, just download all the polygons using filtering
+# Download all the mission polygons (metadata) using filtering
 tempdir = file.path(TEMPDIR, "mission-polygons")
 unlink(tempdir, recursive = TRUE, force = TRUE)
 dir.create(tempdir, recursive = TRUE, showWarnings = FALSE)
