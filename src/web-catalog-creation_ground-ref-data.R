@@ -318,7 +318,9 @@ compile_plot_summary_table = function(plots, projects, plot_level_tree_summary, 
   plots = plots |>
     mutate(project_id = as.numeric(project_id))
   projects = projects |>
-    mutate(project_id = as.numeric(project_id))
+    mutate(project_id = as.numeric(project_id)) |>
+    # Projects and plots both have a notes column; keep the plot-level one as `notes`
+    rename(any_of(c(project_notes = "notes")))
 
   # To the plot data, join project data, tree-summary data, plot bounds area
   plotproj = left_join(plots, projects, by = "project_id") |>
