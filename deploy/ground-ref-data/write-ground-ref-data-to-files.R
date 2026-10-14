@@ -64,14 +64,6 @@ plots = prep_plots(tabular_data$plots)
 
 
   
-# For some reason, contributor_tree_id is being read as a list column (just one entry per tree
-# though), so unlist it, first setting NULL to NA
-trees = trees |>
-  mutate(contributor_tree_id = lapply(contributor_tree_id, function(x) ifelse(is.null(x), NA, x)))
-trees = trees |>
-  mutate(contributor_tree_id = unlist(contributor_tree_id))
-  
-  
 # Remove plots that have a "display message" which is used to indicate something is anomalous about them
 plots = plots |>
   filter(is.na(display_message))
