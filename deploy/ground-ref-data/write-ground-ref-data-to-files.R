@@ -133,6 +133,7 @@ plot_bounds_w_summary = plot_bounds_w_summary |>
     plot_lon,
     plot_lat,
     num_ohvis_trees_excluded,
+    any_of("exhaustive_survey"),
     contributor_plot_id,
     any_of("notes")
   )
