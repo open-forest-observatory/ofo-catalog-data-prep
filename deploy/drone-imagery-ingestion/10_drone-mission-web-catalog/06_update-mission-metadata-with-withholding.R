@@ -17,7 +17,9 @@ leftover_baserow_cols = c(
   "calibration_panel_reflectance", "calibration_panel_id", "x_offset", "y_offset", "curation",
   "gcps.ground", "gcps-ground", "dataset.associations...datasets.imagery",
   "dataset-associations - datasets-imagery", "Created.on", "Created on", "date_modified",
-  "withheld_from_training"
+  "withheld_from_training",
+  # Vestigial per-sub-mission image count from an earlier pipeline version
+  "n_images"
 )
 
 mission_metadata = mission_metadata |>
