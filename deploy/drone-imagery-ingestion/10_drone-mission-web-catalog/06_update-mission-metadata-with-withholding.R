@@ -22,6 +22,25 @@ leftover_baserow_cols = c(
   "n_images"
 )
 
+# All columns arrive as text (05_get-all-mission-metadata.R casts them so that multi-valued
+# contributed columns combine across missions). The _derived columns are never multi-valued, so
+# restore their native types. Times and datetimes stay as text: they have no time zone and some
+# missions recorded local time while others recorded UTC, so storing them as datetimes would imply
+# a time zone that isn't known.
+restore_derived_col_types = function(mission_metadata) {
+  derived_cols = grep("_derived$", names(mission_metadata), value = TRUE)
+  converted = mission_metadata |>
+    st_drop_geometry() |>
+    select(all_of(derived_cols)) |>
+    type_convert(col_types = cols(.default = col_guess()))
+  keep_as_text = names(converted)[sapply(converted, function(x) inherits(x, c("POSIXct", "hms", "difftime")))]
+  derived_cols = setdiff(derived_cols, keep_as_text)
+  mission_metadata[derived_cols] = converted[derived_cols]
+  mission_metadata
+}
+
+mission_metadata = restore_derived_col_types(mission_metadata)
+
 mission_metadata = mission_metadata |>
   mutate(
     withhold_from_training = mission_id %in% missions_to_withhold
