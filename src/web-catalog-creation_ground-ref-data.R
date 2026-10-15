@@ -6,11 +6,17 @@ read_and_standardize_tabular_field_ref_data = function(google_sheet_id) {
   projects = read_sheet(google_sheet_id, sheet = "field-projects")
   plots = read_sheet(google_sheet_id, sheet = "field-plots", col_types = "c")
   subplots = read_sheet(google_sheet_id, sheet = "field-subplots")
-  trees = read_sheet(google_sheet_id, sheet = "field-trees")
+  # Read trees as all-character. Otherwise read_sheet guesses each column's type from only the first
+  # 1000 rows, so a column that is empty in those rows (e.g. crown_width_1) is read as logical and its
+  # later numeric values are coerced to TRUE/FALSE.
+  trees = read_sheet(google_sheet_id, sheet = "field-trees", col_types = "c")
   species_codes = read_sheet(google_sheet_id, sheet = "species-codes")
 
   # Re-interpret all plot cols data types
   plots = plots |> readr::type_convert()
+
+  # Convert the numeric tree cols
+  trees = convert_tree_cols_to_numeric(trees)
 
   # Standardize tabular plot ID formatting
   plots = plots |>
@@ -29,6 +35,51 @@ read_and_standardize_tabular_field_ref_data = function(google_sheet_id) {
              species_codes = species_codes)
 
   return(ret)
+
+}
+
+
+# Convert the numeric columns of the field-trees table (read as all-character) to numeric, and ohvis
+# to logical. Values
+# that are not valid numbers (e.g. "4.4.") are set to NA with a warning listing them, so they can be
+# fixed in the sheet.
+convert_tree_cols_to_numeric = function(trees) {
+
+  numeric_cols = c("subplot_id", "tree_lat", "tree_lon", "height", "height_allometric",
+                   "height_above_plot_center", "dbh", "crown_position", "crown_ratio",
+                   "crown_ratio_compacted", "height_to_crown", "height_to_needle", "scorch_height",
+                   "percent_prefire_crown_green", "precent_postfire_crown_green", "crown_width_1",
+                   "crown_width_2", "crown_width_allometric", "decay_class", "damage_1", "damage_2",
+                   "damage_3", "damage_4", "damage_5", "distance_to_pith", "distance_to_face",
+                   "azimuth")
+  numeric_cols = intersect(numeric_cols, names(trees))
+
+  for (col in numeric_cols) {
+    values = trees[[col]]
+    converted = suppressWarnings(as.numeric(values))
+    invalid = unique(values[!is.na(values) & values != "NA" & is.na(converted)])
+    if (length(invalid) > 0) {
+      warning("Non-numeric values in field-trees column ", col, " set to NA: ",
+              paste(invalid, collapse = ", "))
+    }
+    trees[[col]] = converted
+  }
+
+  # ohvis is recorded as TRUE/FALSE for some projects and 1/0 for others
+  if ("ohvis" %in% names(trees)) {
+    ohvis = toupper(trees$ohvis)
+    ohvis_num = suppressWarnings(as.numeric(ohvis))
+    converted = case_when(ohvis == "TRUE" | ohvis_num %in% 1 ~ TRUE,
+                          ohvis == "FALSE" | ohvis_num %in% 0 ~ FALSE,
+                          TRUE ~ NA)
+    invalid = unique(trees$ohvis[!is.na(trees$ohvis) & is.na(converted)])
+    if (length(invalid) > 0) {
+      warning("Invalid values in field-trees column ohvis set to NA: ", paste(invalid, collapse = ", "))
+    }
+    trees$ohvis = converted
+  }
+
+  return(trees)
 
 }
 
@@ -267,7 +318,9 @@ compile_plot_summary_table = function(plots, projects, plot_level_tree_summary, 
   plots = plots |>
     mutate(project_id = as.numeric(project_id))
   projects = projects |>
-    mutate(project_id = as.numeric(project_id))
+    mutate(project_id = as.numeric(project_id)) |>
+    # Projects and plots both have a notes column; keep the plot-level one as `notes`
+    rename(any_of(c(project_notes = "notes")))
 
   # To the plot data, join project data, tree-summary data, plot bounds area
   plotproj = left_join(plots, projects, by = "project_id") |>
