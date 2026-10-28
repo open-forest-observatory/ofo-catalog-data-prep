@@ -350,8 +350,8 @@ cat(sprintf("Found %d composites on S3\n", length(composite_ids)))
 create_dir(COMPOSITE_METADATA_TEMPDIR)
 
 # Set up for parallelizing across all composites
-future::plan(future::multisession, workers = future::availableCores()*3)
-
+future::plan(future::multisession, workers = min(c(future::availableCores()*3, 100)))
+  
 results = furrr::future_map_lgl(composite_ids, process_composite, .progress = TRUE)
 
 cat(sprintf("\nProcessed %d of %d composites successfully\n", sum(results), length(results)))
