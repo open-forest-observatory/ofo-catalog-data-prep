@@ -24,19 +24,19 @@ force_all_cols_to_character = function(df) {
 # Query the object store for a file listing
 remote_dir = paste0(RCLONE_REMOTE, ":", REMOTE_COMPOSITES_DIR)
 
-# command = paste("rclone lsf", remote_dir, "-R --files-only", sep = " ")
-# listing = system(command, intern = TRUE)
-# listing_df = tibble(filepath = listing)
+command = paste("rclone lsf", remote_dir, "-R --files-only", sep = " ")
+listing = system(command, intern = TRUE)
+listing_df = tibble(filepath = listing)
 
-# filepath_parts = str_split(listing_df$filepath, "/")
-# listing_df$composite_id = map_chr(filepath_parts, 1)
-
-
-# write_csv(listing_df, COMPOSITE_S3_LISTING_FILEPATH)
+filepath_parts = str_split(listing_df$filepath, "/")
+listing_df$composite_id = map_chr(filepath_parts, 1)
 
 
+write_csv(listing_df, COMPOSITE_S3_LISTING_FILEPATH)
 
-# But don't use the file listing now, just download all the polygons using filtering
+cat("Wrote", nrow(listing_df), "composite files to", COMPOSITE_S3_LISTING_FILEPATH, "\n")
+
+# In addition, download all the polygons using filtering
 tempdir = file.path(TEMPDIR, "composite-polygons")
 unlink(tempdir, recursive = TRUE, force = TRUE)
 dir.create(tempdir, recursive = TRUE, showWarnings = FALSE)

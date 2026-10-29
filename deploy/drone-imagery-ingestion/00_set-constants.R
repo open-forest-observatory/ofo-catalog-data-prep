@@ -176,7 +176,7 @@ METASHAPE_OUTPUT_DOWNLOADED_SUBDIR = "06_photogrammetry-outputs-downloaded"
 PHOTOGRAMMETRY_POSTPROCESSED_SUBDIR = "07_photogrammetry-outputs-postprocessed"
 
 # What metashape processing run (i.e. configuration) are we using?
-PHOTOGRAMMETRY_CONFIG_ID = "03"
+PHOTOGRAMMETRY_CONFIG_ID = "01"
 
 # The number of chunks to break the photogrammetry processing into (one chunk for each instance)
 N_CHUNKS_PHOTOGRAMMETRY = 24

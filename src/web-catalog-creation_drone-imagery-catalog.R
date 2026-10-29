@@ -72,6 +72,14 @@ compile_mission_summary_data = function(mission_level_metadata, base_ofo_url, mi
 
   mission_level_metadata$dataset_id = pull(mission_level_metadata, dataset_id_column)
 
+  # The withhold column may be named either 'withhold_from_training' or 'withheld_from_training';
+  # standardize to 'withhold_from_training'
+  if (!("withhold_from_training" %in% names(mission_level_metadata)) &&
+      "withheld_from_training" %in% names(mission_level_metadata)) {
+    mission_level_metadata = mission_level_metadata |>
+      dplyr::rename(withhold_from_training = withheld_from_training)
+  }
+
   # Pre-process the display text for the relevant attributes, based on the metadata in the database
   d = mission_level_metadata |>
     dplyr::mutate(
